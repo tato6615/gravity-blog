@@ -59,18 +59,31 @@ function normalizeProduct(fields) {
   };
 }
 
-// Joins 03_PRODUCTS + AI_CONTENT + AI_ANALYSIS for every "live" product.
+// Joins 03_PRODUCTS + CONTENT + AI_ANALYSIS for every "live" product.
 // Small doc sizes assumed (fine for Grist's REST API + a few hundred
 // products); if this ever needs to scale past that, add caching here.
 export async function getLiveArticles(env) {
   const productsTableId = await findProductsTableId(env);
   const [products, content, analysis] = await Promise.all([
     fetchTableRecords(env, productsTableId),
-    fetchTableRecords(env, 'AI_CONTENT'),
+    // NOTE: the table is named "CONTENT" in worker.js (no "AI_" prefix —
+    // see STAGE_TABLES / TABLE_DEFS there). Using "AI_CONTENT" here would
+    // 404 against Grist and take the whole Promise.all down with it.
+    fetchTableRecords(env, 'CONTENT'),
     fetchTableRecords(env, 'AI_ANALYSIS')
   ]);
 
-  const contentByProduct = new Map(content.map(r => [r.fields.product, r.fields]));
+  // CONTENT has TWO rows per product — one per language ('th' and 'en',
+  // see the content_th / content_en pipeline steps in worker.js). Without
+  // filtering by language, whichever row happens to come later in the
+  // array silently overwrites the other, so the blog could end up mixing
+  // in English content unpredictably. This blog is Thai-only, so we only
+  // ever join the 'th' row. (Add an /en/ route later if EN is needed.)
+  const contentByProduct = new Map(
+    content
+      .filter(r => r.fields.language === 'th')
+      .map(r => [r.fields.product, r.fields])
+  );
   const analysisByProduct = new Map(analysis.map(r => [r.fields.product, r.fields]));
 
   const articles = [];
