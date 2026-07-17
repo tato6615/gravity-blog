@@ -79,18 +79,30 @@ export async function getLiveArticles(env) {
   // array silently overwrites the other, so the blog could end up mixing
   // in English content unpredictably. This blog is Thai-only, so we only
   // ever join the 'th' row. (Add an /en/ route later if EN is needed.)
+  //
+  // IMPORTANT: CONTENT.product is a plain Text column in Grist (not a
+  // Ref:PRODUCTS link like AI_ANALYSIS.product is), so its value comes
+  // back as a STRING (e.g. "1"). p.id from the PRODUCTS table is always
+  // a NUMBER. Without String(...) on both sides, contentByProduct.get(p.id)
+  // fails a strict-equality Map lookup every single time — the row exists
+  // in Grist, but this join can never find it, so getLiveArticles() always
+  // returns an empty list. This was the root cause of "ยังไม่มีบทความ"
+  // even after Generate Everything completed and pipeline_status was
+  // "published". Normalize both sides to String to fix the join.
   const contentByProduct = new Map(
     content
       .filter(r => r.fields.language === 'th')
-      .map(r => [r.fields.product, r.fields])
+      .map(r => [String(r.fields.product), r.fields])
   );
-  const analysisByProduct = new Map(analysis.map(r => [r.fields.product, r.fields]));
+  const analysisByProduct = new Map(
+    analysis.map(r => [String(r.fields.product), r.fields])
+  );
 
   const articles = [];
   for (const p of products) {
     const status = p.fields.pipeline_status;
     if (!LIVE_STATUSES.has(status)) continue;
-    const c = contentByProduct.get(p.id);
+    const c = contentByProduct.get(String(p.id));
     if (!c || !c.slug || !c.blog_draft) continue; // not enriched enough to show yet
     articles.push({
       id: p.id,
@@ -103,7 +115,7 @@ export async function getLiveArticles(env) {
       buyingGuide: c.buying_guide || '',
       tags: (c.tags || '').split(',').map(s => s.trim()).filter(Boolean),
       updatedAt: p.fields.updated_at || c.generated_at || null,
-      analysis: analysisByProduct.get(p.id) || null
+      analysis: analysisByProduct.get(String(p.id)) || null
     });
   }
 
