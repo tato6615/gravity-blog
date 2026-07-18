@@ -58,14 +58,42 @@ const BASE_CSS = `
   }
   .card{
     background:var(--surface); border:1px solid var(--hairline);
-    border-radius:var(--radius); padding:24px; margin-bottom:22px;
+    border-radius:12px; padding:22px; margin-bottom:16px;
   }
-  .card h2{ font-size:22px; }
+  .card h2{ font-size:20px; margin-bottom:10px; }
   .card h2 a{ color:var(--ink); text-decoration:none; }
   .card h2 a:hover{ color:var(--accent); }
   .meta{ color:var(--ink-muted); font-size:14px; margin-bottom:10px; }
   .excerpt{ color:var(--ink); }
   .empty{ color:var(--ink-muted); padding:60px 0; text-align:center; }
+
+  /* Trust-signal row: rank badge + category eyebrow, sitting above the title */
+  .card-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .rank-badge{
+    background:var(--ink); color:#fff; font-size:12px; font-weight:600;
+    padding:3px 10px; border-radius:5px; white-space:nowrap;
+  }
+  .card-top .eyebrow{ margin-bottom:0; }
+
+  /* Pulls the strongest "pro" out of the analysis so it's scannable
+     without clicking into the article. */
+  .pro-highlight{
+    display:flex; align-items:flex-start; gap:8px; margin:12px 0 16px;
+    color:var(--ink); font-size:14px; line-height:1.55;
+  }
+  .pro-highlight .check{ color:var(--accent); font-weight:700; flex-shrink:0; }
+
+  .cta-btn{
+    display:block; text-align:center; background:var(--accent); color:#fff !important;
+    font-size:15px; font-weight:600; padding:12px; border-radius:8px;
+    text-decoration:none; margin-top:4px;
+  }
+  .cta-btn:hover{ opacity:.92; }
+
+  .updated-line{
+    color:var(--ink-muted); font-size:12px; margin-top:12px; padding-top:12px;
+    border-top:1px solid var(--hairline);
+  }
 
   /* Signature element: the "who it's for" note, tilted like a pinned card */
   .verdict{
@@ -122,6 +150,17 @@ ${FONT_LINK}
 <footer class="site">บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ</footer>
 </body>
 </html>`;
+}
+
+/**
+ * Splits a plain-text pros/cons field (one item per line, optionally
+ * bulleted with -/•/*) into a clean array of strings.
+ */
+export function toListItems(text) {
+  return (text || '')
+    .split('\n')
+    .map(l => l.replace(/^[-•*]\s*/, '').trim())
+    .filter(Boolean);
 }
 
 export function escapeHtml(str) {

@@ -1,12 +1,5 @@
 import { getArticleBySlug } from '../_lib/grist.js';
-import { renderPage, escapeHtml, formatArticleBody } from '../_lib/layout.js';
-
-function toListItems(text) {
-  return (text || '')
-    .split('\n')
-    .map(l => l.replace(/^[-•*]\s*/, '').trim())
-    .filter(Boolean);
-}
+import { renderPage, escapeHtml, formatArticleBody, toListItems } from '../_lib/layout.js';
 
 function renderFaq(faqText) {
   if (!faqText) return '';

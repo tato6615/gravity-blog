@@ -1,5 +1,5 @@
 import { getLiveArticles } from './_lib/grist.js';
-import { renderPage, escapeHtml } from './_lib/layout.js';
+import { renderPage, escapeHtml, toListItems } from './_lib/layout.js';
 
 export async function onRequestGet({ env }) {
   let articles = [];
@@ -10,29 +10,40 @@ export async function onRequestGet({ env }) {
     errorMsg = e.message;
   }
 
-  const cards = articles.map(a => `
+  const cards = articles.map((a, i) => {
+    const topPro = a.analysis ? toListItems(a.analysis.pros)[0] : null;
+    const updatedLabel = a.updatedAt
+      ? new Date(a.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+      : null;
+
+    return `
     <article class="card">
-      <div class="eyebrow">${escapeHtml(a.product.brand || 'รีวิว')}</div>
+      <div class="card-top">
+        <span class="rank-badge">อันดับ ${i + 1}</span>
+        <div class="eyebrow">${escapeHtml(a.product.brand || 'รีวิว')}</div>
+      </div>
       <h2><a href="/product/${encodeURIComponent(a.slug)}">${escapeHtml(a.seoTitle)}</a></h2>
-      <div class="meta">${a.updatedAt ? new Date(a.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
       <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
-      <a href="/product/${encodeURIComponent(a.slug)}">อ่านต่อ →</a>
+      ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
+      <a class="cta-btn" href="/product/${encodeURIComponent(a.slug)}">อ่านรีวิวฉบับเต็ม →</a>
+      ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอัปเดตข้อมูลล่าสุด: ${updatedLabel}</div>` : ''}
     </article>
-  `).join('');
+  `;
+  }).join('');
 
   const body = errorMsg
     ? `<p class="empty">โหลดบทความไม่สำเร็จ: ${escapeHtml(errorMsg)}</p>`
     : (articles.length
-        ? cards
-        : `<p class="empty">ยังไม่มีบทความ — พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ</p>`);
+      ? cards
+      : `<p class="empty">ยังไม่มีบทความ — พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ</p>`);
 
   const html = renderPage({
     title: 'GRAVITY_OS Picks — รีวิวสินค้าที่คัดมาให้',
     description: 'รีวิวและคำแนะนำสินค้า สรุปให้อ่านง่าย ตัดสินใจได้เร็ว',
     canonicalPath: '/',
     bodyHtml: `<h1 style="font-size:26px;margin-bottom:6px;">รีวิวล่าสุด</h1>
-    <p class="meta" style="margin-bottom:28px;">อัปเดตอัตโนมัติทุกครั้งที่มีสินค้าใหม่วิเคราะห์เสร็จ</p>
-    ${body}`
+    <p class="meta" style="margin-bottom:28px;">คัดสรรและตรวจสอบโดยทีมงาน อัปเดตอัตโนมัติทุกครั้งที่มีสินค้าใหม่วิเคราะห์เสร็จ</p>
+${body}`
   });
 
   return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });
