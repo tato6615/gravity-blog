@@ -60,10 +60,18 @@ const BASE_CSS = `
     background:var(--surface); border:1px solid var(--hairline);
     border-radius:12px; margin-bottom:16px; overflow:hidden;
   }
+
+  /* Product image — Amazon assets are almost always shot on a white
+     background, so we contain (never crop) and let the card supply the
+     white "product photography" mat around it instead of cropping into
+     the product itself. */
   .card-thumb{
-    width:100%; height:170px; object-fit:cover; display:block;
-    background:var(--accent-soft);
+    width:100%; height:220px; object-fit:contain; display:block;
+    background:var(--surface); padding:16px 24px;
+    border-bottom:1px solid var(--hairline);
+    box-sizing:border-box;
   }
+
   .card-body{ padding:22px; }
   .card h2{ font-size:20px; margin-bottom:10px; }
   .card h2 a{ color:var(--ink); text-decoration:none; }
@@ -111,6 +119,15 @@ const BASE_CSS = `
   .updated-line{
     color:var(--ink-muted); font-size:12px; margin-top:12px; padding-top:12px;
     border-top:1px solid var(--hairline);
+  }
+
+  /* Homepage card grid — single column on mobile, two columns once
+     there's enough width for it to read comfortably. */
+  .card-grid{
+    display:grid; grid-template-columns:1fr; gap:16px;
+  }
+  @media (min-width:680px){
+    .card-grid{ grid-template-columns:repeat(2, 1fr); align-items:start; }
   }
 
   /* Signature element: the "who it's for" note, tilted like a pinned card */

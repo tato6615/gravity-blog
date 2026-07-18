@@ -22,18 +22,18 @@ export async function onRequestGet({ env }) {
 
     return `
     <article class="card">
-      ${thumb}
+${thumb}
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge">อันดับ ${i + 1}</span>
           <div class="eyebrow">${escapeHtml(a.product.brand || 'รีวิว')}</div>
         </div>
         <h2><a href="/product/${encodeURIComponent(a.slug)}">${escapeHtml(a.seoTitle)}</a></h2>
-        ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
+${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
         <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
-        ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
+${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
         <a class="cta-btn" href="/product/${encodeURIComponent(a.slug)}">อ่านรีวิวฉบับเต็ม →</a>
-        ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอัปเดตข้อมูลล่าสุด: ${updatedLabel}</div>` : ''}
+${updatedLabel ? `<div class="updated-line">ตรวจสอบและอัปเดตข้อมูลล่าสุด: ${updatedLabel}</div>` : ''}
       </div>
     </article>
   `;
@@ -42,7 +42,7 @@ export async function onRequestGet({ env }) {
   const body = errorMsg
     ? `<p class="empty">โหลดบทความไม่สำเร็จ: ${escapeHtml(errorMsg)}</p>`
     : (articles.length
-      ? cards
+      ? `<div class="card-grid">${cards}</div>`
       : `<p class="empty">ยังไม่มีบทความ — พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ</p>`);
 
   const html = renderPage({
