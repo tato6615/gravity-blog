@@ -86,7 +86,15 @@ const BASE_CSS = `
     font-weight:600; margin:8px 0 4px;
   }
   .buy-btn:hover{ opacity:.92; }
-  .article-body{ margin-top:24px; white-space:pre-wrap; }
+
+  /* Article body — now receives structured HTML (p / ul / ol / h3)
+     from formatArticleBody(), not raw pre-wrapped text. */
+  .article-body{ margin-top:24px; }
+  .article-body p{ margin:0 0 1.1em; }
+  .article-body ul, .article-body ol{ margin:0 0 1.1em; padding-left:1.4em; }
+  .article-body li{ margin-bottom:6px; }
+  .article-body h3{ font-size:19px; margin-top:28px; }
+
   .tags{ margin-top:28px; }
   .tag{
     display:inline-block; background:var(--accent-soft); color:var(--accent);
@@ -120,4 +128,45 @@ export function escapeHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/**
+ * Turns plain-text article content (from Grist) into structured, readable
+ * HTML — paragraphs, bullet/numbered lists, and short-line sub-headings —
+ * instead of dumping one giant white-space:pre-wrap blob.
+ *
+ * Rules per blank-line-separated block:
+ *  - every line starts with -/•/*  -> <ul>
+ *  - every line starts with "1." / "1)" -> <ol>
+ *  - a single short line with no ending punctuation -> <h3> sub-heading
+ *  - otherwise -> <p> (soft line breaks inside the block are joined with a space)
+ */
+export function formatArticleBody(text) {
+  if (!text) return '';
+  const blocks = String(text).trim().split(/\n\s*\n/).filter(Boolean);
+
+  return blocks.map(block => {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+
+    // Bullet list block
+    if (lines.every(l => /^[-•*]\s+/.test(l))) {
+      const items = lines.map(l => `<li>${escapeHtml(l.replace(/^[-•*]\s+/, ''))}</li>`).join('');
+      return `<ul>${items}</ul>`;
+    }
+
+    // Numbered list block
+    if (lines.every(l => /^\d+[.)]\s+/.test(l))) {
+      const items = lines.map(l => `<li>${escapeHtml(l.replace(/^\d+[.)]\s+/, ''))}</li>`).join('');
+      return `<ol>${items}</ol>`;
+    }
+
+    // Short single line, no trailing sentence punctuation -> treat as sub-heading
+    if (lines.length === 1 && lines[0].length <= 50 && !/[.!?…”"]$/.test(lines[0])) {
+      return `<h3>${escapeHtml(lines[0])}</h3>`;
+    }
+
+    // Regular paragraph
+    return `<p>${escapeHtml(lines.join(' '))}</p>`;
+  }).join('');
 }

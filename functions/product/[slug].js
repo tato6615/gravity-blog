@@ -1,5 +1,5 @@
 import { getArticleBySlug } from '../_lib/grist.js';
-import { renderPage, escapeHtml } from '../_lib/layout.js';
+import { renderPage, escapeHtml, formatArticleBody } from '../_lib/layout.js';
 
 function toListItems(text) {
   return (text || '')
@@ -62,8 +62,8 @@ export async function onRequestGet({ env, params }) {
     <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
     ${buyBtn}
     ${verdict}
-    <div class="article-body">${escapeHtml(article.blogDraft)}</div>
-    ${article.buyingGuide ? `<hr class="hairline"><h3>คู่มือการเลือกซื้อ</h3><div class="article-body">${escapeHtml(article.buyingGuide)}</div>` : ''}
+    <div class="article-body">${formatArticleBody(article.blogDraft)}</div>
+    ${article.buyingGuide ? `<hr class="hairline"><h3>คู่มือการเลือกซื้อ</h3><div class="article-body">${formatArticleBody(article.buyingGuide)}</div>` : ''}
     ${renderFaq(article.faq)}
     ${buyBtn}
     ${tagsHtml}
