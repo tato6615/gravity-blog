@@ -58,14 +58,32 @@ const BASE_CSS = `
   }
   .card{
     background:var(--surface); border:1px solid var(--hairline);
-    border-radius:12px; padding:22px; margin-bottom:16px;
+    border-radius:12px; margin-bottom:16px; overflow:hidden;
   }
+  .card-thumb{
+    width:100%; height:170px; object-fit:cover; display:block;
+    background:var(--accent-soft);
+  }
+  .card-body{ padding:22px; }
   .card h2{ font-size:20px; margin-bottom:10px; }
   .card h2 a{ color:var(--ink); text-decoration:none; }
   .card h2 a:hover{ color:var(--accent); }
   .meta{ color:var(--ink-muted); font-size:14px; margin-bottom:10px; }
   .excerpt{ color:var(--ink); }
   .empty{ color:var(--ink-muted); padding:60px 0; text-align:center; }
+
+  /* Star rating — only ever rendered when Grist has a real numeric
+     rating value; see renderStars() below. */
+  .stars{ color:var(--accent); font-size:14px; letter-spacing:1px; }
+  .stars .rating-num{
+    color:var(--ink-muted); font-size:13px; letter-spacing:normal; margin-left:6px;
+  }
+
+  /* Hero image on the article page itself */
+  .hero-img{
+    width:100%; height:240px; object-fit:cover; border-radius:12px;
+    display:block; margin:14px 0 4px; background:var(--accent-soft);
+  }
 
   /* Trust-signal row: rank badge + category eyebrow, sitting above the title */
   .card-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
@@ -161,6 +179,19 @@ export function toListItems(text) {
     .split('\n')
     .map(l => l.replace(/^[-•*]\s*/, '').trim())
     .filter(Boolean);
+}
+
+/**
+ * Renders a star rating from a real numeric value (1–5). Returns '' when
+ * rating is null/undefined — we never show a made-up rating, so callers
+ * can just always call this and trust it to no-op when there's no data.
+ */
+export function renderStars(rating) {
+  if (rating == null || isNaN(Number(rating))) return '';
+  const value = Math.max(0, Math.min(5, Number(rating)));
+  const filled = Math.round(value);
+  const stars = '★'.repeat(filled) + '☆'.repeat(5 - filled);
+  return `<span class="stars">${stars}<span class="rating-num">${value.toFixed(1)}</span></span>`;
 }
 
 export function escapeHtml(str) {

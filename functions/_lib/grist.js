@@ -50,11 +50,20 @@ async function findProductsTableId(env) {
 }
 
 function normalizeProduct(fields) {
+  // rating is optional — only shows in the UI when a real number is
+  // entered in Grist. No fallback/mock value here on purpose: showing a
+  // made-up star rating would be a misleading claim about the product.
+  const rawRating = pickField(fields, ['rating', 'score']);
+  const rating = rawRating != null && rawRating !== '' && !isNaN(Number(rawRating))
+    ? Number(rawRating)
+    : null;
+
   return {
     name: pickField(fields, ['name', 'product_name', 'title']) || 'สินค้าไม่มีชื่อ',
     brand: pickField(fields, ['brand']) || '',
     price: pickField(fields, ['price']) || null,
     image: pickField(fields, ['image', 'image_url', 'photo']) || null,
+    rating,
     buyUrl: fields.source_url || pickField(fields, ['url', 'product_url']) || null
   };
 }

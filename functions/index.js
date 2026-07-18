@@ -1,5 +1,5 @@
 import { getLiveArticles } from './_lib/grist.js';
-import { renderPage, escapeHtml, toListItems } from './_lib/layout.js';
+import { renderPage, escapeHtml, toListItems, renderStars } from './_lib/layout.js';
 
 export async function onRequestGet({ env }) {
   let articles = [];
@@ -15,18 +15,26 @@ export async function onRequestGet({ env }) {
     const updatedLabel = a.updatedAt
       ? new Date(a.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
       : null;
+    const thumb = a.product.image
+      ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
+      : '';
+    const stars = renderStars(a.product.rating);
 
     return `
     <article class="card">
-      <div class="card-top">
-        <span class="rank-badge">อันดับ ${i + 1}</span>
-        <div class="eyebrow">${escapeHtml(a.product.brand || 'รีวิว')}</div>
+      ${thumb}
+      <div class="card-body">
+        <div class="card-top">
+          <span class="rank-badge">อันดับ ${i + 1}</span>
+          <div class="eyebrow">${escapeHtml(a.product.brand || 'รีวิว')}</div>
+        </div>
+        <h2><a href="/product/${encodeURIComponent(a.slug)}">${escapeHtml(a.seoTitle)}</a></h2>
+        ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
+        <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
+        ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
+        <a class="cta-btn" href="/product/${encodeURIComponent(a.slug)}">อ่านรีวิวฉบับเต็ม →</a>
+        ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอัปเดตข้อมูลล่าสุด: ${updatedLabel}</div>` : ''}
       </div>
-      <h2><a href="/product/${encodeURIComponent(a.slug)}">${escapeHtml(a.seoTitle)}</a></h2>
-      <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
-      ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
-      <a class="cta-btn" href="/product/${encodeURIComponent(a.slug)}">อ่านรีวิวฉบับเต็ม →</a>
-      ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอัปเดตข้อมูลล่าสุด: ${updatedLabel}</div>` : ''}
     </article>
   `;
   }).join('');
