@@ -1,5 +1,5 @@
 import { getArticleBySlug } from '../_lib/grist.js';
-import { renderPage, escapeHtml, formatArticleBody, toListItems } from '../_lib/layout.js';
+import { renderPage, renderShareButtons, escapeHtml, formatArticleBody, toListItems } from '../_lib/layout.js';
 
 function renderFaq(faqText) {
   if (!faqText) return '';
@@ -49,9 +49,14 @@ export async function onRequestGet({ env, params }) {
     ? `<div class="tags">${article.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
     : '';
 
+  // Same path used for canonical/og:url in renderPage() below and for
+  // the share links, so the two always stay in sync.
+  const canonicalPath = `/product/${encodeURIComponent(article.slug)}`;
+
   const body = `
     ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
     <h1 style="font-size:28px;">${escapeHtml(article.seoTitle)}</h1>
+    ${renderShareButtons(canonicalPath, article.seoTitle)}
     <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
     ${buyBtn}
     ${verdict}
@@ -66,7 +71,8 @@ export async function onRequestGet({ env, params }) {
   const html = renderPage({
     title: article.seoTitle,
     description: article.metaDescription,
-    canonicalPath: `/product/${encodeURIComponent(article.slug)}`,
+    canonicalPath,
+    image: article.product.image_url,
     bodyHtml: body
   });
 

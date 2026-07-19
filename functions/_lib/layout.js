@@ -7,6 +7,15 @@
  * review content stays the focus.
  */
 
+// TODO: set this to your real gravity-blog domain (no trailing slash).
+// og:image / og:url must be absolute URLs — relative paths are silently
+// ignored by Facebook/Line/X link-preview scrapers.
+const SITE_URL = 'https://gravity-blog.example.com';
+
+// Generic fallback image shown when a product has no image_url — replace
+// with a real hosted image (e.g. a logo/banner) once you have one.
+const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
+
 export const TOKENS = {
   bg: '#F5F6F3',
   surface: '#FFFFFF',
@@ -165,17 +174,57 @@ const BASE_CSS = `
   }
   hr.hairline{ border:none; border-top:1px solid var(--hairline); margin:32px 0; }
   @media (max-width:480px){ body{ font-size:16px; } }
+
+  /* Share row — one per article, sits right under the title area. */
+  .share-row{ display:flex; align-items:center; gap:8px; margin:16px 0 4px; flex-wrap:wrap; }
+  .share-row .share-label{ font-size:13px; color:var(--ink-muted); margin-right:2px; }
+  .share-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:50%; text-decoration:none;
+    background:var(--accent-soft); color:var(--accent) !important;
+    font-size:14px; font-weight:600; line-height:1;
+  }
+  .share-btn:hover{ background:var(--accent); color:#fff !important; }
 `;
 
-export function renderPage({ title, description, canonicalPath = '/', bodyHtml }) {
+/**
+ * @param {object} opts
+ * @param {string} opts.title
+ * @param {string} [opts.description]
+ * @param {string} [opts.canonicalPath] - path only, e.g. '/product/foo'
+ * @param {string} [opts.image] - absolute or root-relative image URL for
+ *   og:image (Grist's image_url for a product page). Falls back to
+ *   DEFAULT_OG_IMAGE when omitted.
+ * @param {string} opts.bodyHtml
+ */
+export function renderPage({ title, description, canonicalPath = '/', image, bodyHtml }) {
+  const canonicalUrl = `${SITE_URL}${canonicalPath}`;
+  const ogImage = toAbsoluteUrl(image) || DEFAULT_OG_IMAGE;
+  const desc = description || '';
+
   return `<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
-<meta name="description" content="${escapeHtml(description || '')}">
-<link rel="canonical" href="${canonicalPath}">
+<meta name="description" content="${escapeHtml(desc)}">
+<link rel="canonical" href="${canonicalUrl}">
+
+<!-- Open Graph (Facebook, Line, most link-preview scrapers) -->
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="GRAVITY_OS Picks">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${escapeHtml(desc)}">
+<meta property="og:image" content="${escapeHtml(ogImage)}">
+<meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+
+<!-- Twitter/X card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:description" content="${escapeHtml(desc)}">
+<meta name="twitter:image" content="${escapeHtml(ogImage)}">
+
 ${FONT_LINK}
 <style>${BASE_CSS}</style>
 </head>
@@ -185,6 +234,43 @@ ${FONT_LINK}
 <footer class="site">บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ</footer>
 </body>
 </html>`;
+}
+
+/**
+ * Turns a relative image path from Grist ('/images/x.jpg') into an
+ * absolute URL using SITE_URL. Leaves already-absolute URLs untouched.
+ * Returns '' for empty input so callers can fall back to DEFAULT_OG_IMAGE.
+ */
+function toAbsoluteUrl(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+/**
+ * Row of share links for one article/product page. Uses each platform's
+ * plain share-intent URL (no SDK/app-id needed), so it works the moment
+ * og:image/og:title above are correct — the shared card's image/title
+ * come straight from those meta tags.
+ *
+ * @param {string} canonicalPath - path only, e.g. '/product/foo'
+ * @param {string} title
+ */
+export function renderShareButtons(canonicalPath, title) {
+  const url = encodeURIComponent(`${SITE_URL}${canonicalPath}`);
+  const text = encodeURIComponent(title || '');
+
+  const links = [
+    { label: 'f', name: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${url}` },
+    { label: 'L', name: 'Line', href: `https://social-plugins.line.me/lineit/share?url=${url}` },
+    { label: 'X', name: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${url}&text=${text}` },
+  ];
+
+  const buttons = links
+    .map(l => `<a class="share-btn" href="${l.href}" target="_blank" rel="noopener" aria-label="แชร์ไป ${l.name}">${l.label}</a>`)
+    .join('');
+
+  return `<div class="share-row"><span class="share-label">แชร์:</span>${buttons}</div>`;
 }
 
 /**
