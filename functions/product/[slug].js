@@ -56,6 +56,7 @@ export async function onRequestGet({ env, params }) {
   const body = `
     ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
     <h1 style="font-size:28px;">${escapeHtml(article.seoTitle)}</h1>
+    ${article.product.image_url ? `<img class="hero-img" src="${escapeHtml(article.product.image_url)}" alt="${escapeHtml(article.seoTitle)}">` : ''}
     ${renderShareButtons(canonicalPath, article.seoTitle)}
     <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
     ${buyBtn}

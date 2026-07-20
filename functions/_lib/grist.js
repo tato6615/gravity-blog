@@ -58,11 +58,22 @@ function normalizeProduct(fields) {
     ? Number(rawRating)
     : null;
 
+  // NOTE: kept both `image` and `image_url` pointing at the same value.
+  // `index.js` (homepage cards) reads `.image`, while `product/[slug].js`
+  // (article page + og:image passed into renderPage()) reads `.image_url`.
+  // Previously only `.image` was set here, so every single product page
+  // and every Facebook share had image_url === undefined and silently
+  // fell back to the (404-ing) DEFAULT_OG_IMAGE — this is what broke
+  // "post to Facebook has no image" even after image re-hosting to
+  // GitHub and the SITE_URL fix were both already done correctly.
+  const imageValue = pickField(fields, ['image', 'image_url', 'photo']) || null;
+
   return {
     name: pickField(fields, ['name', 'product_name', 'title']) || 'สินค้าไม่มีชื่อ',
     brand: pickField(fields, ['brand']) || '',
     price: pickField(fields, ['price']) || null,
-    image: pickField(fields, ['image', 'image_url', 'photo']) || null,
+    image: imageValue,
+    image_url: imageValue,
     rating,
     buyUrl: fields.source_url || pickField(fields, ['url', 'product_url']) || null
   };
