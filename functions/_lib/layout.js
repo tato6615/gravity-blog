@@ -7,10 +7,13 @@
  * review content stays the focus.
  */
 
-// TODO: set this to your real gravity-blog domain (no trailing slash).
-// og:image / og:url must be absolute URLs — relative paths are silently
-// ignored by Facebook/Line/X link-preview scrapers.
-const SITE_URL = 'https://gravity-blog.example.com';
+// Real gravity-blog domain. og:image / og:url must be absolute URLs —
+// relative paths are silently ignored by Facebook/Line/X link-preview
+// scrapers, and a mismatched/fake domain here (as this used to be —
+// 'gravity-blog.example.com' was never replaced) makes Facebook's scraper
+// treat og:url as untrustworthy, which can suppress the image preview
+// even when og:image itself points at a perfectly valid, reachable URL.
+const SITE_URL = 'https://gravity-blog.pages.dev';
 
 // Generic fallback image shown when a product has no image_url — replace
 // with a real hosted image (e.g. a logo/banner) once you have one.
