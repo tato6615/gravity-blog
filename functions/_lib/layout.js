@@ -26,6 +26,11 @@ export const TOKENS = {
   inkMuted: '#5B655F',
   accent: '#2F6B5E',
   accentSoft: '#E3EEEA',
+  // Secondary accent — dusty terracotta, roughly opposite green on the
+  // color wheel. Used sparingly (60-30-10) for one-off emphasis, e.g.
+  // the #1 rank badge, never as a general-purpose color.
+  accent2: '#C1603E',
+  accent2Soft: '#F3E2DA',
   hairline: '#DCDFD9',
   radius: '10px'
 };
@@ -39,7 +44,8 @@ const BASE_CSS = `
   :root{
     --bg:${TOKENS.bg}; --surface:${TOKENS.surface}; --ink:${TOKENS.ink};
     --ink-muted:${TOKENS.inkMuted}; --accent:${TOKENS.accent};
-    --accent-soft:${TOKENS.accentSoft}; --hairline:${TOKENS.hairline}; --radius:${TOKENS.radius};
+    --accent-soft:${TOKENS.accentSoft}; --accent2:${TOKENS.accent2};
+    --accent2-soft:${TOKENS.accent2Soft}; --hairline:${TOKENS.hairline}; --radius:${TOKENS.radius};
   }
   *{ box-sizing:border-box; }
   html{ -webkit-text-size-adjust:100%; }
@@ -60,9 +66,11 @@ const BASE_CSS = `
     border-bottom:1px solid var(--hairline); padding:22px 0; margin-bottom:8px;
   }
   header.site a.brand{
+    display:inline-flex; align-items:center; gap:9px;
     font-family:'Noto Serif Thai', serif; font-weight:700; font-size:19px;
     color:var(--ink); text-decoration:none; letter-spacing:.01em;
   }
+  .brand-mark{ flex-shrink:0; display:block; }
   main{ padding:36px 0 80px; }
   footer.site{
     border-top:1px solid var(--hairline); color:var(--ink-muted);
@@ -163,6 +171,9 @@ const BASE_CSS = `
     background:var(--ink); color:#fff; font-size:12px; font-weight:600;
     padding:3px 10px; border-radius:5px; white-space:nowrap;
   }
+  /* #1 rank only — the one deliberate use of the secondary accent color,
+     so it reads as a genuine highlight rather than a repeated pattern. */
+  .rank-badge.is-top{ background:var(--accent2); }
   .card-top .eyebrow{ margin-bottom:0; }
 
   /* Pulls the strongest "pro" out of the analysis so it's scannable
@@ -270,6 +281,14 @@ const BASE_CSS = `
   .error-page p{ color:var(--ink-muted); margin-bottom:24px; }
 `;
 
+// Inline SVG monogram — rounded-square geometric frame in the primary
+// brand green with the "G" set in the same serif as the wordmark, so it
+// reads as one mark rather than a bolted-on icon.
+const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <rect x="0.5" y="0.5" width="25" height="25" rx="7" fill="var(--accent)"/>
+  <text x="13" y="18.5" text-anchor="middle" font-family="'Noto Serif Thai', serif" font-weight="700" font-size="14" fill="#FFFFFF">G</text>
+</svg>`;
+
 /**
  * @param {object} opts
  * @param {string} opts.title
@@ -318,7 +337,7 @@ ${FONT_LINK}
 <style>${BASE_CSS}</style>
 </head>
 <body>
-<header class="site"><div class="wrap"><a class="brand" href="/">GRAVITY OS</a></div></header>
+<header class="site"><div class="wrap"><a class="brand" href="/">${BRAND_MARK_SVG}GRAVITY OS</a></div></header>
 <main class="${wide ? 'wrap-wide' : 'wrap'}">${breadcrumbHtml}${bodyHtml}</main>
 <footer class="site">บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ</footer>
 </body>
