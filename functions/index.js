@@ -17,7 +17,7 @@ export async function onRequestGet({ env }) {
       : null;
     const thumb = a.product.image
       ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
-      : '';
+      : `<div class="card-thumb-placeholder">ไม่มีรูปสินค้า</div>`;
     const stars = renderStars(a.product.rating);
 
     return `

@@ -87,11 +87,16 @@ const BASE_CSS = `
     border-bottom:1px solid var(--hairline);
     box-sizing:border-box;
   }
+  .card-thumb-placeholder{
+    width:100%; height:220px; display:flex; align-items:center; justify-content:center;
+    background:var(--accent-soft); color:var(--ink-muted); font-size:13px;
+    border-bottom:1px solid var(--hairline); box-sizing:border-box;
+  }
 
   .card-body{ padding:22px; }
 
   @media (min-width:900px){
-    .card-thumb{ height:180px; padding:14px 18px; }
+    .card-thumb, .card-thumb-placeholder{ height:180px; padding:14px 18px; }
     .card-body{ padding:18px; }
   }
   .card h2{ font-size:20px; margin-bottom:10px; }
@@ -179,7 +184,7 @@ const BASE_CSS = `
   @media (min-width:900px){
     .card-grid{ grid-template-columns:repeat(3, 1fr); gap:18px; }
   }
-  @media (min-width:1200px){
+  @media (min-width:1080px){
     .card-grid{ grid-template-columns:repeat(4, 1fr); gap:20px; }
   }
 
