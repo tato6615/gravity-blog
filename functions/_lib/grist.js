@@ -49,6 +49,22 @@ async function findProductsTableId(env) {
   return t.id;
 }
 
+// Parses PRODUCTS.gallery_image_urls (written by worker.js's
+// reHostImagesToGitHub() at import time) back into a plain string array.
+// Stored as a JSON array string, e.g. '["https://cdn.jsdelivr.net/.../a.jpg", ...]'.
+// Never throws — worst case returns an empty array and callers fall back
+// to just the single hero image.
+function parseGalleryField(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter(u => typeof u === 'string' && u);
+  if (typeof raw !== 'string') return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter(u => typeof u === 'string' && u);
+  } catch (e) { /* not JSON — fall through */ }
+  return [];
+}
+
 function normalizeProduct(fields) {
   // rating is optional — only shows in the UI when a real number is
   // entered in Grist. No fallback/mock value here on purpose: showing a
@@ -68,12 +84,23 @@ function normalizeProduct(fields) {
   // GitHub and the SITE_URL fix were both already done correctly.
   const imageValue = pickField(fields, ['image', 'image_url', 'photo']) || null;
 
+  // Full photo set (hero image first, then any extra gallery photos
+  // scraped/re-hosted at import time — see extractGalleryImages() /
+  // reHostImagesToGitHub() in worker.js). Falls back to just [imageValue]
+  // when gallery_image_urls is empty/missing (e.g. older products imported
+  // before the gallery feature existed), so callers can always safely
+  // treat `.gallery` as "the list of photos to show" without a null check.
+  const rawGallery = pickField(fields, ['gallery_image_urls', 'gallery_images', 'gallery']);
+  let gallery = parseGalleryField(rawGallery);
+  if (gallery.length === 0 && imageValue) gallery = [imageValue];
+
   return {
     name: pickField(fields, ['name', 'product_name', 'title']) || 'สินค้าไม่มีชื่อ',
     brand: pickField(fields, ['brand']) || '',
     price: pickField(fields, ['price']) || null,
     image: imageValue,
     image_url: imageValue,
+    gallery,
     rating,
     buyUrl: fields.source_url || pickField(fields, ['url', 'product_url']) || null
   };

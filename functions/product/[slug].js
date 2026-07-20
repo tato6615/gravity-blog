@@ -1,5 +1,5 @@
 import { getArticleBySlug } from '../_lib/grist.js';
-import { renderPage, renderShareButtons, escapeHtml, formatArticleBody, toListItems } from '../_lib/layout.js';
+import { renderPage, renderShareButtons, renderGallery, escapeHtml, formatArticleBody, toListItems } from '../_lib/layout.js';
 
 function renderFaq(faqText) {
   if (!faqText) return '';
@@ -53,10 +53,17 @@ export async function onRequestGet({ env, params }) {
   // the share links, so the two always stay in sync.
   const canonicalPath = `/product/${encodeURIComponent(article.slug)}`;
 
+  // gallery is always a non-empty array once a product has any photo at
+  // all — normalizeProduct() in grist.js falls back to [image_url] when
+  // gallery_image_urls is missing (older products imported before the
+  // gallery feature existed). renderGallery() itself no-ops safely on an
+  // empty array, so this is safe even for a product with zero photos.
+  const galleryHtml = renderGallery(article.product.gallery, article.seoTitle);
+
   const body = `
     ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
     <h1 style="font-size:28px;">${escapeHtml(article.seoTitle)}</h1>
-    ${article.product.image_url ? `<img class="hero-img" src="${escapeHtml(article.product.image_url)}" alt="${escapeHtml(article.seoTitle)}">` : ''}
+    ${galleryHtml}
     ${renderShareButtons(canonicalPath, article.seoTitle)}
     <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
     ${buyBtn}

@@ -99,11 +99,37 @@ const BASE_CSS = `
     color:var(--ink-muted); font-size:13px; letter-spacing:normal; margin-left:6px;
   }
 
-  /* Hero image on the article page itself */
+  /* Hero image on the article page itself (single-photo fallback path —
+     used only when a product has just one photo; see renderGallery()). */
   .hero-img{
     width:100%; height:240px; object-fit:cover; border-radius:12px;
     display:block; margin:14px 0 4px; background:var(--accent-soft);
   }
+
+  /* Product photo gallery — main photo large on top, extra photos as a
+     horizontally-scrollable filmstrip of thumbnails underneath. Plain
+     scroll-snap, no JS required, so it works the same in a Facebook
+     in-app browser as anywhere else. */
+  .gallery{ margin:14px 0 4px; }
+  .gallery-main{
+    width:100%; height:280px; object-fit:contain; display:block;
+    background:var(--surface); border:1px solid var(--hairline);
+    border-radius:12px; box-sizing:border-box; padding:12px;
+  }
+  .gallery-strip{
+    display:flex; gap:8px; margin-top:8px; overflow-x:auto;
+    scroll-snap-type:x proximity; padding-bottom:2px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .gallery-strip::-webkit-scrollbar{ height:6px; }
+  .gallery-strip::-webkit-scrollbar-thumb{ background:var(--hairline); border-radius:3px; }
+  .gallery-thumb{
+    flex:0 0 auto; width:64px; height:64px; object-fit:contain;
+    background:var(--surface); border:1px solid var(--hairline);
+    border-radius:8px; scroll-snap-align:start; cursor:pointer;
+    padding:4px; box-sizing:border-box;
+  }
+  .gallery-thumb.is-active{ border-color:var(--accent); border-width:2px; }
 
   /* Trust-signal row: rank badge + category eyebrow, sitting above the title */
   .card-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
@@ -274,6 +300,40 @@ export function renderShareButtons(canonicalPath, title) {
     .join('');
 
   return `<div class="share-row"><span class="share-label">แชร์:</span>${buttons}</div>`;
+}
+
+/**
+ * Renders the product photo gallery on an article page: a large main
+ * photo (the first item) with the rest of the photos as a scrollable
+ * thumbnail filmstrip below it. Thumbnails swap the main photo via a
+ * small inline <script> (no framework, no build step — this file is
+ * plain server-rendered HTML) so it degrades gracefully to a single
+ * static photo if JS is ever unavailable (the first <img> just sits
+ * there as a normal image either way).
+ *
+ * @param {string[]} images - ordered list of absolute image URLs, hero
+ *   photo first. Safe to call with a 1-item (or empty) array — renders
+ *   just the single photo / nothing.
+ * @param {string} alt - alt text (article title) shared by all photos
+ */
+export function renderGallery(images, alt) {
+  const photos = (images || []).filter(Boolean);
+  if (photos.length === 0) return '';
+
+  const safeAlt = escapeHtml(alt || '');
+  if (photos.length === 1) {
+    return `<div class="gallery"><img class="gallery-main" src="${escapeHtml(photos[0])}" alt="${safeAlt}"></div>`;
+  }
+
+  const galleryId = 'g' + Math.random().toString(36).slice(2, 9);
+  const thumbs = photos.map((src, i) =>
+    `<img class="gallery-thumb${i === 0 ? ' is-active' : ''}" src="${escapeHtml(src)}" alt="${safeAlt} ${i + 1}" data-src="${escapeHtml(src)}" onclick="(function(el){var g=document.getElementById('${galleryId}');g.querySelector('.gallery-main').src=el.dataset.src;g.querySelectorAll('.gallery-thumb').forEach(function(t){t.classList.remove('is-active')});el.classList.add('is-active')})(this)">`
+  ).join('');
+
+  return `<div class="gallery" id="${galleryId}">
+    <img class="gallery-main" src="${escapeHtml(photos[0])}" alt="${safeAlt}">
+    <div class="gallery-strip">${thumbs}</div>
+  </div>`;
 }
 
 /**
