@@ -290,7 +290,7 @@ export function renderPage({ title, description, canonicalPath = '/', image, bod
 
 <!-- Open Graph (Facebook, Line, most link-preview scrapers) -->
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="GRAVITY_OS Picks">
+<meta property="og:site_name" content="GRAVITY OS">
 <meta property="og:title" content="${escapeHtml(title)}">
 <meta property="og:description" content="${escapeHtml(desc)}">
 <meta property="og:image" content="${escapeHtml(ogImage)}">
@@ -307,7 +307,7 @@ ${FONT_LINK}
 <style>${BASE_CSS}</style>
 </head>
 <body>
-<header class="site"><div class="wrap"><a class="brand" href="/">GRAVITY_OS Picks</a></div></header>
+<header class="site"><div class="wrap"><a class="brand" href="/">GRAVITY OS</a></div></header>
 <main class="${wide ? 'wrap-wide' : 'wrap'}">${breadcrumbHtml}${bodyHtml}</main>
 <footer class="site">บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ</footer>
 </body>
@@ -529,7 +529,7 @@ export function generateProductJsonLd(article, canonicalPath) {
       } : undefined,
       author: {
         '@type': 'Organization',
-        name: 'GRAVITY_OS Picks'
+        name: 'GRAVITY OS'
       },
       reviewBody: article.metaDescription || ''
     }

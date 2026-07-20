@@ -53,7 +53,7 @@ ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอั
         </div>`);
 
   const html = renderPage({
-    title: 'GRAVITY_OS Picks — รีวิวสินค้าที่คัดมาให้',
+    title: 'GRAVITY OS — รีวิวสินค้าที่คัดมาให้',
     description: 'รีวิวและคำแนะนำสินค้า สรุปให้อ่านง่าย ตัดสินใจได้เร็ว',
     canonicalPath: '/',
     wide: true,
