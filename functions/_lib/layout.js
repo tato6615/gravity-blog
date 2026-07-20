@@ -76,6 +76,11 @@ const BASE_CSS = `
     background:var(--surface); border:1px solid var(--hairline);
     border-radius:12px; margin-bottom:16px; overflow:hidden;
     height:100%; display:flex; flex-direction:column;
+    color:inherit; text-decoration:none; cursor:pointer;
+    transition:box-shadow .15s ease, border-color .15s ease;
+  }
+  .card:hover{
+    box-shadow:0 6px 16px rgba(30,35,32,0.10); border-color:var(--accent);
   }
 
   /* Product image — Amazon assets are almost always shot on a white
@@ -94,17 +99,23 @@ const BASE_CSS = `
     border-bottom:1px solid var(--hairline); box-sizing:border-box;
   }
 
-  .card-body{ padding:22px; display:flex; flex-direction:column; flex:1; }
+  .card-body{ padding:16px; display:flex; flex-direction:column; flex:1; }
 
   @media (min-width:900px){
     .card-thumb, .card-thumb-placeholder{ height:180px; padding:14px 18px; }
-    .card-body{ padding:18px; }
+    .card-body{ padding:14px; }
   }
-  .card h2{ font-size:20px; margin-bottom:10px; }
-  .card h2 a{ color:var(--ink); text-decoration:none; }
-  .card h2 a:hover{ color:var(--accent); }
-  .meta{ color:var(--ink-muted); font-size:14px; margin-bottom:10px; }
-  .excerpt{ color:var(--ink); }
+  .card h2{
+    font-size:18px; margin-bottom:8px; line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .meta{ color:var(--ink-muted); font-size:14px; margin-bottom:8px; }
+  .excerpt{
+    color:var(--ink); margin-bottom:8px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
   .empty{ color:var(--ink-muted); padding:60px 0; text-align:center; }
 
   /* Star rating — only ever rendered when Grist has a real numeric
@@ -157,7 +168,7 @@ const BASE_CSS = `
   /* Pulls the strongest "pro" out of the analysis so it's scannable
      without clicking into the article. */
   .pro-highlight{
-    display:flex; align-items:flex-start; gap:8px; margin:12px 0 16px;
+    display:flex; align-items:flex-start; gap:8px; margin:0 0 12px;
     color:var(--ink); font-size:14px; line-height:1.55;
   }
   .pro-highlight .check{ color:var(--accent); font-weight:700; flex-shrink:0; }
@@ -170,7 +181,7 @@ const BASE_CSS = `
   .cta-btn:hover{ opacity:.92; }
 
   .updated-line{
-    color:var(--ink-muted); font-size:12px; margin-top:12px; padding-top:12px;
+    color:var(--ink-muted); font-size:12px; margin-top:10px; padding-top:10px;
     border-top:1px solid var(--hairline);
   }
 

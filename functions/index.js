@@ -21,21 +21,21 @@ export async function onRequestGet({ env }) {
     const stars = renderStars(a.product.rating);
 
     return `
-    <article class="card">
+    <a class="card" href="/product/${encodeURIComponent(a.slug)}">
 ${thumb}
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge">อันดับ ${i + 1}</span>
           <div class="eyebrow">${escapeHtml(a.product.brand || 'รีวิว')}</div>
         </div>
-        <h2><a href="/product/${encodeURIComponent(a.slug)}">${escapeHtml(a.seoTitle)}</a></h2>
+        <h2>${escapeHtml(a.seoTitle)}</h2>
 ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
         <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
 ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
-        <a class="cta-btn" href="/product/${encodeURIComponent(a.slug)}">อ่านรีวิวฉบับเต็ม →</a>
+        <div class="cta-btn">อ่านรีวิวฉบับเต็ม →</div>
 ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอัปเดตข้อมูลล่าสุด: ${updatedLabel}</div>` : ''}
       </div>
-    </article>
+    </a>
   `;
   }).join('');
 
