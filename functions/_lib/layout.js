@@ -75,6 +75,7 @@ const BASE_CSS = `
   .card{
     background:var(--surface); border:1px solid var(--hairline);
     border-radius:12px; margin-bottom:16px; overflow:hidden;
+    height:100%; display:flex; flex-direction:column;
   }
 
   /* Product image — Amazon assets are almost always shot on a white
@@ -93,7 +94,7 @@ const BASE_CSS = `
     border-bottom:1px solid var(--hairline); box-sizing:border-box;
   }
 
-  .card-body{ padding:22px; }
+  .card-body{ padding:22px; display:flex; flex-direction:column; flex:1; }
 
   @media (min-width:900px){
     .card-thumb, .card-thumb-placeholder{ height:180px; padding:14px 18px; }
@@ -164,7 +165,7 @@ const BASE_CSS = `
   .cta-btn{
     display:block; text-align:center; background:var(--accent); color:#fff !important;
     font-size:15px; font-weight:600; padding:12px; border-radius:8px;
-    text-decoration:none; margin-top:4px;
+    text-decoration:none; margin-top:auto;
   }
   .cta-btn:hover{ opacity:.92; }
 
@@ -179,7 +180,7 @@ const BASE_CSS = `
     display:grid; grid-template-columns:1fr; gap:16px;
   }
   @media (min-width:680px){
-    .card-grid{ grid-template-columns:repeat(2, 1fr); align-items:start; }
+    .card-grid{ grid-template-columns:repeat(2, 1fr); }
   }
   @media (min-width:900px){
     .card-grid{ grid-template-columns:repeat(3, 1fr); gap:18px; }
