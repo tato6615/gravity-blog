@@ -1,5 +1,5 @@
 import { getLiveArticles } from './_lib/grist.js';
-import { renderPage, escapeHtml, toListItems, renderStars } from './_lib/layout.js';
+import { renderPage, escapeHtml, toListItems, renderStars, renderBreadcrumb } from './_lib/layout.js';
 
 export async function onRequestGet({ env }) {
   let articles = [];
@@ -40,15 +40,23 @@ ${updatedLabel ? `<div class="updated-line">ตรวจสอบและอั
   }).join('');
 
   const body = errorMsg
-    ? `<p class="empty">โหลดบทความไม่สำเร็จ: ${escapeHtml(errorMsg)}</p>`
+    ? `<div class="error-page">
+        <h1>⚠️</h1>
+        <p>โหลดบทความไม่สำเร็จ: ${escapeHtml(errorMsg)}</p>
+        <p><a href="/">ลองใหม่อีกครั้ง</a></p>
+      </div>`
     : (articles.length
       ? `<div class="card-grid">${cards}</div>`
-      : `<p class="empty">ยังไม่มีบทความ — พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ</p>`);
+      : `<div class="error-page">
+          <p>ยังไม่มีบทความ</p>
+          <p>พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ</p>
+        </div>`);
 
   const html = renderPage({
     title: 'GRAVITY_OS Picks — รีวิวสินค้าที่คัดมาให้',
     description: 'รีวิวและคำแนะนำสินค้า สรุปให้อ่านง่าย ตัดสินใจได้เร็ว',
     canonicalPath: '/',
+    wide: true,
     bodyHtml: `<h1 style="font-size:26px;margin-bottom:6px;">รีวิวล่าสุด</h1>
     <p class="meta" style="margin-bottom:28px;">คัดสรรและตรวจสอบโดยทีมงาน อัปเดตอัตโนมัติทุกครั้งที่มีสินค้าใหม่วิเคราะห์เสร็จ</p>
 ${body}`
