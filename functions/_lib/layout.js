@@ -337,7 +337,7 @@ ${FONT_LINK}
 <style>${BASE_CSS}</style>
 </head>
 <body>
-<header class="site"><div class="wrap"><a class="brand" href="/">${BRAND_MARK_SVG}GRAVITY OS</a></div></header>
+<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'}"><a class="brand" href="/">${BRAND_MARK_SVG}GRAVITY OS</a></div></header>
 <main class="${wide ? 'wrap-wide' : 'wrap'}">${breadcrumbHtml}${bodyHtml}</main>
 <footer class="site">บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ</footer>
 </body>
