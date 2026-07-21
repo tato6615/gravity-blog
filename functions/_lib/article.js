@@ -59,7 +59,10 @@ export async function renderArticlePage(env, slug, lang = 'th') {
   try {
     article = await getArticleBySlug(env, slug, lang);
   } catch (e) {
-    return new Response(`${t.loadErrorPrefix} ${e.message}`, { status: 500 });
+    return new Response(`${t.loadErrorPrefix} ${e.message}`, {
+      status: 500,
+      headers: { 'content-type': 'text/plain; charset=UTF-8' }
+    });
   }
 
   if (!article) {
