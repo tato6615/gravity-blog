@@ -1,0 +1,125 @@
+import { getLiveArticles } from './grist.js';
+import { renderPage, escapeHtml, toListItems, renderStars } from './layout.js';
+
+const STRINGS = {
+  th: {
+    pageTitle: 'GRAVITY OS — รีวิวสินค้าที่คัดมาให้',
+    pageDescription: 'รีวิวและคำแนะนำสินค้า สรุปให้อ่านง่าย ตัดสินใจได้เร็ว',
+    heading: 'รีวิวล่าสุด',
+    subheading: 'คัดสรรและตรวจสอบโดยทีมงาน อัปเดตอัตโนมัติทุกครั้งที่มีสินค้าใหม่วิเคราะห์เสร็จ',
+    rankLabel: 'อันดับ',
+    fallbackEyebrow: 'รีวิว',
+    noImage: 'ไม่มีรูปสินค้า',
+    ctaBtn: 'อ่านรีวิวฉบับเต็ม →',
+    updatedPrefix: 'ตรวจสอบและอัปเดตข้อมูลล่าสุด:',
+    dateLocale: 'th-TH',
+    loadErrorPrefix: 'โหลดบทความไม่สำเร็จ:',
+    retry: 'ลองใหม่อีกครั้ง',
+    empty: 'ยังไม่มีบทความ',
+    emptySub: 'พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ'
+  },
+  en: {
+    pageTitle: 'GRAVITY OS — Curated product reviews',
+    pageDescription: 'Product reviews and buying guides, summarized so you can decide fast.',
+    heading: 'Latest reviews',
+    subheading: 'Curated and checked by our team, updated automatically whenever a new product finishes analysis.',
+    rankLabel: 'Rank',
+    fallbackEyebrow: 'Review',
+    noImage: 'No product photo',
+    ctaBtn: 'Read the full review →',
+    updatedPrefix: 'Last checked & updated:',
+    dateLocale: 'en-US',
+    loadErrorPrefix: 'Failed to load articles:',
+    retry: 'Try again',
+    empty: 'No articles yet',
+    emptySub: "Once a product finishes running through Generate Everything, it'll show up here automatically."
+  }
+};
+
+/**
+ * Root-relative link to the given lang's home page.
+ */
+function homePath(lang) {
+  return lang === 'en' ? '/en/' : '/';
+}
+
+/**
+ * Renders the home/listing page for the given language.
+ * @param {object} env
+ * @param {'th'|'en'} lang
+ * @returns {Promise<Response>}
+ */
+export async function renderHomePage(env, lang = 'th') {
+  const t = STRINGS[lang] || STRINGS.th;
+
+  let articles = [];
+  let errorMsg = null;
+  try {
+    articles = await getLiveArticles(env, lang);
+  } catch (e) {
+    errorMsg = e.message;
+  }
+
+  const cards = articles.map((a, i) => {
+    const topPro = a.analysis ? toListItems(a.analysis.pros)[0] : null;
+    const updatedLabel = a.updatedAt
+      ? new Date(a.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })
+      : null;
+    const thumb = a.product.image
+      ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
+      : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
+    const stars = renderStars(a.product.rating);
+    const href = `${lang === 'en' ? '/en' : ''}/product/${encodeURIComponent(a.slug)}`;
+
+    return `
+    <a class="card" href="${href}">
+      ${thumb}
+      <div class="card-body">
+        <div class="card-top">
+          <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
+          <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
+        </div>
+        <h2>${escapeHtml(a.seoTitle)}</h2>
+        ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
+        <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
+        ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
+        <div class="cta-btn">${escapeHtml(t.ctaBtn)}</div>
+        ${updatedLabel ? `<div class="updated-line">${escapeHtml(t.updatedPrefix)} ${updatedLabel}</div>` : ''}
+      </div>
+    </a>
+  `;
+  }).join('');
+
+  const body = errorMsg
+    ? `<div class="error-page">
+        <h1>⚠️</h1>
+        <p>${escapeHtml(t.loadErrorPrefix)} ${escapeHtml(errorMsg)}</p>
+        <p><a href="${homePath(lang)}">${t.retry}</a></p>
+      </div>`
+    : (articles.length
+      ? `<div class="card-grid">${cards}</div>`
+      : `<div class="error-page">
+          <p>${escapeHtml(t.empty)}</p>
+          <p>${escapeHtml(t.emptySub)}</p>
+        </div>`);
+
+  // No altLangPath for the home page yet — the equivalent listing in the
+  // other language always exists at a fixed URL ('/' <-> '/en/'), unlike
+  // article pages where the slug can differ per language. We still pass
+  // it explicitly so the switcher shows up in the header.
+  const altLangPath = lang === 'en' ? '/' : '/en/';
+
+  const html = renderPage({
+    title: t.pageTitle,
+    description: t.pageDescription,
+    canonicalPath: homePath(lang),
+    lang,
+    altLangPath,
+    wide: true,
+    bodyHtml: `<h1 style="font-size:26px;margin-bottom:6px;">${escapeHtml(t.heading)}</h1>
+    <p class="meta" style="margin-bottom:28px;">${escapeHtml(t.subheading)}</p>
+${body}`
+  });
+
+  return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });
+}

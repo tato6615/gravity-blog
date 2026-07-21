@@ -2,9 +2,9 @@
  * Shared design tokens + page shell.
  *
  * Design direction: a quiet, paper-like reading surface — the opposite of
- * a busy "deal site". One signature element (the tilted "เหมาะกับใคร" note)
- * carries the personality; everything else stays disciplined so the actual
- * review content stays the focus.
+ * a busy "deal site". One signature element (the tilted "who it's for"
+ * note) carries the personality; everything else stays disciplined so the
+ * actual review content stays the focus.
  */
 
 // Real gravity-blog domain. og:image / og:url must be absolute URLs —
@@ -35,6 +35,32 @@ export const TOKENS = {
   radius: '10px'
 };
 
+// UI chrome strings that live in layout.js itself (footer disclaimer,
+// share row, breadcrumb-adjacent bits) rather than in article.js's
+// STRINGS table, since layout.js is shared by both the article page and
+// the home page. Keep this the single source of truth for "chrome" copy
+// so it isn't duplicated per-page.
+const UI_STRINGS = {
+  th: {
+    footerDisclaimer: 'บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ',
+    shareLabel: 'แชร์:',
+    shareAriaPrefix: 'แชร์ไป',
+    langSwitchLabel: 'EN',
+    htmlLang: 'th'
+  },
+  en: {
+    footerDisclaimer: 'This article may contain affiliate links. If you buy through a link here, we may earn a small commission at no extra cost to you.',
+    shareLabel: 'Share:',
+    shareAriaPrefix: 'Share to',
+    langSwitchLabel: 'TH',
+    htmlLang: 'en'
+  }
+};
+
+function uiStrings(lang) {
+  return UI_STRINGS[lang] || UI_STRINGS.th;
+}
+
 const FONT_LINK =
   '<link rel="preconnect" href="https://fonts.googleapis.com">' +
   '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
@@ -58,19 +84,23 @@ const BASE_CSS = `
   a{ color:var(--accent); text-decoration-thickness:1px; }
   a:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .wrap{ max-width:720px; margin:0 auto; padding:0 20px; }
-  /* Wider container used only on the home/listing page so a 4-column
-     product grid has room to breathe — article pages keep the narrower
-     720px .wrap above for comfortable reading line-length. */
   .wrap-wide{ max-width:1240px; margin:0 auto; padding:0 20px; }
   header.site{
     border-bottom:1px solid var(--hairline); padding:22px 0; margin-bottom:8px;
   }
+  .site-header-row{ display:flex; align-items:center; justify-content:space-between; }
   header.site a.brand{
     display:inline-flex; align-items:center; gap:9px;
     font-family:'Noto Serif Thai', serif; font-weight:700; font-size:19px;
     color:var(--ink); text-decoration:none; letter-spacing:.01em;
   }
   .brand-mark{ flex-shrink:0; display:block; }
+  .lang-switch{
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600; color:var(--ink-muted); text-decoration:none;
+    border:1px solid var(--hairline); border-radius:6px; padding:5px 10px;
+  }
+  .lang-switch:hover{ border-color:var(--accent); color:var(--accent); }
   main{ padding:36px 0 80px; }
   footer.site{
     border-top:1px solid var(--hairline); color:var(--ink-muted);
@@ -90,11 +120,6 @@ const BASE_CSS = `
   .card:hover{
     box-shadow:0 6px 16px rgba(30,35,32,0.10); border-color:var(--accent);
   }
-
-  /* Product image — Amazon assets are almost always shot on a white
-     background, so we contain (never crop) and let the card supply the
-     white "product photography" mat around it instead of cropping into
-     the product itself. */
   .card-thumb{
     width:100%; height:220px; object-fit:contain; display:block;
     background:var(--surface); padding:16px 24px;
@@ -106,9 +131,7 @@ const BASE_CSS = `
     background:var(--accent-soft); color:var(--ink-muted); font-size:13px;
     border-bottom:1px solid var(--hairline); box-sizing:border-box;
   }
-
   .card-body{ padding:16px; display:flex; flex-direction:column; flex:1; }
-
   @media (min-width:900px){
     .card-thumb, .card-thumb-placeholder{ height:180px; padding:14px 18px; }
     .card-body{ padding:14px; }
@@ -125,25 +148,14 @@ const BASE_CSS = `
     overflow:hidden;
   }
   .empty{ color:var(--ink-muted); padding:60px 0; text-align:center; }
-
-  /* Star rating — only ever rendered when Grist has a real numeric
-     rating value; see renderStars() below. */
   .stars{ color:var(--accent); font-size:14px; letter-spacing:1px; }
   .stars .rating-num{
     color:var(--ink-muted); font-size:13px; letter-spacing:normal; margin-left:6px;
   }
-
-  /* Hero image on the article page itself (single-photo fallback path —
-     used only when a product has just one photo; see renderGallery()). */
   .hero-img{
     width:100%; height:240px; object-fit:cover; border-radius:12px;
     display:block; margin:14px 0 4px; background:var(--accent-soft);
   }
-
-  /* Product photo gallery — main photo large on top, extra photos as a
-     horizontally-scrollable filmstrip of thumbnails underneath. Plain
-     scroll-snap, no JS required, so it works the same in a Facebook
-     in-app browser as anywhere else. */
   .gallery{ margin:14px 0 4px; }
   .gallery-main{
     width:100%; height:280px; object-fit:contain; display:block;
@@ -164,40 +176,28 @@ const BASE_CSS = `
     padding:4px; box-sizing:border-box;
   }
   .gallery-thumb.is-active{ border-color:var(--accent); border-width:2px; }
-
-  /* Trust-signal row: rank badge + category eyebrow, sitting above the title */
   .card-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
   .rank-badge{
     background:var(--ink); color:#fff; font-size:12px; font-weight:600;
     padding:3px 10px; border-radius:5px; white-space:nowrap;
   }
-  /* #1 rank only — the one deliberate use of the secondary accent color,
-     so it reads as a genuine highlight rather than a repeated pattern. */
   .rank-badge.is-top{ background:var(--accent2); }
   .card-top .eyebrow{ margin-bottom:0; }
-
-  /* Pulls the strongest "pro" out of the analysis so it's scannable
-     without clicking into the article. */
   .pro-highlight{
     display:flex; align-items:flex-start; gap:8px; margin:0 0 12px;
     color:var(--ink); font-size:14px; line-height:1.55;
   }
   .pro-highlight .check{ color:var(--accent); font-weight:700; flex-shrink:0; }
-
   .cta-btn{
     display:block; text-align:center; background:var(--accent); color:#fff !important;
     font-size:15px; font-weight:600; padding:12px; border-radius:8px;
     text-decoration:none; margin-top:auto;
   }
   .cta-btn:hover{ opacity:.92; }
-
   .updated-line{
     color:var(--ink-muted); font-size:12px; margin-top:10px; padding-top:10px;
     border-top:1px solid var(--hairline);
   }
-
-  /* Homepage card grid — single column on mobile, two columns once
-     there's enough width for it to read comfortably. */
   .card-grid{
     display:grid; grid-template-columns:1fr; gap:16px;
   }
@@ -210,8 +210,6 @@ const BASE_CSS = `
   @media (min-width:1080px){
     .card-grid{ grid-template-columns:repeat(4, 1fr); gap:20px; }
   }
-
-  /* Signature element: the "who it's for" note, tilted like a pinned card */
   .verdict{
     background:#FBFAF6; border:1px solid var(--hairline);
     border-left:4px solid var(--accent);
@@ -223,22 +221,17 @@ const BASE_CSS = `
     color:var(--accent); margin-bottom:10px; font-family:'IBM Plex Sans Thai',sans-serif; font-weight:600; }
   .verdict ul{ margin:0; padding-left:1.2em; }
   .verdict li{ margin-bottom:4px; }
-
   .buy-btn{
     display:inline-block; background:var(--accent); color:#fff !important;
     padding:12px 22px; border-radius:8px; text-decoration:none;
     font-weight:600; margin:8px 0 4px;
   }
   .buy-btn:hover{ opacity:.92; }
-
-  /* Article body — now receives structured HTML (p / ul / ol / h3)
-     from formatArticleBody(), not raw pre-wrapped text. */
   .article-body{ margin-top:24px; }
   .article-body p{ margin:0 0 1.1em; }
   .article-body ul, .article-body ol{ margin:0 0 1.1em; padding-left:1.4em; }
   .article-body li{ margin-bottom:6px; }
   .article-body h3{ font-size:19px; margin-top:28px; }
-
   .tags{ margin-top:28px; }
   .tag{
     display:inline-block; background:var(--accent-soft); color:var(--accent);
@@ -248,8 +241,6 @@ const BASE_CSS = `
   .tag a:hover{ text-decoration:underline; }
   hr.hairline{ border:none; border-top:1px solid var(--hairline); margin:32px 0; }
   @media (max-width:480px){ body{ font-size:16px; } }
-
-  /* Share row — one per article, sits right under the title area. */
   .share-row{ display:flex; align-items:center; gap:8px; margin:16px 0 4px; flex-wrap:wrap; }
   .share-row .share-label{ font-size:13px; color:var(--ink-muted); margin-right:2px; }
   .share-btn{
@@ -259,23 +250,17 @@ const BASE_CSS = `
     font-size:14px; font-weight:600; line-height:1;
   }
   .share-btn:hover{ background:var(--accent); color:#fff !important; }
-
-  /* Breadcrumb */
   .breadcrumb{
     font-size:13px; color:var(--ink-muted); margin-bottom:16px;
   }
   .breadcrumb a{ color:var(--ink-muted); text-decoration:none; }
   .breadcrumb a:hover{ color:var(--accent); text-decoration:underline; }
   .breadcrumb .sep{ margin:0 6px; color:var(--hairline); }
-
-  /* Price tag */
   .price-tag{
     font-size:22px; font-weight:700; color:var(--accent);
     margin:8px 0 12px;
   }
   .price-tag .currency{ font-size:16px; font-weight:500; }
-
-  /* Error page */
   .error-page{ text-align:center; padding:80px 20px; }
   .error-page h1{ font-size:48px; margin-bottom:8px; color:var(--ink-muted); }
   .error-page p{ color:var(--ink-muted); margin-bottom:24px; }
@@ -297,20 +282,35 @@ const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="
  * @param {string} [opts.image] - absolute or root-relative image URL for
  *   og:image (Grist's image_url for a product page). Falls back to
  *   DEFAULT_OG_IMAGE when omitted.
+ * @param {'th'|'en'} [opts.lang] - page language. Drives <html lang>,
+ *   footer disclaimer copy, share-row copy, and the aria-label on share
+ *   buttons. Defaults to 'th' so existing callers that don't pass it
+ *   behave exactly as before.
+ * @param {string} [opts.altLangPath] - root-relative path to this same
+ *   page in the *other* language (e.g. '/en/product/foo' when lang='th').
+ *   When provided, renders a small TH/EN switcher link in the header.
+ *   Omit when no translated version exists yet.
  * @param {string} opts.bodyHtml
  * @param {string} [opts.jsonLd] - JSON-LD structured data script
  * @param {string} [opts.breadcrumb] - breadcrumb HTML
  */
-export function renderPage({ title, description, canonicalPath = '/', image, bodyHtml, jsonLd, breadcrumb, wide = false }) {
+export function renderPage({
+  title, description, canonicalPath = '/', image, lang = 'th',
+  altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false
+}) {
+  const t = uiStrings(lang);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
   const ogImage = toAbsoluteUrl(image) || DEFAULT_OG_IMAGE;
   const desc = description || '';
 
   const breadcrumbHtml = breadcrumb ? `<nav class="breadcrumb" aria-label="Breadcrumb">${breadcrumb}</nav>` : '';
   const jsonLdScript = jsonLd ? `<script type="application/ld+json">${jsonLd}</script>` : '';
+  const langSwitchHtml = altLangPath
+    ? `<a class="lang-switch" href="${escapeHtml(altLangPath)}">${escapeHtml(t.langSwitchLabel)}</a>`
+    : '';
 
   return `<!DOCTYPE html>
-<html lang="th">
+<html lang="${t.htmlLang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -325,6 +325,7 @@ export function renderPage({ title, description, canonicalPath = '/', image, bod
 <meta property="og:description" content="${escapeHtml(desc)}">
 <meta property="og:image" content="${escapeHtml(ogImage)}">
 <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+<meta property="og:locale" content="${lang === 'en' ? 'en_US' : 'th_TH'}">
 
 <!-- Twitter/X card -->
 <meta name="twitter:card" content="summary_large_image">
@@ -337,9 +338,12 @@ ${FONT_LINK}
 <style>${BASE_CSS}</style>
 </head>
 <body>
-<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'}"><a class="brand" href="/">${BRAND_MARK_SVG}GRAVITY OS</a></div></header>
+<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
+  <a class="brand" href="${lang === 'en' ? '/en/' : '/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
+  ${langSwitchHtml}
+</div></header>
 <main class="${wide ? 'wrap-wide' : 'wrap'}">${breadcrumbHtml}${bodyHtml}</main>
-<footer class="site">บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ</footer>
+<footer class="site">${escapeHtml(t.footerDisclaimer)}</footer>
 </body>
 </html>`;
 }
@@ -356,15 +360,14 @@ function toAbsoluteUrl(url) {
 }
 
 /**
- * Row of share links for one article/product page. Uses each platform's
- * plain share-intent URL (no SDK/app-id needed), so it works the moment
- * og:image/og:title above are correct — the shared card's image/title
- * come straight from those meta tags.
+ * Row of share links for one article/product page.
  *
  * @param {string} canonicalPath - path only, e.g. '/product/foo'
  * @param {string} title
+ * @param {'th'|'en'} [lang]
  */
-export function renderShareButtons(canonicalPath, title) {
+export function renderShareButtons(canonicalPath, title, lang = 'th') {
+  const t = uiStrings(lang);
   const url = encodeURIComponent(`${SITE_URL}${canonicalPath}`);
   const text = encodeURIComponent(title || '');
 
@@ -375,24 +378,19 @@ export function renderShareButtons(canonicalPath, title) {
   ];
 
   const buttons = links
-    .map(l => `<a class="share-btn" href="${l.href}" target="_blank" rel="noopener" aria-label="แชร์ไป ${l.name}">${l.label}</a>`)
+    .map(l => `<a class="share-btn" href="${l.href}" target="_blank" rel="noopener" aria-label="${escapeHtml(t.shareAriaPrefix)} ${l.name}">${l.label}</a>`)
     .join('');
 
-  return `<div class="share-row"><span class="share-label">แชร์:</span>${buttons}</div>`;
+  return `<div class="share-row"><span class="share-label">${escapeHtml(t.shareLabel)}</span>${buttons}</div>`;
 }
 
 /**
  * Renders the product photo gallery on an article page: a large main
  * photo (the first item) with the rest of the photos as a scrollable
- * thumbnail filmstrip below it. Thumbnails swap the main photo via a
- * small inline <script> (no framework, no build step — this file is
- * plain server-rendered HTML) so it degrades gracefully to a single
- * static photo if JS is ever unavailable (the first <img> just sits
- * there as a normal image either way).
+ * thumbnail filmstrip below it.
  *
  * @param {string[]} images - ordered list of absolute image URLs, hero
- *   photo first. Safe to call with a 1-item (or empty) array — renders
- *   just the single photo / nothing.
+ *   photo first. Safe to call with a 1-item (or empty) array.
  * @param {string} alt - alt text (article title) shared by all photos
  */
 export function renderGallery(images, alt) {
@@ -428,8 +426,7 @@ export function toListItems(text) {
 
 /**
  * Renders a star rating from a real numeric value (1–5). Returns '' when
- * rating is null/undefined — we never show a made-up rating, so callers
- * can just always call this and trust it to no-op when there's no data.
+ * rating is null/undefined.
  */
 export function renderStars(rating) {
   if (rating == null || isNaN(Number(rating))) return '';
@@ -447,14 +444,7 @@ export function escapeHtml(str) {
 
 /**
  * Turns plain-text article content (from Grist) into structured, readable
- * HTML — paragraphs, bullet/numbered lists, and short-line sub-headings —
- * instead of dumping one giant white-space:pre-wrap blob.
- *
- * Rules per blank-line-separated block:
- *  - every line starts with -/•/*  -> <ul>
- *  - every line starts with "1." / "1)" -> <ol>
- *  - a single short line with no ending punctuation -> <h3> sub-heading
- *  - otherwise -> <p> (soft line breaks inside the block are joined with a space)
+ * HTML — paragraphs, bullet/numbered lists, and short-line sub-headings.
  */
 export function formatArticleBody(text) {
   if (!text) return '';
@@ -464,24 +454,20 @@ export function formatArticleBody(text) {
     const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) return '';
 
-    // Bullet list block
     if (lines.every(l => /^[-•*]\s+/.test(l))) {
       const items = lines.map(l => `<li>${escapeHtml(l.replace(/^[-•*]\s+/, ''))}</li>`).join('');
       return `<ul>${items}</ul>`;
     }
 
-    // Numbered list block
     if (lines.every(l => /^\d+[.)]\s+/.test(l))) {
       const items = lines.map(l => `<li>${escapeHtml(l.replace(/^\d+[.)]\s+/, ''))}</li>`).join('');
       return `<ol>${items}</ol>`;
     }
 
-    // Short single line, no trailing sentence punctuation -> treat as sub-heading
     if (lines.length === 1 && lines[0].length <= 50 && !/[.!?…""]$/.test(lines[0])) {
       return `<h3>${escapeHtml(lines[0])}</h3>`;
     }
 
-    // Regular paragraph
     return `<p>${escapeHtml(lines.join(' '))}</p>`;
   }).join('');
 }
@@ -503,13 +489,23 @@ export function renderBreadcrumb(items) {
 }
 
 /**
- * Formats price with Thai Baht symbol
+ * Formats a price for display.
+ *
+ * ASSUMPTION: EN pages still show Thai Baht (products are Amazon-TH /
+ * affiliate items priced in THB regardless of page language) — only the
+ * locale used for digit grouping changes. If EN pages should actually
+ * show a different currency, this needs a real currency-conversion
+ * decision from the team, not just a formatting change.
+ *
+ * @param {number|string} price
+ * @param {'th'|'en'} [lang]
  */
-export function formatPrice(price) {
+export function formatPrice(price, lang = 'th') {
   if (price == null || price === '') return '';
   const num = Number(String(price).replace(/[^\d.]/g, ''));
   if (isNaN(num)) return '';
-  return `<span class="price-tag"><span class="currency">฿</span>${num.toLocaleString('th-TH')}</span>`;
+  const locale = lang === 'en' ? 'en-US' : 'th-TH';
+  return `<span class="price-tag"><span class="currency">฿</span>${num.toLocaleString(locale)}</span>`;
 }
 
 /**
@@ -565,6 +561,5 @@ export function generateProductJsonLd(article, canonicalPath) {
     }
   };
 
-  // Remove undefined keys
   return JSON.stringify(json, (k, v) => v === undefined ? undefined : v);
 }
