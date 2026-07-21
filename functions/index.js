@@ -1,5 +1,5 @@
-import { renderHomePage } from '../_lib/home-page.js';
+import { renderHomePage } from '../_lib/homepage.js';
 
 export async function onRequestGet({ env }) {
-  return renderHomePage(env, 'en');
+  return renderHomePage(env, 'th');
 }
