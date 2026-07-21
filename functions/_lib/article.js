@@ -55,81 +55,96 @@ export async function renderArticlePage(env, slug, lang = 'th') {
   const t = STRINGS[lang] || STRINGS.th;
   const prefix = lang === 'en' ? '/en' : '';
 
-  let article;
+  // ครอบทั้งฟังก์ชันด้วย try/catch เดียว ไม่ใช่แค่ตอนดึงข้อมูลจาก Grist
+  // เพราะโค้ด render ด้านล่าง (เช่น article.product.xxx) ก็ throw ได้
+  // ถ้าไม่ดักไว้ error จะหลุดไปเป็น unhandled exception ใน onRequestGet
+  // แล้ว Cloudflare Pages Functions จะคืน response ว่างเปล่าไม่มี header
+  // ทำให้เบราว์เซอร์ดาวน์โหลดเป็น document.txt แทนที่จะโชว์หน้า error
   try {
-    article = await getArticleBySlug(env, slug, lang);
+    let article;
+    try {
+      article = await getArticleBySlug(env, slug, lang);
+    } catch (e) {
+      return new Response(`${t.loadErrorPrefix} ${e.message}`, {
+        status: 500,
+        headers: { 'content-type': 'text/plain; charset=UTF-8' }
+      });
+    }
+
+    if (!article) {
+      return new Response(renderPage({
+        title: t.notFoundTitle,
+        canonicalPath: `${prefix}/product/${encodeURIComponent(slug)}`,
+        lang,
+        bodyHtml: `<p class="empty">${t.notFoundBody}</p><p><a href="${prefix}/">${t.backHome}</a></p>`
+      }), { status: 404, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+    }
+
+    const pros = article.analysis ? toListItems(article.analysis.pros) : [];
+    const cons = article.analysis ? toListItems(article.analysis.cons) : [];
+    const audience = article.analysis?.target_audience || '';
+
+    const verdict = (pros.length || cons.length || audience)
+      ? `<div class="verdict">
+          <h3>${escapeHtml(t.whoFor)}</h3>
+          ${audience ? `<p style="margin:0 0 10px;">${escapeHtml(audience)}</p>` : ''}
+          ${pros.length ? `<p style="margin:0 0 4px;font-weight:600;">${escapeHtml(t.pros)}</p><ul>${pros.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}
+          ${cons.length ? `<p style="margin:12px 0 4px;font-weight:600;">${escapeHtml(t.cons)}</p><ul>${cons.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>` : ''}
+        </div>`
+      : '';
+
+    const buyBtn = article.product.buyUrl
+      ? `<a class="buy-btn" href="${escapeHtml(article.product.buyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`
+      : '';
+
+    const tagsHtml = article.tags.length
+      ? `<div class="tags">${article.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`
+      : '';
+
+    // Same path used for canonical/og:url in renderPage() below and for
+    // the share links, so the two always stay in sync.
+    const canonicalPath = `${prefix}/product/${encodeURIComponent(article.slug)}`;
+
+    // gallery is always a non-empty array once a product has any photo at
+    // all — normalizeProduct() in grist.js falls back to [image_url] when
+    // gallery_image_urls is missing (older products imported before the
+    // gallery feature existed). renderGallery() itself no-ops safely on an
+    // empty array, so this is safe even for a product with zero photos.
+    const galleryHtml = renderGallery(article.product.gallery, article.seoTitle);
+
+    const body = `
+      ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
+      <h1 style="font-size:28px;">${escapeHtml(article.seoTitle)}</h1>
+      ${galleryHtml}
+      ${renderShareButtons(canonicalPath, article.seoTitle)}
+      <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
+      ${buyBtn}
+      ${verdict}
+      <div class="article-body">${formatArticleBody(article.blogDraft)}</div>
+      ${article.buyingGuide ? `<hr class="hairline"><h3>${escapeHtml(t.buyingGuideTitle)}</h3><div class="article-body">${formatArticleBody(article.buyingGuide)}</div>` : ''}
+      ${renderFaq(article.faq, t)}
+      ${buyBtn}
+      ${tagsHtml}
+      <p style="margin-top:32px;"><a href="${prefix}/">${t.moreReviews}</a></p>
+    `;
+
+    const html = renderPage({
+      title: article.seoTitle,
+      description: article.metaDescription,
+      canonicalPath,
+      image: article.product.image_url,
+      lang,
+      bodyHtml: body
+    });
+
+    return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });
   } catch (e) {
+    // ดักทุก error ที่หลุดมาจากส่วน render ด้านบน (เช่น field ที่หายไป
+    // จาก Grist ทำให้ article.product เป็น undefined) จะได้เห็นข้อความ
+    // error จริงแทนที่จะโดนดาวน์โหลดเป็นไฟล์เปล่า
     return new Response(`${t.loadErrorPrefix} ${e.message}`, {
       status: 500,
       headers: { 'content-type': 'text/plain; charset=UTF-8' }
     });
   }
-
-  if (!article) {
-    return new Response(renderPage({
-      title: t.notFoundTitle,
-      canonicalPath: `${prefix}/product/${encodeURIComponent(slug)}`,
-      lang,
-      bodyHtml: `<p class="empty">${t.notFoundBody}</p><p><a href="${prefix}/">${t.backHome}</a></p>`
-    }), { status: 404, headers: { 'content-type': 'text/html; charset=UTF-8' } });
-  }
-
-  const pros = article.analysis ? toListItems(article.analysis.pros) : [];
-  const cons = article.analysis ? toListItems(article.analysis.cons) : [];
-  const audience = article.analysis?.target_audience || '';
-
-  const verdict = (pros.length || cons.length || audience)
-    ? `<div class="verdict">
-        <h3>${escapeHtml(t.whoFor)}</h3>
-        ${audience ? `<p style="margin:0 0 10px;">${escapeHtml(audience)}</p>` : ''}
-        ${pros.length ? `<p style="margin:0 0 4px;font-weight:600;">${escapeHtml(t.pros)}</p><ul>${pros.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}
-        ${cons.length ? `<p style="margin:12px 0 4px;font-weight:600;">${escapeHtml(t.cons)}</p><ul>${cons.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>` : ''}
-      </div>`
-    : '';
-
-  const buyBtn = article.product.buyUrl
-    ? `<a class="buy-btn" href="${escapeHtml(article.product.buyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`
-    : '';
-
-  const tagsHtml = article.tags.length
-    ? `<div class="tags">${article.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`
-    : '';
-
-  // Same path used for canonical/og:url in renderPage() below and for
-  // the share links, so the two always stay in sync.
-  const canonicalPath = `${prefix}/product/${encodeURIComponent(article.slug)}`;
-
-  // gallery is always a non-empty array once a product has any photo at
-  // all — normalizeProduct() in grist.js falls back to [image_url] when
-  // gallery_image_urls is missing (older products imported before the
-  // gallery feature existed). renderGallery() itself no-ops safely on an
-  // empty array, so this is safe even for a product with zero photos.
-  const galleryHtml = renderGallery(article.product.gallery, article.seoTitle);
-
-  const body = `
-    ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
-    <h1 style="font-size:28px;">${escapeHtml(article.seoTitle)}</h1>
-    ${galleryHtml}
-    ${renderShareButtons(canonicalPath, article.seoTitle)}
-    <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
-    ${buyBtn}
-    ${verdict}
-    <div class="article-body">${formatArticleBody(article.blogDraft)}</div>
-    ${article.buyingGuide ? `<hr class="hairline"><h3>${escapeHtml(t.buyingGuideTitle)}</h3><div class="article-body">${formatArticleBody(article.buyingGuide)}</div>` : ''}
-    ${renderFaq(article.faq, t)}
-    ${buyBtn}
-    ${tagsHtml}
-    <p style="margin-top:32px;"><a href="${prefix}/">${t.moreReviews}</a></p>
-  `;
-
-  const html = renderPage({
-    title: article.seoTitle,
-    description: article.metaDescription,
-    canonicalPath,
-    image: article.product.image_url,
-    lang,
-    bodyHtml: body
-  });
-
-  return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });
 }
