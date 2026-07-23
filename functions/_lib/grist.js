@@ -9,8 +9,11 @@
  * Generate Everything finishes, with no separate manual publish step.
  *
  * Bilingual: CONTENT has one row per product PER LANGUAGE (content_th /
- * content_en steps in worker.js). Every read here takes a `lang` param
- * and filters CONTENT rows by that language, so th/en never mix.
+ * content_en steps in worker.js). AI_ANALYSIS follows the same pattern
+ * (analysis_th / analysis_en steps in worker.js) — one row per product
+ * PER LANGUAGE, with a `language` column. Every read here takes a `lang`
+ * param and filters both CONTENT and AI_ANALYSIS rows by that language,
+ * so th/en never mix.
  */
 
 const GRIST_BASE = 'https://docs.getgrist.com/api/docs';
@@ -127,8 +130,16 @@ export async function getLiveArticles(env, lang = 'th') {
       .filter(r => r.fields.language === lang)
       .map(r => [String(r.fields.product), r.fields])
   );
+
+  // AI_ANALYSIS follows the same bilingual pattern as CONTENT (analysis_th
+  // / analysis_en pipeline steps in worker.js) — one row per product PER
+  // LANGUAGE, with a `language` column. Filter by lang here too so th/en
+  // analysis (pros/cons/target_audience) never mix, matching how CONTENT
+  // is filtered above.
   const analysisByProduct = new Map(
-    analysis.map(r => [String(r.fields.product), r.fields])
+    analysis
+      .filter(r => r.fields.language === lang)
+      .map(r => [String(r.fields.product), r.fields])
   );
 
   const articles = [];
