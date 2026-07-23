@@ -116,7 +116,7 @@ export async function renderArticlePage(env, slug, lang = 'th') {
       ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
       <h1 style="font-size:28px;">${escapeHtml(article.seoTitle)}</h1>
       ${galleryHtml}
-      ${renderShareButtons(canonicalPath, article.seoTitle)}
+      ${renderShareButtons(canonicalPath, article.seoTitle, lang, article.product.image_url)}
       <div class="meta">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</div>
       ${buyBtn}
       ${verdict}

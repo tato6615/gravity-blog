@@ -249,6 +249,7 @@ const BASE_CSS = `
     background:var(--accent-soft); color:var(--accent) !important;
     font-size:14px; font-weight:600; line-height:1;
   }
+  .share-btn{ border:none; font:inherit; cursor:pointer; }
   .share-btn:hover{ background:var(--accent); color:#fff !important; }
   .breadcrumb{
     font-size:13px; color:var(--ink-muted); margin-bottom:16px;
@@ -366,22 +367,31 @@ function toAbsoluteUrl(url) {
  * @param {string} title
  * @param {'th'|'en'} [lang]
  */
-export function renderShareButtons(canonicalPath, title, lang = 'th') {
+export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
   const t = uiStrings(lang);
-  const url = encodeURIComponent(`${SITE_URL}${canonicalPath}`);
+  const fullUrl = `${SITE_URL}${canonicalPath}`;
+  const url = encodeURIComponent(fullUrl);
   const text = encodeURIComponent(title || '');
+  const media = image ? toAbsoluteUrl(image) : '';
 
   const links = [
     { label: 'f', name: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${url}` },
     { label: 'L', name: 'Line', href: `https://social-plugins.line.me/lineit/share?url=${url}` },
     { label: 'X', name: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${url}&text=${text}` },
+    { label: 'W', name: 'WhatsApp', href: `https://wa.me/?text=${text}%20${url}` },
+    { label: 'P', name: 'Pinterest', href: `https://pinterest.com/pin/create/button/?url=${url}&description=${text}` + (media ? `&media=${encodeURIComponent(media)}` : '') },
+    { label: 'T', name: 'Telegram', href: `https://t.me/share/url?url=${url}&text=${text}` },
   ];
 
   const buttons = links
     .map(l => `<a class="share-btn" href="${l.href}" target="_blank" rel="noopener" aria-label="${escapeHtml(t.shareAriaPrefix)} ${l.name}">${l.label}</a>`)
     .join('');
 
-  return `<div class="share-row"><span class="share-label">${escapeHtml(t.shareLabel)}</span>${buttons}</div>`;
+  const copyLabel = lang === 'en' ? 'Copy link' : 'คัดลอกลิงก์';
+  const copiedTitle = lang === 'en' ? 'Copied!' : 'คัดลอกแล้ว!';
+  const copyBtn = `<button type="button" class="share-btn" data-url="${escapeHtml(fullUrl)}" data-copied="${escapeHtml(copiedTitle)}" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}" onclick="(function(btn){navigator.clipboard.writeText(btn.dataset.url).then(function(){var orig=btn.innerHTML;btn.innerHTML='✓';btn.title=btn.dataset.copied;setTimeout(function(){btn.innerHTML=orig;btn.title='${escapeHtml(copyLabel)}';},1800);});})(this)">⎘</button>`;
+
+  return `<div class="share-row"><span class="share-label">${escapeHtml(t.shareLabel)}</span>${buttons}${copyBtn}</div>`;
 }
 
 /**
