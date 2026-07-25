@@ -123,45 +123,203 @@
   .pl-del-btn{ background:transparent; border:1px solid var(--red); color:var(--red); font-weight:600; font-size:12px; padding:7px 12px; flex-shrink:0; }
   .pl-del-btn:hover{ background:rgba(226,96,79,0.1); }
   .pl-del-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  /* --- status bar (product-level overview strip) --- */
+  .status-bar{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:14px 18px; margin-bottom:18px; }
+  .sb-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .sb-product{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-phases{ display:flex; align-items:center; gap:6px; }
+  .sb-phase{ flex:1; height:5px; border-radius:3px; background:var(--line); }
+  .sb-phase.done{ background:var(--teal); }
+  .sb-phase.active{ background:var(--amber); }
+  .sb-phase.error{ background:var(--red); }
+  .sb-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:8px; }
+
+  /* --- collapsible card headers --- */
+  .card-head{ display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; gap:10px; }
+  .chev{ color:var(--text-faint); font-size:13px; flex-shrink:0; }
+  .card-summary{ display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--text-dim);
+    background:var(--panel-2); border-radius:7px; padding:10px 14px; margin-top:12px; }
+  .card-summary .tick{ color:var(--teal); font-weight:700; }
+
+  /* --- per-platform character limit rows --- */
+  .cl-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12px; padding:8px 12px;
+    color:var(--text-dim); background:#1b1e27; border-top:1px solid var(--line); }
+  .cl-row .ico{ flex-shrink:0; width:14px; font-weight:700; }
+  .cl-row.ok .ico{ color:var(--teal); }
+  .cl-row.warn .ico{ color:var(--amber); }
+  .cl-count{ font-family:'IBM Plex Mono',monospace; color:var(--text-faint); }
+  .cl-trim-btn{ background:transparent; border:1px solid var(--amber); color:var(--amber); font-weight:600;
+    font-size:11.5px; padding:5px 10px; margin-left:auto; flex-shrink:0; }
+  .cl-trim-btn:hover{ background:rgba(232,163,61,0.1); }
+
+  /* ============================================================= */
+  /* SYSTEM STATUS PANEL — AI providers / live API log / table saves */
+  /* Always visible (never hidden) so you can watch the whole       */
+  /* pipeline work without hunting for it, right up until Publish.  */
+  /* ============================================================= */
+  .sys-panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    margin-bottom:20px; overflow:hidden; }
+  .sys-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px;
+    cursor:pointer; user-select:none; gap:10px; }
+  .sys-head-left{ display:flex; align-items:center; gap:10px; }
+  .sys-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; }
+  .sys-pulse{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
+  .sys-pulse.live{ background:var(--teal); box-shadow:0 0 0 0 rgba(79,209,197,0.5); animation:pulse 1.6s infinite; }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(79,209,197,0.5); }
+    70%{ box-shadow:0 0 0 7px rgba(79,209,197,0); }
+    100%{ box-shadow:0 0 0 0 rgba(79,209,197,0); }
+  }
+  .sys-summary{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-faint); }
+  .sys-body{ padding:0 20px 18px; border-top:1px solid var(--line); }
+
+  .sys-section{ margin-top:16px; }
+  .sys-section-title{ font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600;
+    color:var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px; }
+
+  .ai-grid{ display:flex; flex-wrap:wrap; gap:7px; }
+  .ai-chip{ display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:20px; padding:6px 12px; font-size:12px; color:var(--text-faint); }
+  .ai-chip .ai-dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
+  .ai-chip.on{ color:var(--text); border-color:rgba(79,209,197,0.3); }
+  .ai-chip.on .ai-dot{ background:var(--teal); }
+  .ai-chip.off .ai-dot{ background:var(--text-faint); }
+  .ai-chip.used{ border-color:var(--amber); background:rgba(232,163,61,0.08); }
+  .ai-chip.used .ai-dot{ background:var(--amber); }
+
+  .table-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:7px; }
+  .table-chip{ display:flex; align-items:center; gap:7px; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:7px; padding:9px 11px; font-size:12px; color:var(--text-faint); }
+  .table-chip .tc-dot{ width:14px; height:14px; border-radius:4px; border:1.5px solid var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:9px; color:transparent; }
+  .table-chip.saved{ color:var(--text); border-color:rgba(79,209,197,0.25); }
+  .table-chip.saved .tc-dot{ background:var(--teal); border-color:var(--teal); color:#062421; }
+
+  .log-panel{ max-height:220px; overflow-y:auto; background:#0c0e13; border:1px solid var(--line);
+    border-radius:7px; padding:4px 0; }
+  .log-empty{ padding:16px; text-align:center; color:var(--text-faint); font-size:12.5px; }
+  .log-entry{ display:flex; align-items:flex-start; gap:9px; padding:7px 12px; font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px; line-height:1.5; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .log-entry:last-child{ border-bottom:none; }
+  .log-ico{ flex-shrink:0; width:13px; text-align:center; }
+  .log-entry.ok .log-ico{ color:var(--teal); }
+  .log-entry.pending .log-ico{ color:var(--amber); }
+  .log-entry.error .log-ico{ color:var(--red); }
+  .log-time{ color:var(--text-faint); flex-shrink:0; }
+  .log-text{ color:var(--text-dim); word-break:break-word; }
+  .log-entry.ok .log-text{ color:var(--text); }
+  .log-entry.error .log-text{ color:#f0b3a8; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
 
+  <!-- ============================================================ -->
+  <!-- SYSTEM STATUS PANEL — always visible: AI providers, live API  -->
+  <!-- call log, and which Grist tables have actually been saved.    -->
+  <!-- Collapsed to a one-line summary by default; expand to watch   -->
+  <!-- everything happen in real time.                                -->
+  <!-- ============================================================ -->
+  <div class="sys-panel">
+    <div class="sys-head" onclick="toggleSysPanel()">
+      <div class="sys-head-left">
+        <span class="sys-pulse" id="sysPulse"></span>
+        <span class="sys-title">สถานะระบบ</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="sys-summary" id="sysSummary">กำลังเช็ค AI providers...</span>
+        <span class="chev" id="sysChev">▸</span>
+      </div>
+    </div>
+    <div class="sys-body hidden" id="sysBody">
+
+      <div class="sys-section">
+        <div class="sys-section-title">AI Providers (ตัวไหนพร้อมใช้งาน)</div>
+        <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
+      </div>
+
+      <div class="sys-section">
+        <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
+        <div class="table-grid" id="tableGrid"></div>
+      </div>
+
+      <div class="sys-section">
+        <div class="sys-section-title">Live Activity Log</div>
+        <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Product-level overview status bar -->
+  <div class="status-bar hidden" id="statusBar">
+    <div class="sb-row">
+      <span class="sb-product" id="sbProduct">—</span>
+      <span class="tag" id="sbStatusTag"></span>
+    </div>
+    <div class="sb-phases">
+      <div class="sb-phase" id="sbPhase1"></div>
+      <div class="sb-phase" id="sbPhase2"></div>
+      <div class="sb-phase" id="sbPhase3"></div>
+    </div>
+    <div class="sb-meta" id="sbMeta"></div>
+  </div>
+
   <!-- STEP A: Import -->
   <div class="card" id="importCard">
-    <h1>Import Product</h1>
-    <div class="sub">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
-    <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
-    <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
-    <div class="err" id="importErr"></div>
+    <div class="card-head" onclick="toggleCardCollapse('import')">
+      <h1>Import Product</h1>
+      <span class="chev" id="importChev">▾</span>
+    </div>
+    <div class="card-summary hidden" id="importSummary"></div>
+    <div id="importBody">
+      <div class="sub">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
+      <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
+      <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
+      <div class="err" id="importErr"></div>
+    </div>
   </div>
 
   <!-- STEP B: Generate Everything -->
   <div class="card hidden" id="generateCard">
-    <h2>Generate Everything <span class="tag" id="statusTag" style="margin-left:8px;"></span></h2>
-    <div class="sub">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
-    <ul class="steps" id="stepsList"></ul>
-
-    <div class="fc-wrap">
-      <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
-      <div class="fc-groups hidden" id="fcGroups"></div>
+    <div class="card-head" onclick="toggleCardCollapse('generate')">
+      <h2>Generate Everything <span class="tag" id="statusTag" style="margin-left:8px;"></span></h2>
+      <span class="chev" id="generateChev">▾</span>
     </div>
+    <div class="card-summary hidden" id="generateSummary"></div>
+    <div id="generateBody">
+      <div class="sub">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
+      <ul class="steps" id="stepsList"></ul>
 
-    <div style="height:16px"></div>
-    <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
-    <div class="err" id="generateErr"></div>
+      <div class="fc-wrap">
+        <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
+        <div class="fc-groups hidden" id="fcGroups"></div>
+      </div>
+
+      <div style="height:16px"></div>
+      <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
+      <div class="err" id="generateErr"></div>
+    </div>
   </div>
 
   <!-- STEP C: Publish -->
   <div class="card hidden" id="publishCard">
-    <h2>Publish</h2>
-    <div class="sub">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่เผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
-    <div class="ch-picker" id="chPicker"></div>
-    <div class="pv-wrap hidden" id="pvWrap"></div>
-    <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
-    <div class="err" id="publishErr"></div>
+    <div class="card-head" onclick="toggleCardCollapse('publish')">
+      <h2>Publish</h2>
+      <span class="chev" id="publishChev">▾</span>
+    </div>
+    <div class="card-summary hidden" id="publishSummary"></div>
+    <div id="publishBody">
+      <div class="sub">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่เผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
+      <div class="ch-picker" id="chPicker"></div>
+      <div class="pv-wrap hidden" id="pvWrap"></div>
+      <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
+      <div class="err" id="publishErr"></div>
+    </div>
   </div>
 
   <!-- Result summary -->
@@ -193,6 +351,206 @@ let latestProduct = null;
 
 function showErr(id, msg){ const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
 function hideErr(id){ document.getElementById(id).style.display = 'none'; }
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ================================================================= */
+/* SYSTEM STATUS PANEL — live log + AI provider status + table saves */
+/* ================================================================= */
+
+let sysExpanded = false;
+function toggleSysPanel(){
+  sysExpanded = !sysExpanded;
+  document.getElementById('sysBody').classList.toggle('hidden', !sysExpanded);
+  document.getElementById('sysChev').textContent = sysExpanded ? '▾' : '▸';
+}
+
+const ALL_TABLE_IDS = ['AI_ANALYSIS', 'KEYWORDS', 'CONTENT', 'SOCIAL', 'AI_MEDIA', 'AI_PUBLISH', 'AI_ANALYTICS'];
+const TABLE_LABELS_SHORT = {
+  AI_ANALYSIS: 'AI Analysis', KEYWORDS: 'Keywords', CONTENT: 'Content',
+  SOCIAL: 'Social', AI_MEDIA: 'Media', AI_PUBLISH: 'Publish', AI_ANALYTICS: 'Analytics'
+};
+
+// One shared, timestamped event log. Every real API call the page makes
+// funnels through logEvent() so you can see — without hunting through
+// dev tools — exactly what's happening: which endpoint was hit, whether
+// it succeeded, and which AI provider actually answered.
+let activityLog = [];
+let aiUsageThisRun = {}; // providerId -> count, so the AI grid can highlight who's actually doing the work
+let lastAiStatus = [];
+
+function fmtTime(d){
+  return d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+}
+
+function logEvent(status, text, id){
+  const entry = { status, text, time: new Date(), id: id || ('log_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)) };
+  activityLog.unshift(entry);
+  if (activityLog.length > 60) activityLog.length = 60;
+  renderLog();
+  updateSysSummary();
+  return entry.id;
+}
+function updateLogEntry(id, status, text){
+  const entry = activityLog.find(e => e.id === id);
+  if (!entry) { logEvent(status, text, id); return; }
+  entry.status = status; entry.text = text; entry.time = new Date();
+  renderLog();
+  updateSysSummary();
+}
+function renderLog(){
+  const el = document.getElementById('logPanel');
+  if (!activityLog.length) { el.innerHTML = '<div class="log-empty">ยังไม่มีการเรียก API</div>'; return; }
+  const icoFor = s => s === 'ok' ? '✓' : s === 'error' ? '✗' : '⏳';
+  el.innerHTML = activityLog.map(e =>
+    '<div class="log-entry ' + e.status + '">' +
+      '<span class="log-ico">' + icoFor(e.status) + '</span>' +
+      '<span class="log-time">' + fmtTime(e.time) + '</span>' +
+      '<span class="log-text">' + escapeHtml(e.text) + '</span>' +
+    '</div>'
+  ).join('');
+}
+function updateSysSummary(){
+  const pulse = document.getElementById('sysPulse');
+  const pending = activityLog.some(e => e.status === 'pending');
+  pulse.classList.toggle('live', pending);
+  const errs = activityLog.filter(e => e.status === 'error').length;
+  const savedCount = ALL_TABLE_IDS.filter(t => latestStages[t] && (latestStages[t].th !== undefined ? (latestStages[t].th || latestStages[t].en) : latestStages[t])).length;
+  const aiAvailable = lastAiStatus.filter(p => p.available).length;
+  let parts = [];
+  parts.push(aiAvailable + '/' + (lastAiStatus.length || '…') + ' AI พร้อม');
+  parts.push(savedCount + '/' + ALL_TABLE_IDS.length + ' table บันทึกแล้ว');
+  if (errs) parts.push(errs + ' error');
+  document.getElementById('sysSummary').textContent = parts.join(' · ');
+}
+
+// Fired once on page load — shows which AI providers actually have API
+// keys configured on the Worker right now.
+async function loadAiStatus(){
+  const logId = logEvent('pending', 'GET /api/ai-status — เช็ค AI providers...');
+  try{
+    const res = await fetch(API + '/api/ai-status');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    lastAiStatus = data.providers || [];
+    renderAiGrid();
+    updateLogEntry(logId, 'ok', 'AI providers: ' + lastAiStatus.filter(p=>p.available).map(p=>p.label).join(', ') + ' พร้อมใช้งาน');
+  }catch(e){
+    updateLogEntry(logId, 'error', 'เช็ค AI providers ไม่สำเร็จ: ' + e.message);
+    document.getElementById('aiGrid').innerHTML = '<span class="note" style="margin:0;">โหลดสถานะ AI ไม่สำเร็จ</span>';
+  }
+  updateSysSummary();
+}
+function renderAiGrid(){
+  const el = document.getElementById('aiGrid');
+  if (!lastAiStatus.length){ el.innerHTML = '<span class="note" style="margin:0;">ไม่พบ provider</span>'; return; }
+  el.innerHTML = lastAiStatus.map(p => {
+    const used = aiUsageThisRun[p.id] > 0;
+    const cls = (p.available ? 'on' : 'off') + (used ? ' used' : '');
+    return '<span class="ai-chip ' + cls + '"><span class="ai-dot"></span>' + escapeHtml(p.label) +
+      (used ? ' <span style="color:var(--amber); font-family:\'IBM Plex Mono\',monospace; font-size:10.5px;">ใช้อยู่</span>' : '') +
+      '</span>';
+  }).join('');
+}
+// Called whenever a step/import result tells us which provider answered
+// (worker.js returns { provider: 'gemini', ... } on AI-backed steps).
+function markProviderUsed(providerId){
+  if (!providerId) return;
+  aiUsageThisRun[providerId] = (aiUsageThisRun[providerId] || 0) + 1;
+  renderAiGrid();
+}
+
+function renderTableGrid(stages){
+  stages = stages || {};
+  const el = document.getElementById('tableGrid');
+  el.innerHTML = ALL_TABLE_IDS.map(t => {
+    const row = stages[t];
+    const saved = !!(row && (row.th !== undefined ? (row.th || row.en) : row));
+    return '<div class="table-chip' + (saved ? ' saved' : '') + '">' +
+      '<span class="tc-dot">' + (saved ? '✓' : '') + '</span>' +
+      '<span>' + TABLE_LABELS_SHORT[t] + '</span></div>';
+  }).join('');
+  updateSysSummary();
+}
+
+// Thin wrapper around fetch() used by every API call on this page. It
+// automatically logs a "pending" line, then flips it to ok/error with
+// the HTTP status and (when the response says so) which AI provider
+// answered — so the System Status panel above is a complete, honest
+// record of every real network call this page makes, not a simulation.
+async function apiCall(path, options, label){
+  const logId = logEvent('pending', label + ' — กำลังเรียก...');
+  try{
+    const res = await fetch(API + path, options);
+    const data = await res.json();
+    if (data.error) {
+      updateLogEntry(logId, 'error', label + ' → HTTP ' + res.status + ': ' + data.error);
+      const err = new Error(data.error);
+      err.data = data;
+      throw err;
+    }
+    if (data.provider) markProviderUsed(data.provider);
+    if (data.step && data.step.provider) markProviderUsed(data.step.provider);
+    const okDetail = data.provider ? (' (AI: ' + data.provider + ')') : '';
+    updateLogEntry(logId, 'ok', label + ' → HTTP ' + res.status + ' สำเร็จ' + okDetail);
+    return data;
+  }catch(e){
+    if (!e.data) updateLogEntry(logId, 'error', label + ' → ล้มเหลว: ' + e.message);
+    throw e;
+  }
+}
+
+/* ---------- collapsible cards (less scrolling) ---------- */
+const cardCollapse = { import:false, generate:false, publish:false };
+function toggleCardCollapse(key){
+  cardCollapse[key] = !cardCollapse[key];
+  applyCardCollapse(key);
+}
+function applyCardCollapse(key){
+  const body = document.getElementById(key + 'Body');
+  const chev = document.getElementById(key + 'Chev');
+  const summary = document.getElementById(key + 'Summary');
+  const collapsed = cardCollapse[key];
+  if (body) body.classList.toggle('hidden', collapsed);
+  if (chev) chev.textContent = collapsed ? '▸' : '▾';
+  if (summary) summary.classList.toggle('hidden', !collapsed);
+}
+function setCardSummary(key, html){
+  const summary = document.getElementById(key + 'Summary');
+  if (summary) summary.innerHTML = html;
+}
+
+/* ---------- sticky product overview bar ---------- */
+function renderStatusBar(data){
+  const bar = document.getElementById('statusBar');
+  if (!bar) return;
+  bar.classList.remove('hidden');
+  const product = data.product || data.item || data.productData || latestProduct || {};
+  const name = product.name || product.title || ('สินค้า #' + productId);
+  document.getElementById('sbProduct').textContent = name;
+
+  const status = data.pipeline.status;
+  const tag = document.getElementById('sbStatusTag');
+  tag.className = 'tag ' + status;
+  tag.textContent = status.toUpperCase();
+
+  const phase1 = document.getElementById('sbPhase1'); // import
+  const phase2 = document.getElementById('sbPhase2'); // generate
+  const phase3 = document.getElementById('sbPhase3'); // publish
+  phase1.className = 'sb-phase done';
+  phase2.className = 'sb-phase' + (
+    status === 'enriching' ? ' active' :
+    (status === 'enriched' || status === 'published') ? ' done' :
+    status === 'error' ? ' error' : ''
+  );
+  phase3.className = 'sb-phase' + (status === 'published' ? ' done' : '');
+
+  const steps = (data.pipeline.steps || []);
+  const doneSteps = steps.filter(s => s.done).length;
+  document.getElementById('sbMeta').textContent =
+    doneSteps + '/' + steps.length + ' ขั้นตอนสร้างเนื้อหา · #' + productId;
+}
 
 async function doImport(){
   const btn = document.getElementById('importBtn');
@@ -201,15 +559,20 @@ async function doImport(){
   if(!val){ showErr('importErr', 'ใส่ลิงก์หรือรายละเอียดก่อนครับ'); return; }
   btn.disabled = true; btn.textContent = 'กำลังนำเข้า...';
   try{
-    const res = await fetch(API + '/api/import', {
+    const data = await apiCall('/api/import', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ input: val })
-    });
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
+    }, 'POST /api/import');
     productId = data.productId;
+    window._captionOverrides = {};
     document.getElementById('generateCard').classList.remove('hidden');
     updateStatusTag(data.pipeline.status);
     renderFieldChecklist({});
+    setCardSummary('import', '<span class="tick">✓</span> นำเข้าแล้ว: ' + escapeHtml(val));
+    cardCollapse.import = true;
+    applyCardCollapse('import');
+    sysExpanded = true;
+    document.getElementById('sysBody').classList.remove('hidden');
+    document.getElementById('sysChev').textContent = '▾';
     await refreshStatus();
   }catch(e){
     showErr('importErr', e.message);
@@ -265,15 +628,46 @@ function toggleChannel(key){
   renderPrePublishPreview();
 }
 
-function escapeHtml(s){
-  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 const CHANNEL_POST_FIELD = {
   facebook: 'facebook_post', instagram: 'facebook_post',
   threads: 'threads_post', x: 'x_post', pinterest: 'pinterest_post'
 };
 const PREVIEWABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest']);
+
+// Real platform caption limits. Today only X is actually truncated
+// server-side (see worker.js) — everything else just trusts the AI to write
+// short, which isn't always accurate. This checks the real length client-side
+// against each platform's hard cap and offers a one-click, word-boundary-safe
+// trim. NOTE: this is a client-side safety net for what gets *shown* and for
+// what gets sent as captionOverride below — for a guaranteed fix, worker.js's
+// /api/distribute handler should also enforce these caps server-side and
+// should read `captionOverride` when present instead of regenerating text.
+const PLATFORM_LIMITS = {
+  facebook:  { hardCap: 63206 }, // technically huge, but keep the check wired for consistency
+  instagram: { hardCap: 2200 },
+  threads:   { hardCap: 500 },
+  x:         { hardCap: 280 },  // already enforced server-side, kept here for the UI badge
+  pinterest: { hardCap: 500 }
+};
+window._captionOverrides = window._captionOverrides || {};
+
+function smartTrim(text, limit){
+  if (!text || text.length <= limit) return text;
+  let cut = text.slice(0, Math.max(0, limit - 1));
+  const lastBreak = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('\n'), cut.lastIndexOf(' '));
+  if (lastBreak > limit * 0.5) cut = cut.slice(0, lastBreak);
+  return cut.trim() + '…';
+}
+
+function applyTrim(ch){
+  const field = CHANNEL_POST_FIELD[ch];
+  const social = (latestStages.SOCIAL && latestStages.SOCIAL.th) || {};
+  const original = field ? (social[field] || '') : '';
+  const limitInfo = PLATFORM_LIMITS[ch];
+  if (!limitInfo || !original) return;
+  window._captionOverrides[ch] = smartTrim(original, limitInfo.hardCap);
+  renderPrePublishPreview();
+}
 
 function renderPrePublishPreview(){
   const wrap = document.getElementById('pvWrap');
@@ -311,7 +705,8 @@ function renderPrePublishPreview(){
 
   const cardsHtml = previewable.map(ch => {
     const field = CHANNEL_POST_FIELD[ch];
-    const caption = field ? (social[field] || '') : '';
+    const original = field ? (social[field] || '') : '';
+    const caption = window._captionOverrides[ch] || original;
     const label = (CHANNEL_LABELS[ch] || ch).toUpperCase();
     const linkInner =
         (imageUrl ? '<img class="pv-img" src="' + imageUrl + '" alt="" onerror="this.remove()">' : '') +
@@ -322,10 +717,25 @@ function renderPrePublishPreview(){
         ? '<a class="pv-link" href="' + escapeHtml(blogLink) + '" target="_blank" rel="noopener">' + linkInner + '</a>'
         : '<div class="pv-link">' + linkInner + '</div>')
       : '';
+
+    const limitInfo = PLATFORM_LIMITS[ch];
+    let clRow = '';
+    if (limitInfo && original) {
+      const len = caption.length;
+      const overLimit = len > limitInfo.hardCap;
+      const trimmed = !!window._captionOverrides[ch];
+      clRow = '<div class="cl-row ' + (overLimit ? 'warn' : 'ok') + '">' +
+        '<span class="ico">' + (overLimit ? '!' : '✓') + '</span>' +
+        '<span class="cl-count">' + len + ' / ' + limitInfo.hardCap + ' ตัวอักษร' + (trimmed ? ' (ตัดให้พอดีแล้ว)' : '') + '</span>' +
+        (overLimit ? '<button class="cl-trim-btn" onclick="applyTrim(\'' + ch + '\')">ตัดให้พอดี</button>' : '') +
+        '</div>';
+    }
+
     return '<div class="pv-title-row">👁 ตัวอย่างก่อนโพสต์ขึ้น ' + label + '</div>' +
       '<div class="pv-card">' +
         (caption ? '<div class="pv-caption">' + escapeHtml(caption) + '</div>' : '') +
         linkBlock +
+        clRow +
       '</div>';
   }).join('');
 
@@ -340,11 +750,9 @@ async function retryRehostImage(){
   const originalLabel = btn.textContent;
   btn.disabled = true; btn.textContent = 'กำลังลอง...';
   try{
-    const res = await fetch(API + '/api/retry-image', {
+    const data = await apiCall('/api/retry-image', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    }, 'POST /api/retry-image');
     if (!data.ok) throw new Error(data.reason || 'รี-โฮสต์ไม่สำเร็จ ลองใหม่อีกครั้งภายหลัง');
     await refreshStatus();
   }catch(e){
@@ -364,14 +772,14 @@ async function retryRehostImage(){
 }
 
 async function refreshStatus(){
-  const res = await fetch(API + '/api/status?productId=' + productId);
-  const data = await res.json();
-  if(data.error) throw new Error(data.error);
+  const data = await apiCall('/api/status?productId=' + productId, undefined, 'GET /api/status');
   updateStatusTag(data.pipeline.status);
   renderSteps(data.pipeline.steps);
   renderFieldChecklist(data.stages);
   latestStages = data.stages || {};
   latestProduct = data.product || data.item || data.productData || null;
+  renderStatusBar(data);
+  renderTableGrid(data.stages);
   if (data.pipeline.status === 'enriched' || data.pipeline.status === 'published') {
     document.getElementById('publishCard').classList.remove('hidden');
     if (!chPickerRendered) renderChannelPicker();
@@ -392,18 +800,21 @@ async function runGenerateAll(){
   try{
     let done = false;
     while(!done){
-      const res = await fetch(API + '/api/enrich', {
+      const data = await apiCall('/api/enrich', {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
-      });
-      const data = await res.json();
-      if(data.error) throw new Error(data.error);
+      }, 'POST /api/enrich (สร้างเนื้อหาขั้นต่อไป)');
       done = data.done;
       if (data.step) {
         btn.textContent = 'กำลังสร้าง: ' + data.step.label + '...';
+        logEvent('ok', 'บันทึกลงตาราง ' + (TABLE_LABELS_SHORT[data.step.table] || data.step.table) + ' แล้ว ✓');
       }
       await refreshStatus();
     }
     btn.textContent = 'เสร็จแล้ว ✓';
+    setCardSummary('generate', '<span class="tick">✓</span> สร้างเนื้อหาเสร็จแล้ว — ' +
+      (document.getElementById('fcProgress').textContent || ''));
+    cardCollapse.generate = true;
+    applyCardCollapse('generate');
   }catch(e){
     showErr('generateErr', e.message + ' — กด Generate Everything อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
     btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
@@ -421,16 +832,15 @@ async function doPublish(){
     let done = false;
     let lastSync = null;
     while(!done){
-      const res = await fetch(API + '/api/publish', {
+      const data = await apiCall('/api/publish', {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId, channels })
-      });
-      const data = await res.json();
-      if(data.error) throw new Error(data.error);
+      }, 'POST /api/publish');
       done = data.done;
       lastSync = data.sync || lastSync;
       updateStatusTag('published');
       if (data.step) {
         btn.textContent = 'กำลัง Publish: ' + data.step.label + '...';
+        logEvent('ok', 'sync ไปตาราง ' + data.step.label + ' แล้ว ✓');
       }
       if (lastSync) renderSyncSummary(lastSync);
     }
@@ -440,6 +850,10 @@ async function doPublish(){
     await distributeToChannels(channels);
 
     btn.textContent = 'Published ✓';
+    setCardSummary('publish', '<span class="tick">✓</span> เผยแพร่แล้ว — ' +
+      channels.map(c => CHANNEL_LABELS[c] || c).join(', '));
+    cardCollapse.publish = true;
+    applyCardCollapse('publish');
   }catch(e){
     showErr('publishErr', e.message + ' — กด Publish อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
     btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
@@ -452,17 +866,17 @@ async function distributeToChannels(channels){
   for (const ch of channels) {
     if (!DISTRIBUTABLE_CHANNELS.has(ch)) {
       results.push({ channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องอัปโหลดวิดีโอผ่าน OAuth2 ซึ่งยังไม่ได้พัฒนา)' });
+      logEvent('pending', 'ข้าม ' + (CHANNEL_LABELS[ch] || ch) + ' — ยังไม่รองรับ');
       renderDistributeResults(results);
       continue;
     }
     try{
-      const res = await fetch(API + '/api/distribute', {
+      const override = window._captionOverrides && window._captionOverrides[ch];
+      const data = await apiCall('/api/distribute', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ productId, platform: ch, lang: 'th' })
-      });
-      const data = await res.json();
-      if (data.error) results.push({ channel: ch, error: data.error });
-      else results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
+        body: JSON.stringify({ productId, platform: ch, lang: 'th', captionOverride: override || undefined })
+      }, 'POST /api/distribute (' + (CHANNEL_LABELS[ch] || ch) + ')');
+      results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
     }catch(e){
       results.push({ channel: ch, error: e.message });
     }
@@ -623,9 +1037,7 @@ async function loadProductList(){
   btn.disabled = true; btn.textContent = 'กำลังโหลด...';
   bodyEl.innerHTML = '<div class="note">กำลังโหลด...</div>';
   try {
-    const res = await fetch(API + '/api/list-products');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const data = await apiCall('/api/list-products', undefined, 'GET /api/list-products');
     renderProductList(data.products || []);
   } catch(e) {
     bodyEl.innerHTML = '<div class="err" style="display:block;">โหลดรายการไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>';
@@ -664,13 +1076,11 @@ async function deleteProductRow(id){
   if (row) row.style.opacity = '0.5';
 
   try {
-    const res = await fetch(API + '/api/delete-product', {
+    await apiCall('/api/delete-product', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId: id, confirm: true })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    }, 'POST /api/delete-product (#' + id + ')');
     if (row) row.remove();
     const bodyEl = document.getElementById('productListBody');
     if (!bodyEl.querySelector('.pl-row')) bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
@@ -680,6 +1090,10 @@ async function deleteProductRow(id){
     if (delBtn) { delBtn.disabled = false; delBtn.textContent = 'ลบ'; }
   }
 }
+
+/* ---------- boot ---------- */
+renderTableGrid({});
+loadAiStatus();
 </script>
 </body>
 </html>
