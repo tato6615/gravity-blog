@@ -1,0 +1,654 @@
+git add admin.html
+git commit -m "add admin.html control panel"
+git push<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>GRAVITY_OS · AI Product Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1016; --panel:#171a22; --panel-2:#1e222c; --line:#2a2f3b;
+    --text:#e8eaf0; --text-dim:#8a90a0; --text-faint:#565c6c;
+    --amber:#e8a33d; --amber-dim:#6b5127; --teal:#4fd1c5; --red:#e2604f;
+    --radius:10px; font-size:16px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
+    min-height:100vh; padding:40px 20px 80px;
+    background-image:
+      radial-gradient(circle at 85% 8%, rgba(232,163,61,0.07), transparent 40%),
+      radial-gradient(circle at 10% 90%, rgba(79,209,197,0.05), transparent 40%);
+  }
+  .wrap{ max-width:640px; margin:0 auto; }
+
+  .crumb{ display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px; color:var(--text-faint); margin-bottom:18px; letter-spacing:0.02em; }
+  .crumb b{ color:var(--text-dim); font-weight:500; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:28px; margin-bottom:20px; }
+  .card h1{ font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; margin:0 0 4px; letter-spacing:-0.01em; }
+  .card h2{ font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin:0 0 14px; }
+  .card .sub{ color:var(--text-dim); font-size:13.5px; margin-bottom:20px; line-height:1.5; }
+
+  input[type=text]{ width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:7px; padding:12px 14px; font-size:14.5px; font-family:'Inter',sans-serif; margin-bottom:12px; }
+  input:focus{ outline:none; border-color:var(--amber); }
+
+  button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; border-radius:8px;
+    border:none; cursor:pointer; padding:13px 20px; transition:transform .1s, filter .15s; }
+  button:active{ transform:scale(0.98); }
+  .btn-primary{ background:var(--amber); color:#1a1206; width:100%; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-teal{ background:var(--teal); color:#062421; width:100%; }
+  .btn-teal:hover{ filter:brightness(1.08); }
+  .btn-teal:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--text-dim); font-weight:500; font-size:13px; padding:8px 14px; }
+
+  .steps{ list-style:none; margin:0; padding:0; }
+  .step{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .step:last-child{ border-bottom:none; }
+  .dot{ width:18px; height:18px; border-radius:50%; border:2px solid var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-faint); }
+  .step.done .dot{ background:var(--teal); border-color:var(--teal); color:#062421; }
+  .step.active .dot{ border-color:var(--amber); color:var(--amber); }
+  .step.error .dot{ border-color:var(--red); color:var(--red); }
+  .step.done .label{ color:var(--text); }
+  .step .label{ color:var(--text-dim); }
+
+  .fc-wrap{ margin-top:14px; border-top:1px solid var(--line); padding-top:14px; }
+  .fc-toggle{ background:transparent; border:1px solid var(--line); color:var(--text-dim); font-family:'IBM Plex Mono',monospace;
+    font-size:12px; padding:7px 12px; width:auto; }
+  .fc-progress{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-faint); margin-left:10px; }
+  .fc-groups{ margin-top:12px; }
+  .fc-group{ margin-bottom:14px; }
+  .fc-group-title{ font-family:'Space Grotesk',sans-serif; font-size:12.5px; font-weight:600; color:var(--text-dim);
+    display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .fc-group-count{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); font-weight:400; }
+  .fc-row{ display:flex; align-items:center; gap:9px; padding:6px 0 6px 4px; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .fc-row:last-child{ border-bottom:none; }
+  .fc-check{ width:15px; height:15px; border-radius:4px; border:1.5px solid var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:10px; color:transparent; }
+  .fc-row.done .fc-check{ background:var(--teal); border-color:var(--teal); color:#062421; }
+  .fc-row.done .fc-label{ color:var(--text); }
+  .fc-label{ color:var(--text-faint); }
+
+  .ch-picker{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .ch-chip{ display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:20px; padding:8px 14px; font-size:13px; color:var(--text-dim); cursor:pointer; user-select:none; }
+  .ch-chip input{ accent-color:var(--teal); width:14px; height:14px; margin:0; }
+  .ch-chip.checked{ border-color:var(--teal); color:var(--text); background:rgba(79,209,197,0.08); }
+
+  .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:20px; }
+  .tag.imported{ background:rgba(79,209,197,0.12); color:var(--teal); }
+  .tag.enriching{ background:rgba(232,163,61,0.12); color:var(--amber); }
+  .tag.enriched{ background:rgba(79,209,197,0.12); color:var(--teal); }
+  .tag.published{ background:rgba(79,209,197,0.2); color:var(--teal); }
+  .tag.error{ background:rgba(226,96,79,0.12); color:#f0b3a8; }
+
+  .err{ color:#f0b3a8; font-size:13px; margin-top:10px; display:none; white-space:pre-wrap; }
+  .note{ color:var(--text-faint); font-size:12.5px; margin-top:12px; text-align:center; }
+
+  .result-table{ margin-top:6px; }
+  .rt-row{ padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .rt-row:last-child{ border-bottom:none; }
+  .rt-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-bottom:3px; }
+  .rt-val{ color:var(--text-dim); white-space:pre-wrap; line-height:1.5; }
+
+  .hidden{ display:none !important; }
+
+  .pv-wrap{ margin-top:16px; border-top:1px solid var(--line); padding-top:16px; }
+  .pv-title-row{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:10px; }
+  .pv-card{ background:var(--panel-2); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-bottom:14px; }
+  .pv-caption{ padding:14px 14px 10px; font-size:13.5px; line-height:1.55; color:var(--text); white-space:pre-wrap; }
+  .pv-link{ display:block; }
+  .pv-img{ width:100%; display:block; aspect-ratio:1.91/1; object-fit:cover; background:var(--panel); }
+  .pv-linkfoot{ padding:9px 12px; background:#1b1e27; border-top:1px solid var(--line); }
+  .pv-domain{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.04em; color:var(--text-faint); text-transform:uppercase; }
+  .pv-linktitle{ font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:700; color:var(--text); margin-top:2px; }
+  .pv-checks{ padding:4px 2px 2px; }
+  .pv-check-row{ display:flex; align-items:flex-start; gap:8px; font-size:12.5px; padding:4px 0; color:var(--text-dim); }
+  .pv-check-row .ico{ flex-shrink:0; width:14px; font-weight:700; }
+  .pv-check-row.ok .ico{ color:var(--teal); }
+  .pv-check-row.warn .ico{ color:var(--amber); }
+
+  .pl-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .pl-row:last-child{ border-bottom:none; }
+  .pl-info{ min-width:0; flex:1; }
+  .pl-name{ font-size:13.5px; color:var(--text); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pl-meta{ font-size:11.5px; color:var(--text-faint); margin-top:3px; display:flex; align-items:center; gap:6px; }
+  .pl-del-btn{ background:transparent; border:1px solid var(--red); color:var(--red); font-weight:600; font-size:12px; padding:7px 12px; flex-shrink:0; }
+  .pl-del-btn:hover{ background:rgba(226,96,79,0.1); }
+  .pl-del-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
+
+  <!-- STEP A: Import -->
+  <div class="card" id="importCard">
+    <h1>Import Product</h1>
+    <div class="sub">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
+    <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
+    <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
+    <div class="err" id="importErr"></div>
+  </div>
+
+  <!-- STEP B: Generate Everything -->
+  <div class="card hidden" id="generateCard">
+    <h2>Generate Everything <span class="tag" id="statusTag" style="margin-left:8px;"></span></h2>
+    <div class="sub">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
+    <ul class="steps" id="stepsList"></ul>
+
+    <div class="fc-wrap">
+      <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
+      <div class="fc-groups hidden" id="fcGroups"></div>
+    </div>
+
+    <div style="height:16px"></div>
+    <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
+    <div class="err" id="generateErr"></div>
+  </div>
+
+  <!-- STEP C: Publish -->
+  <div class="card hidden" id="publishCard">
+    <h2>Publish</h2>
+    <div class="sub">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่เผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
+    <div class="ch-picker" id="chPicker"></div>
+    <div class="pv-wrap hidden" id="pvWrap"></div>
+    <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
+    <div class="err" id="publishErr"></div>
+  </div>
+
+  <!-- Result summary -->
+  <div class="card hidden" id="resultCard">
+    <h2>สรุปข้อมูลที่บันทึกแล้ว</h2>
+    <div class="result-table" id="resultTable"></div>
+  </div>
+
+  <div class="note">Import → Generate Everything → Publish · ทุกอย่างที่เหลือ AI ทำ</div>
+
+  <!-- Product List / Manage -->
+  <div class="fc-wrap" style="border-top:none; margin-top:24px; padding-top:0;">
+    <button class="fc-toggle" id="plToggle" onclick="toggleProductList()" style="width:100%;">▸ จัดการสินค้าทั้งหมด</button>
+  </div>
+  <div class="card hidden" id="productListCard" style="margin-top:14px;">
+    <h2>รายการสินค้าทั้งหมด</h2>
+    <div class="sub">ดูสินค้าทุกชิ้นที่เคย Import ไว้ พร้อมสถานะ — ลบทิ้งได้ถ้าไม่ต้องการแล้ว (ลบแล้วกู้คืนไม่ได้ ข้อมูลทุก table ของสินค้านั้นจะหายไปด้วย)</div>
+    <button class="btn-ghost" id="productListRefreshBtn" onclick="loadProductList()" style="width:100%; margin-bottom:14px;">รีเฟรชรายการ</button>
+    <div id="productListBody"><div class="note">กด "รีเฟรชรายการ" เพื่อโหลดข้อมูล</div></div>
+  </div>
+</div>
+
+<script>
+const API = 'https://af.pakpiromjajaja.workers.dev'; // backend Worker lives on a different subdomain than this static page
+let productId = null;
+let pipelineSteps = [];
+let latestStages = {};
+let latestProduct = null;
+
+function showErr(id, msg){ const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
+function hideErr(id){ document.getElementById(id).style.display = 'none'; }
+
+async function doImport(){
+  const btn = document.getElementById('importBtn');
+  const val = document.getElementById('in').value.trim();
+  hideErr('importErr');
+  if(!val){ showErr('importErr', 'ใส่ลิงก์หรือรายละเอียดก่อนครับ'); return; }
+  btn.disabled = true; btn.textContent = 'กำลังนำเข้า...';
+  try{
+    const res = await fetch(API + '/api/import', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ input: val })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    productId = data.productId;
+    document.getElementById('generateCard').classList.remove('hidden');
+    updateStatusTag(data.pipeline.status);
+    renderFieldChecklist({});
+    await refreshStatus();
+  }catch(e){
+    showErr('importErr', e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Import';
+  }
+}
+
+function updateStatusTag(status){
+  const tag = document.getElementById('statusTag');
+  tag.className = 'tag ' + status;
+  tag.textContent = status.toUpperCase();
+}
+
+function renderSteps(steps){
+  pipelineSteps = steps;
+  const list = document.getElementById('stepsList');
+  list.innerHTML = steps.map((s, i) => {
+    let cls = 'step';
+    if (s.done) cls += ' done';
+    return '<li class="' + cls + '"><span class="dot">' + (s.done ? '✓' : (i+1)) + '</span><span class="label">' + s.label + '</span></li>';
+  }).join('');
+}
+
+const CHANNEL_OPTIONS = [
+  ['facebook','Facebook'], ['instagram','Instagram'], ['threads','Threads'], ['x','X'], ['pinterest','Pinterest'],
+  ['youtube','YouTube'], ['shorts','Shorts/TikTok'], ['website','Website/Blog']
+];
+// Only these are actually wired to a real /api/distribute call (see
+// postToFacebookPage/postToInstagram/postToThreads/postToX/postToPinterest
+// in worker.js, plus the no-API "website" branch). youtube/shorts require a
+// full video upload + OAuth2 flow that doesn't exist yet — ticking those
+// boxes and hitting Publish records the intent as a tag only, it can never
+// actually post, so the UI says so explicitly instead of staying silent.
+const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest', 'website']);
+const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
+let selectedChannels = new Set();
+let chPickerRendered = false;
+
+function renderChannelPicker(){
+  const el = document.getElementById('chPicker');
+  el.innerHTML = CHANNEL_OPTIONS.map(([key, label]) => {
+    return '<label class="ch-chip" id="chip_' + key + '">' +
+      '<input type="checkbox" onchange="toggleChannel(\'' + key + '\')"> ' + label + '</label>';
+  }).join('');
+  chPickerRendered = true;
+}
+
+function toggleChannel(key){
+  if (selectedChannels.has(key)) selectedChannels.delete(key); else selectedChannels.add(key);
+  const chip = document.getElementById('chip_' + key);
+  chip.classList.toggle('checked', selectedChannels.has(key));
+  renderPrePublishPreview();
+}
+
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const CHANNEL_POST_FIELD = {
+  facebook: 'facebook_post', instagram: 'facebook_post',
+  threads: 'threads_post', x: 'x_post', pinterest: 'pinterest_post'
+};
+const PREVIEWABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest']);
+
+function renderPrePublishPreview(){
+  const wrap = document.getElementById('pvWrap');
+  if (!wrap) return;
+  const previewable = Array.from(selectedChannels).filter(c => PREVIEWABLE_CHANNELS.has(c));
+  if (!previewable.length){ wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+
+  const content = (latestStages.CONTENT && latestStages.CONTENT.th) || {};
+  const social = (latestStages.SOCIAL && latestStages.SOCIAL.th) || {};
+  const product = latestProduct || {};
+
+  const imageUrl = product.image_url || product.imageUrl || product.image || '';
+  const rating = product.rating || product.review_score || product.rating_score || null;
+  const GRAVITY_BLOG_BASE_URL = 'https://gravity-blog.pages.dev';
+  const blogLink = content.slug ? (GRAVITY_BLOG_BASE_URL + '/product/' + encodeURIComponent(content.slug)) : '';
+  let domain = '';
+  if (blogLink) { try{ domain = new URL(blogLink).hostname; }catch(e){} }
+  if (!domain) domain = 'ยังไม่มีลิงก์ (ต้องมี slug ก่อน)';
+  const linkTitle = content.seo_title || product.title || product.name || 'ไม่มีชื่อ SEO';
+  const rehosted = /githubusercontent\.com|github\.io/.test(imageUrl);
+
+  const checks = [
+    { ok: !!imageUrl, label: imageUrl ? 'มีรูปสินค้า (image_url)' : 'ยังไม่มีรูปสินค้า (image_url)' },
+    { ok: rehosted, label: rehosted ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)' : 'รูปยังไม่ได้ re-host ไป GitHub' },
+    { ok: !!rating, label: rating ? ('มีคะแนนรีวิว (' + rating + ' ดาว)') : 'ยังไม่มีคะแนนรีวิว' },
+    { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
+    { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
+  ];
+  const checksHtml = checks.map(c =>
+    '<div class="pv-check-row ' + (c.ok ? 'ok' : 'warn') + '"><span class="ico">' + (c.ok ? '✓' : '!') + '</span><span>' + c.label + '</span></div>'
+  ).join('');
+
+  const cardsHtml = previewable.map(ch => {
+    const field = CHANNEL_POST_FIELD[ch];
+    const caption = field ? (social[field] || '') : '';
+    const label = (CHANNEL_LABELS[ch] || ch).toUpperCase();
+    const linkInner =
+        (imageUrl ? '<img class="pv-img" src="' + imageUrl + '" alt="" onerror="this.remove()">' : '') +
+        '<div class="pv-linkfoot"><div class="pv-domain">' + escapeHtml(domain) + '</div>' +
+        '<div class="pv-linktitle">' + escapeHtml(linkTitle) + '</div></div>';
+    const linkBlock = (imageUrl || linkTitle) ?
+      (blogLink
+        ? '<a class="pv-link" href="' + escapeHtml(blogLink) + '" target="_blank" rel="noopener">' + linkInner + '</a>'
+        : '<div class="pv-link">' + linkInner + '</div>')
+      : '';
+    return '<div class="pv-title-row">👁 ตัวอย่างก่อนโพสต์ขึ้น ' + label + '</div>' +
+      '<div class="pv-card">' +
+        (caption ? '<div class="pv-caption">' + escapeHtml(caption) + '</div>' : '') +
+        linkBlock +
+      '</div>';
+  }).join('');
+
+  wrap.innerHTML = cardsHtml + '<div class="pv-checks">' + checksHtml + '</div>';
+  wrap.classList.remove('hidden');
+}
+
+async function refreshStatus(){
+  const res = await fetch(API + '/api/status?productId=' + productId);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  updateStatusTag(data.pipeline.status);
+  renderSteps(data.pipeline.steps);
+  renderFieldChecklist(data.stages);
+  latestStages = data.stages || {};
+  latestProduct = data.product || data.item || data.productData || null;
+  if (data.pipeline.status === 'enriched' || data.pipeline.status === 'published') {
+    document.getElementById('publishCard').classList.remove('hidden');
+    if (!chPickerRendered) renderChannelPicker();
+    renderPrePublishPreview();
+  }
+  if (data.pipeline.status === 'published') {
+    renderResults(data.stages);
+    document.getElementById('resultCard').classList.remove('hidden');
+  }
+  return data;
+}
+
+async function runGenerateAll(){
+  const btn = document.getElementById('generateBtn');
+  hideErr('generateErr');
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  updateStatusTag('enriching');
+  try{
+    let done = false;
+    while(!done){
+      const res = await fetch(API + '/api/enrich', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error);
+      done = data.done;
+      if (data.step) {
+        btn.textContent = 'กำลังสร้าง: ' + data.step.label + '...';
+      }
+      await refreshStatus();
+    }
+    btn.textContent = 'เสร็จแล้ว ✓';
+  }catch(e){
+    showErr('generateErr', e.message + ' — กด Generate Everything อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
+    btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function doPublish(){
+  const btn = document.getElementById('publishBtn');
+  hideErr('publishErr');
+  const channels = Array.from(selectedChannels);
+  btn.disabled = true; btn.textContent = 'กำลัง Publish...';
+  try{
+    let done = false;
+    let lastSync = null;
+    while(!done){
+      const res = await fetch(API + '/api/publish', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId, channels })
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error);
+      done = data.done;
+      lastSync = data.sync || lastSync;
+      updateStatusTag('published');
+      if (data.step) {
+        btn.textContent = 'กำลัง Publish: ' + data.step.label + '...';
+      }
+      if (lastSync) renderSyncSummary(lastSync);
+    }
+    await refreshStatus();
+
+    btn.textContent = 'กำลังโพสต์ไปแต่ละช่องทาง...';
+    await distributeToChannels(channels);
+
+    btn.textContent = 'Published ✓';
+  }catch(e){
+    showErr('publishErr', e.message + ' — กด Publish อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
+    btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
+    btn.disabled = false;
+  }
+}
+
+async function distributeToChannels(channels){
+  const results = [];
+  for (const ch of channels) {
+    if (!DISTRIBUTABLE_CHANNELS.has(ch)) {
+      results.push({ channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องอัปโหลดวิดีโอผ่าน OAuth2 ซึ่งยังไม่ได้พัฒนา)' });
+      renderDistributeResults(results);
+      continue;
+    }
+    try{
+      const res = await fetch(API + '/api/distribute', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ productId, platform: ch, lang: 'th' })
+      });
+      const data = await res.json();
+      if (data.error) results.push({ channel: ch, error: data.error });
+      else results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
+    }catch(e){
+      results.push({ channel: ch, error: e.message });
+    }
+    renderDistributeResults(results);
+  }
+  return results;
+}
+
+function renderDistributeResults(results){
+  const rows = results.map(r => {
+    const label = CHANNEL_LABELS[r.channel] || r.channel;
+    let val;
+    if (r.skipped) val = 'ข้าม — ' + r.reason;
+    else if (r.error) val = '❌ ' + r.error;
+    else val = '✓ โพสต์สำเร็จ' + (r.link ? ' — <a href="' + r.link + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '');
+    return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
+  }).join('');
+  let el = document.getElementById('distributeResults');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'distributeResults';
+    el.className = 'result-table';
+    el.style.marginTop = '16px';
+    el.style.borderTop = '1px solid var(--line)';
+    el.style.paddingTop = '14px';
+    const card = document.getElementById('publishCard');
+    card.appendChild(el);
+  }
+  el.innerHTML = '<div class="fc-group-title" style="margin-bottom:8px;">ผลการเผยแพร่แต่ละช่องทาง</div>' + rows;
+}
+
+const FIELD_SCHEMA = [
+  { table: 'AI_ANALYSIS', tableLabel: 'AI Analysis', fields: [
+    ['summary','Product Summary'], ['brand','Brand'], ['category','Category'],
+    ['specifications','Specifications'], ['features','Features'], ['pros','Pros'],
+    ['cons','Cons'], ['target_audience','Target Audience'], ['estimated_commission','Estimated Commission']
+  ]},
+  { table: 'KEYWORDS', tableLabel: 'Keywords', fields: [
+    ['keywords','Keywords (100-300)'], ['search_intent','Search Intent'], ['long_tail','Long Tail'],
+    ['comparison_keywords','Comparison Keywords'], ['problem_keywords','Problem Keywords'],
+    ['best_keywords','Best Keywords'], ['review_keywords','Review Keywords'], ['price_keywords','Price Keywords'],
+    ['alternative_keywords','Alternative Keywords'], ['faq_keywords','FAQ Keywords']
+  ]},
+  { table: 'CONTENT', tableLabel: 'Content (TH)', langKey: 'th', fields: [
+    ['faq','FAQ'], ['comparison','Comparison'], ['alternatives','Alternatives'],
+    ['review','Review'], ['buying_guide','Buying Guide'], ['seo_title','SEO Title'],
+    ['meta_description','Meta Description'], ['slug','Slug'], ['tags','Tags'],
+    ['blog_outline','Blog Outline'], ['blog_draft','Blog Draft']
+  ]},
+  { table: 'SOCIAL', tableLabel: 'Social (TH)', langKey: 'th', fields: [
+    ['facebook_post','Facebook Post'], ['threads_post','Threads Post'], ['x_post','X Post'],
+    ['pinterest_post','Pinterest Post'], ['youtube_script','YouTube Script'], ['shorts_script','Shorts Script'],
+    ['cta','CTA'], ['affiliate_cta','Affiliate CTA']
+  ]},
+  { table: 'AI_MEDIA', tableLabel: 'AI Media', fields: [
+    ['image_prompt','Image Prompt'], ['thumbnail_prompt','Thumbnail Prompt']
+  ]},
+  { table: 'AI_PUBLISH', tableLabel: 'AI Publish', fields: [
+    ['status','Status'], ['published_at','Published At'], ['channels','Channels']
+  ]},
+  { table: 'AI_ANALYTICS', tableLabel: 'AI Analytics', fields: [
+    ['views','Views'], ['clicks','Clicks'], ['conversions','Conversions'], ['last_updated','Last Updated']
+  ]}
+];
+
+let fcExpanded = false;
+function toggleFieldChecklist(){
+  fcExpanded = !fcExpanded;
+  document.getElementById('fcGroups').classList.toggle('hidden', !fcExpanded);
+  document.getElementById('fcToggle').textContent = (fcExpanded ? '▾' : '▸') + ' รายละเอียดฟิลด์';
+}
+
+function renderFieldChecklist(stages){
+  stages = stages || {};
+  let doneCount = 0, totalCount = 0;
+  const groupsHtml = FIELD_SCHEMA.map(group => {
+    const tableData = stages[group.table] || null;
+    const row = group.langKey ? (tableData && tableData[group.langKey]) : tableData;
+    const rowsHtml = group.fields.map(([key, label]) => {
+      totalCount++;
+      const isDone = !!(row && row[key] !== undefined && row[key] !== null && row[key] !== '');
+      if (isDone) doneCount++;
+      return '<div class="fc-row' + (isDone ? ' done' : '') + '">' +
+        '<span class="fc-check">' + (isDone ? '✓' : '') + '</span>' +
+        '<span class="fc-label">' + label + '</span></div>';
+    }).join('');
+    const groupDone = group.fields.filter(([key]) => row && row[key]).length;
+    return '<div class="fc-group">' +
+      '<div class="fc-group-title">' + group.tableLabel +
+      '<span class="fc-group-count">' + groupDone + '/' + group.fields.length + '</span></div>' +
+      rowsHtml + '</div>';
+  }).join('');
+  document.getElementById('fcGroups').innerHTML = groupsHtml;
+  document.getElementById('fcProgress').textContent = doneCount + ' / ' + totalCount + ' ฟิลด์เสร็จแล้ว';
+}
+
+const STAGE_LABELS = {
+  'AI_ANALYSIS': 'AI Analysis', 'KEYWORDS': 'Keywords', 'CONTENT': 'Content',
+  'SOCIAL': 'Social', 'AI_MEDIA': 'Media', 'AI_PUBLISH': 'Publish', 'AI_ANALYTICS': 'Analytics'
+};
+
+function renderResults(stages){
+  const el = document.getElementById('resultTable');
+  el.innerHTML = Object.entries(stages).map(([tableId, fields]) => {
+    if (!fields) return '';
+    return '<div class="rt-row"><div class="rt-label">' + (STAGE_LABELS[tableId] || tableId) + '</div>' +
+      '<div class="rt-val">บันทึกแล้ว ✓</div></div>';
+  }).join('');
+}
+
+const LEGACY_SYNC_LABELS = {
+  keywords: '09_KEYWORDS', content: '04_CONTENT_ENGINE', affiliate: '08_AFFILIATE_SYSTEM',
+  brand: '02_BRANDS', project: '01_PROJECTS', assets: '12_ASSETS',
+  knowledge_base: '10_KNOWLEDGE_BASE', tasks: '11_TASKS', traffic: '05_TRAFFIC_OS',
+  relations: '14_RELATION_MAP'
+};
+
+function renderSyncSummary(sync){
+  const el = document.getElementById('resultTable');
+  const rows = Object.entries(LEGACY_SYNC_LABELS).map(([key, label]) => {
+    const r = sync[key];
+    let val;
+    if (!r) val = 'ไม่มีข้อมูล';
+    else if (r.skipped) val = 'ข้าม (' + (r.reason || 'ไม่พบตาราง') + ')';
+    else if (r.created !== undefined && typeof r.created === 'number') val = 'บันทึก ' + r.created + ' แถว ✓';
+    else if (r.created || r.updated) val = 'บันทึกแล้ว ✓';
+    else val = 'บันทึกแล้ว ✓';
+    return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
+  });
+  if (sync.errors && sync.errors.length) {
+    rows.push('<div class="rt-row"><div class="rt-label">Sync Errors</div><div class="rt-val">' + sync.errors.join('\n') + '</div></div>');
+  }
+  el.innerHTML = rows.join('');
+  document.getElementById('resultCard').classList.remove('hidden');
+}
+
+let plExpanded = false;
+let productListLoadedOnce = false;
+
+function toggleProductList(){
+  plExpanded = !plExpanded;
+  document.getElementById('productListCard').classList.toggle('hidden', !plExpanded);
+  document.getElementById('plToggle').textContent = (plExpanded ? '▾' : '▸') + ' จัดการสินค้าทั้งหมด';
+  if (plExpanded && !productListLoadedOnce) {
+    productListLoadedOnce = true;
+    loadProductList();
+  }
+}
+
+const PL_STATUS_LABELS = {
+  imported: 'IMPORTED', enriching: 'ENRICHING', enriched: 'ENRICHED',
+  error: 'ERROR', published: 'PUBLISHED'
+};
+
+async function loadProductList(){
+  const btn = document.getElementById('productListRefreshBtn');
+  const bodyEl = document.getElementById('productListBody');
+  btn.disabled = true; btn.textContent = 'กำลังโหลด...';
+  bodyEl.innerHTML = '<div class="note">กำลังโหลด...</div>';
+  try {
+    const res = await fetch(API + '/api/list-products');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderProductList(data.products || []);
+  } catch(e) {
+    bodyEl.innerHTML = '<div class="err" style="display:block;">โหลดรายการไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = 'รีเฟรชรายการ';
+  }
+}
+
+function renderProductList(products){
+  const bodyEl = document.getElementById('productListBody');
+  if (!products.length) {
+    bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
+    return;
+  }
+  bodyEl.innerHTML = products.map(p => {
+    const statusKey = p.pipeline_status || 'imported';
+    const statusLabel = PL_STATUS_LABELS[statusKey] || statusKey.toUpperCase();
+    return '<div class="pl-row" id="plrow_' + p.id + '">' +
+      '<div class="pl-info">' +
+        '<div class="pl-name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="pl-meta"><span class="tag ' + statusKey + '">' + statusLabel + '</span><span>#' + p.id + '</span></div>' +
+      '</div>' +
+      '<button class="pl-del-btn" onclick="deleteProductRow(' + p.id + ')">ลบ</button>' +
+    '</div>';
+  }).join('');
+  window._plProducts = Object.fromEntries(products.map(p => [p.id, p.name]));
+}
+
+async function deleteProductRow(id){
+  const name = (window._plProducts && window._plProducts[id]) || ('#' + id);
+  if (!confirm('ลบ "' + name + '" ทิ้งถาวร?\n\nข้อมูลทุกอย่างของสินค้านี้ (คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, สถิติ ฯลฯ) จะถูกลบไปด้วย และกู้คืนไม่ได้')) return;
+
+  const row = document.getElementById('plrow_' + id);
+  const delBtn = row ? row.querySelector('.pl-del-btn') : null;
+  if (delBtn) { delBtn.disabled = true; delBtn.textContent = 'กำลังลบ...'; }
+  if (row) row.style.opacity = '0.5';
+
+  try {
+    const res = await fetch(API + '/api/delete-product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: id, confirm: true })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (row) row.remove();
+    const bodyEl = document.getElementById('productListBody');
+    if (!bodyEl.querySelector('.pl-row')) bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
+  } catch(e) {
+    alert('ลบไม่สำเร็จ: ' + e.message);
+    if (row) row.style.opacity = '1';
+    if (delBtn) { delBtn.disabled = false; delBtn.textContent = 'ลบ'; }
+  }
+}
+</script>
+</body>
+</html>
