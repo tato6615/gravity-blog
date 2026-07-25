@@ -110,7 +110,7 @@
   .pv-domain{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.04em; color:var(--text-faint); text-transform:uppercase; }
   .pv-linktitle{ font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:700; color:var(--text); margin-top:2px; }
   .pv-checks{ padding:4px 2px 2px; }
-  .pv-check-row{ display:flex; align-items:flex-start; gap:8px; font-size:12.5px; padding:4px 0; color:var(--text-dim); }
+  .pv-check-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; padding:4px 0; color:var(--text-dim); }
   .pv-check-row .ico{ flex-shrink:0; width:14px; font-weight:700; }
   .pv-check-row.ok .ico{ color:var(--teal); }
   .pv-check-row.warn .ico{ color:var(--amber); }
@@ -297,13 +297,16 @@ function renderPrePublishPreview(){
 
   const checks = [
     { ok: !!imageUrl, label: imageUrl ? 'มีรูปสินค้า (image_url)' : 'ยังไม่มีรูปสินค้า (image_url)' },
-    { ok: rehosted, label: rehosted ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)' : 'รูปยังไม่ได้ re-host ไป GitHub' },
+    { ok: rehosted, label: rehosted ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)' : 'รูปยังไม่ได้ re-host ไป GitHub', id: 'rehostCheck', retry: !rehosted },
     { ok: !!rating, label: rating ? ('มีคะแนนรีวิว (' + rating + ' ดาว)') : 'ยังไม่มีคะแนนรีวิว' },
     { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
     { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
   ];
   const checksHtml = checks.map(c =>
-    '<div class="pv-check-row ' + (c.ok ? 'ok' : 'warn') + '"><span class="ico">' + (c.ok ? '✓' : '!') + '</span><span>' + c.label + '</span></div>'
+    '<div class="pv-check-row ' + (c.ok ? 'ok' : 'warn') + '"' + (c.id ? ' id="' + c.id + '"' : '') + '>' +
+      '<span class="ico">' + (c.ok ? '✓' : '!') + '</span><span>' + c.label + '</span>' +
+      (c.retry ? '<button class="btn-ghost" id="retryRehostBtn" onclick="retryRehostImage()" style="margin-left:auto; flex-shrink:0; padding:5px 10px; font-size:12px;">ลองรี-โฮสต์อีกครั้ง</button>' : '') +
+    '</div>'
   ).join('');
 
   const cardsHtml = previewable.map(ch => {
@@ -328,6 +331,36 @@ function renderPrePublishPreview(){
 
   wrap.innerHTML = cardsHtml + '<div class="pv-checks">' + checksHtml + '</div>';
   wrap.classList.remove('hidden');
+}
+
+async function retryRehostImage(){
+  const btn = document.getElementById('retryRehostBtn');
+  const row = document.getElementById('rehostCheck');
+  if (!btn) return;
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'กำลังลอง...';
+  try{
+    const res = await fetch(API + '/api/retry-image', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.ok) throw new Error(data.reason || 'รี-โฮสต์ไม่สำเร็จ ลองใหม่อีกครั้งภายหลัง');
+    await refreshStatus();
+  }catch(e){
+    if (row) {
+      let errEl = document.getElementById('rehostRetryErr');
+      if (!errEl) {
+        errEl = document.createElement('div');
+        errEl.id = 'rehostRetryErr';
+        errEl.className = 'err';
+        errEl.style.cssText = 'display:block; margin-top:4px; width:100%;';
+        row.appendChild(errEl);
+      }
+      errEl.textContent = e.message;
+    }
+    btn.disabled = false; btn.textContent = originalLabel;
+  }
 }
 
 async function refreshStatus(){
