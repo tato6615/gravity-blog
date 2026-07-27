@@ -19,6 +19,21 @@ const SITE_URL = 'https://gravity-blog.pages.dev';
 // with a real hosted image (e.g. a logo/banner) once you have one.
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
 
+// Google Analytics 4 measurement ID for this site. Loaded on every page
+// via renderPage() below (single source of truth — don't add a second
+// gtag snippet anywhere else, Google's own setup instructions warn
+// against more than one Google tag per page).
+const GA_MEASUREMENT_ID = 'G-N741DJSSQT';
+
+const GA_SNIPPET = `<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${GA_MEASUREMENT_ID}');
+</script>`;
+
 export const TOKENS = {
   bg: '#F5F6F3',
   surface: '#FFFFFF',
@@ -313,6 +328,7 @@ export function renderPage({
   return `<!DOCTYPE html>
 <html lang="${t.htmlLang}">
 <head>
+${GA_SNIPPET}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
