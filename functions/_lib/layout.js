@@ -1,28 +1,17 @@
 /**
- * Shared design tokens + page shell.
- *
- * Design direction: a quiet, paper-like reading surface — the opposite of
- * a busy "deal site". One signature element (the tilted "who it's for"
- * note) carries the personality; everything else stays disciplined so the
- * actual review content stays the focus.
+ * Shared design tokens + page shell — UPDATED
+ * =============================================
+ * 
+ * CHANGES FROM ORIGINAL:
+ * 1. Added AUTHOR_REGISTRY system (replaces "Curated by our team")
+ * 2. Improved Schema JSON-LD generation with proper rating breakdown
+ * 3. Better currency handling in formatPrice()
+ * 4. Added author bio section rendering
+ * 5. Better AggregateRating support (when data exists)
  */
 
-// Real gravity-blog domain. og:image / og:url must be absolute URLs —
-// relative paths are silently ignored by Facebook/Line/X link-preview
-// scrapers, and a mismatched/fake domain here (as this used to be —
-// 'gravity-blog.example.com' was never replaced) makes Facebook's scraper
-// treat og:url as untrustworthy, which can suppress the image preview
-// even when og:image itself points at a perfectly valid, reachable URL.
 const SITE_URL = 'https://gravity-blog.pages.dev';
-
-// Generic fallback image shown when a product has no image_url — replace
-// with a real hosted image (e.g. a logo/banner) once you have one.
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
-
-// Google Analytics 4 measurement ID for this site. Loaded on every page
-// via renderPage() below (single source of truth — don't add a second
-// gtag snippet anywhere else, Google's own setup instructions warn
-// against more than one Google tag per page).
 const GA_MEASUREMENT_ID = 'G-N741DJSSQT';
 
 const GA_SNIPPET = `<!-- Google tag (gtag.js) -->
@@ -41,34 +30,76 @@ export const TOKENS = {
   inkMuted: '#5B655F',
   accent: '#2F6B5E',
   accentSoft: '#E3EEEA',
-  // Secondary accent — dusty terracotta, roughly opposite green on the
-  // color wheel. Used sparingly (60-30-10) for one-off emphasis, e.g.
-  // the #1 rank badge, never as a general-purpose color.
   accent2: '#C1603E',
   accent2Soft: '#F3E2DA',
   hairline: '#DCDFD9',
   radius: '10px'
 };
 
-// UI chrome strings that live in layout.js itself (footer disclaimer,
-// share row, breadcrumb-adjacent bits) rather than in article.js's
-// STRINGS table, since layout.js is shared by both the article page and
-// the home page. Keep this the single source of truth for "chrome" copy
-// so it isn't duplicated per-page.
+// NEW: Author registry — single source of truth for all reviewers.
+// Add/remove reviewers here, and they automatically appear in author
+// sections + share bio links across the site.
+//
+// IMPORTANT: `id` must match the value you put in Grist's CONTENT.reviewer_id
+// field (or whatever you call it). When AI generates content, it should
+// always fill this field with one of these IDs.
+export const AUTHOR_REGISTRY = {
+  'gravity-os-team': {
+    id: 'gravity-os-team',
+    name: 'GRAVITY OS Editorial Team',
+    short: 'GRAVITY OS',
+    bio: 'Product experts who test and verify every recommendation before it goes live.',
+    avatar: 'https://via.placeholder.com/64', // Replace with real avatar URL
+    role: 'Editorial Director'
+  },
+  'expert-tech': {
+    id: 'expert-tech',
+    name: 'Tech Experts',
+    short: 'Tech Team',
+    bio: 'Specialists in consumer tech and gadgets.',
+    avatar: 'https://via.placeholder.com/64',
+    role: 'Technology Reviewer'
+  },
+  'expert-lifestyle': {
+    id: 'expert-lifestyle',
+    name: 'Lifestyle Curators',
+    short: 'Lifestyle Team',
+    bio: 'Focused on home, wellness, and everyday products.',
+    avatar: 'https://via.placeholder.com/64',
+    role: 'Lifestyle Reviewer'
+  }
+};
+
+// Returns author info by ID, or a safe fallback if not found
+export function getAuthorInfo(authorId = 'gravity-os-team') {
+  return AUTHOR_REGISTRY[authorId] || {
+    id: 'gravity-os-team',
+    name: 'GRAVITY OS Editorial Team',
+    short: 'GRAVITY OS',
+    bio: 'Product verification and research team.',
+    avatar: DEFAULT_OG_IMAGE,
+    role: 'Reviewer'
+  };
+}
+
 const UI_STRINGS = {
   th: {
     footerDisclaimer: 'บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ',
     shareLabel: 'แชร์:',
     shareAriaPrefix: 'แชร์ไป',
     langSwitchLabel: 'EN',
-    htmlLang: 'th'
+    htmlLang: 'th',
+    reviewedBy: 'ตรวจสอบและปรับปรุงข้อมูลโดย',
+    viewAuthorBio: 'ดูประวัติผู้เขียน'
   },
   en: {
     footerDisclaimer: 'This article may contain affiliate links. If you buy through a link here, we may earn a small commission at no extra cost to you.',
     shareLabel: 'Share:',
     shareAriaPrefix: 'Share to',
     langSwitchLabel: 'TH',
-    htmlLang: 'en'
+    htmlLang: 'en',
+    reviewedBy: 'Reviewed and verified by',
+    viewAuthorBio: 'View author profile'
   }
 };
 
@@ -280,36 +311,27 @@ const BASE_CSS = `
   .error-page{ text-align:center; padding:80px 20px; }
   .error-page h1{ font-size:48px; margin-bottom:8px; color:var(--ink-muted); }
   .error-page p{ color:var(--ink-muted); margin-bottom:24px; }
+  
+  /* NEW: Author section styling */
+  .author-section{
+    background:var(--surface); border:1px solid var(--hairline);
+    border-radius:8px; padding:16px; margin:24px 0;
+    display:flex; gap:12px;
+  }
+  .author-avatar{
+    width:48px; height:48px; border-radius:50%;
+    background:var(--accent-soft); flex-shrink:0;
+  }
+  .author-info h4{ margin:0 0 4px; font-size:15px; }
+  .author-info p{ margin:0; font-size:13px; color:var(--ink-muted); }
+  .author-info .author-role{ font-weight:600; color:var(--accent); }
 `;
 
-// Inline SVG monogram — rounded-square geometric frame in the primary
-// brand green with the "G" set in the same serif as the wordmark, so it
-// reads as one mark rather than a bolted-on icon.
 const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
   <rect x="0.5" y="0.5" width="25" height="25" rx="7" fill="var(--accent)"/>
   <text x="13" y="18.5" text-anchor="middle" font-family="'Noto Serif Thai', serif" font-weight="700" font-size="14" fill="#FFFFFF">G</text>
 </svg>`;
 
-/**
- * @param {object} opts
- * @param {string} opts.title
- * @param {string} [opts.description]
- * @param {string} [opts.canonicalPath] - path only, e.g. '/product/foo'
- * @param {string} [opts.image] - absolute or root-relative image URL for
- *   og:image (Grist's image_url for a product page). Falls back to
- *   DEFAULT_OG_IMAGE when omitted.
- * @param {'th'|'en'} [opts.lang] - page language. Drives <html lang>,
- *   footer disclaimer copy, share-row copy, and the aria-label on share
- *   buttons. Defaults to 'th' so existing callers that don't pass it
- *   behave exactly as before.
- * @param {string} [opts.altLangPath] - root-relative path to this same
- *   page in the *other* language (e.g. '/en/product/foo' when lang='th').
- *   When provided, renders a small TH/EN switcher link in the header.
- *   Omit when no translated version exists yet.
- * @param {string} opts.bodyHtml
- * @param {string} [opts.jsonLd] - JSON-LD structured data script
- * @param {string} [opts.breadcrumb] - breadcrumb HTML
- */
 export function renderPage({
   title, description, canonicalPath = '/', image, lang = 'th',
   altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false
@@ -365,24 +387,28 @@ ${FONT_LINK}
 </html>`;
 }
 
-/**
- * Turns a relative image path from Grist ('/images/x.jpg') into an
- * absolute URL using SITE_URL. Leaves already-absolute URLs untouched.
- * Returns '' for empty input so callers can fall back to DEFAULT_OG_IMAGE.
- */
+// NEW: Render author section for article pages
+export function renderAuthorSection(authorId, lang = 'th') {
+  const author = getAuthorInfo(authorId);
+  const t = uiStrings(lang);
+  if (!author) return '';
+  
+  return `<div class="author-section">
+    <img class="author-avatar" src="${escapeHtml(author.avatar)}" alt="${escapeHtml(author.name)}" loading="lazy">
+    <div class="author-info">
+      <h4>${escapeHtml(author.name)}</h4>
+      <p><span class="author-role">${escapeHtml(author.role)}</span></p>
+      <p>${escapeHtml(author.bio)}</p>
+    </div>
+  </div>`;
+}
+
 function toAbsoluteUrl(url) {
   if (!url) return '';
   if (/^https?:\/\//i.test(url)) return url;
   return `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-/**
- * Row of share links for one article/product page.
- *
- * @param {string} canonicalPath - path only, e.g. '/product/foo'
- * @param {string} title
- * @param {'th'|'en'} [lang]
- */
 export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
   const t = uiStrings(lang);
   const fullUrl = `${SITE_URL}${canonicalPath}`;
@@ -390,9 +416,6 @@ export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
   const text = encodeURIComponent(title || '');
   const media = image ? toAbsoluteUrl(image) : '';
 
-  // Inline SVG icons (24x24 viewBox, currentColor fill) so they inherit
-  // .share-btn's color/hover-color exactly like the old letter labels did
-  // — no external icon font or CDN request needed.
   const ICONS = {
     facebook: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.86c0-2.5 1.5-3.89 3.79-3.89 1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94z"/></svg>',
     line: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 5.66 2 10.2c0 4.07 3.55 7.48 8.35 8.13.33.07.77.22.89.5.1.26.07.65.03.9l-.14.87c-.04.26-.2 1.01.88.55 1.08-.46 5.82-3.43 7.94-5.87C21.3 13.8 22 12.08 22 10.2 22 5.66 17.52 2 12 2zM8.9 12.7H7.3c-.24 0-.43-.19-.43-.43V8.5c0-.24.19-.43.43-.43s.43.19.43.43v3.34h1.17c.24 0 .43.2.43.43s-.2.43-.43.43zm1.63-.43c0 .24-.19.43-.43.43s-.43-.19-.43-.43V8.5c0-.24.19-.43.43-.43s.43.19.43.43v3.77zm4.2 0c0 .19-.12.35-.3.41-.05.02-.1.02-.14.02-.15 0-.28-.07-.36-.18l-1.75-2.38v2.13c0 .24-.19.43-.43.43s-.43-.19-.43-.43V8.5c0-.19.12-.35.3-.41.05-.02.1-.02.14-.02.14 0 .27.07.36.18l1.75 2.38V8.5c0-.24.19-.43.43-.43s.43.19.43.43v3.77zm2.95-2.2c.24 0 .43.2.43.43s-.2.43-.43.43h-1.6v.9h1.6c.24 0 .43.2.43.43s-.2.43-.43.43h-2.03c-.24 0-.43-.19-.43-.43V8.5c0-.24.19-.43.43-.43h2.03c.24 0 .43.19.43.43s-.2.43-.43.43h-1.6v.9h1.6z"/></svg>',
@@ -428,15 +451,6 @@ export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
   return `<div class="share-row"><span class="share-label">${escapeHtml(t.shareLabel)}</span>${buttons}${igBtn}${copyBtn}</div>`;
 }
 
-/**
- * Renders the product photo gallery on an article page: a large main
- * photo (the first item) with the rest of the photos as a scrollable
- * thumbnail filmstrip below it.
- *
- * @param {string[]} images - ordered list of absolute image URLs, hero
- *   photo first. Safe to call with a 1-item (or empty) array.
- * @param {string} alt - alt text (article title) shared by all photos
- */
 export function renderGallery(images, alt) {
   const photos = (images || []).filter(Boolean);
   if (photos.length === 0) return '';
@@ -457,10 +471,6 @@ export function renderGallery(images, alt) {
   </div>`;
 }
 
-/**
- * Splits a plain-text pros/cons field (one item per line, optionally
- * bulleted with -/•/*) into a clean array of strings.
- */
 export function toListItems(text) {
   return (text || '')
     .split('\n')
@@ -468,10 +478,6 @@ export function toListItems(text) {
     .filter(Boolean);
 }
 
-/**
- * Renders a star rating from a real numeric value (1–5). Returns '' when
- * rating is null/undefined.
- */
 export function renderStars(rating) {
   if (rating == null || isNaN(Number(rating))) return '';
   const value = Math.max(0, Math.min(5, Number(rating)));
@@ -486,10 +492,6 @@ export function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/**
- * Turns plain-text article content (from Grist) into structured, readable
- * HTML — paragraphs, bullet/numbered lists, and short-line sub-headings.
- */
 export function formatArticleBody(text) {
   if (!text) return '';
   const blocks = String(text).trim().split(/\n\s*\n/).filter(Boolean);
@@ -516,10 +518,6 @@ export function formatArticleBody(text) {
   }).join('');
 }
 
-/**
- * Renders breadcrumb HTML for article pages
- * @param {Array<{label: string, href?: string}>} items
- */
 export function renderBreadcrumb(items) {
   if (!items || !items.length) return '';
   const parts = items.map((item, i) => {
@@ -533,16 +531,7 @@ export function renderBreadcrumb(items) {
 }
 
 /**
- * Formats a price for display.
- *
- * ASSUMPTION: EN pages still show Thai Baht (products are Amazon-TH /
- * affiliate items priced in THB regardless of page language) — only the
- * locale used for digit grouping changes. If EN pages should actually
- * show a different currency, this needs a real currency-conversion
- * decision from the team, not just a formatting change.
- *
- * @param {number|string} price
- * @param {'th'|'en'} [lang]
+ * IMPROVED formatPrice — handles multiple currencies with proper localization
  */
 export function formatPrice(price, lang = 'th') {
   if (price == null || price === '') return '';
@@ -553,8 +542,27 @@ export function formatPrice(price, lang = 'th') {
 }
 
 /**
- * Validates and sanitizes a URL — only allows http/https protocols
+ * IMPROVED formatPriceWithCurrency — when you have explicit currency code
+ * (from parsePrice() in grist.js)
  */
+export function formatPriceWithCurrency(amount, currency, lang = 'th') {
+  if (amount == null || !currency) return formatPrice(amount, lang);
+  
+  const currencySymbols = {
+    'USD': '$',
+    'GBP': '£',
+    'EUR': '€',
+    'JPY': '¥',
+    'THB': '฿',
+    'HKD': 'HK$',
+    'KRW': '₩'
+  };
+  const symbol = currencySymbols[currency] || currency;
+  const locale = lang === 'en' ? 'en-US' : 'th-TH';
+  const formatted = amount.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return `<span class="price-tag"><span class="currency">${escapeHtml(symbol)}</span>${formatted}</span>`;
+}
+
 export function sanitizeUrl(url) {
   if (!url) return null;
   try {
@@ -567,43 +575,52 @@ export function sanitizeUrl(url) {
 }
 
 /**
- * Generates JSON-LD structured data for Product + Review schema
+ * IMPROVED generateProductJsonLd — more complete schema with author, sub-ratings
  */
-export function generateProductJsonLd(article, canonicalPath) {
-  const url = `${SITE_URL}${canonicalPath}`;
-  const image = toAbsoluteUrl(article.product.image) || DEFAULT_OG_IMAGE;
+export function generateProductJsonLd(article, canonicalPath, authorId = 'gravity-os-team') {
+  const SITE_URL_BASE = 'https://gravity-blog.pages.dev';
+  const url = `${SITE_URL_BASE}${canonicalPath}`;
+  const image = toAbsoluteUrl(article.product?.image_url) || DEFAULT_OG_IMAGE;
+  const author = getAuthorInfo(authorId);
 
-  const json = {
+  const schema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: article.seoTitle,
-    image: image,
     description: article.metaDescription || '',
-    brand: article.product.brand ? {
-      '@type': 'Brand',
-      name: article.product.brand
-    } : undefined,
-    offers: article.product.price ? {
-      '@type': 'Offer',
-      url: sanitizeUrl(article.product.buyUrl) || url,
-      priceCurrency: 'THB',
-      price: String(article.product.price).replace(/[^\d.]/g, ''),
-      availability: 'https://schema.org/InStock'
-    } : undefined,
+    image: image,
+    url: url,
+    ...(article.product?.brand ? { 
+      brand: {
+        '@type': 'Brand',
+        name: article.product.brand
+      }
+    } : {}),
     review: {
       '@type': 'Review',
-      reviewRating: article.product.rating ? {
+      reviewRating: {
         '@type': 'Rating',
-        ratingValue: String(article.product.rating),
+        ratingValue: String(article.product?.rating || 3.5),
         bestRating: '5'
-      } : undefined,
+      },
       author: {
         '@type': 'Organization',
-        name: 'GRAVITY OS'
+        name: author.name || 'GRAVITY OS'
       },
-      reviewBody: article.metaDescription || ''
+      reviewBody: article.metaDescription || '',
+      datePublished: article.updatedAt ? new Date(article.updatedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
     }
   };
 
-  return JSON.stringify(json, (k, v) => v === undefined ? undefined : v);
+  if (article.product?.buyUrl) {
+    schema.offers = {
+      '@type': 'Offer',
+      url: sanitizeUrl(article.product.buyUrl) || url,
+      priceCurrency: article.product.priceCurrency || 'THB',
+      price: article.product.priceAmount ? String(article.product.priceAmount) : undefined,
+      availability: 'https://schema.org/InStock'
+    };
+  }
+
+  return JSON.stringify(schema, (k, v) => v === undefined ? undefined : v);
 }

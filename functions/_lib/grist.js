@@ -70,6 +70,34 @@ function parseGallery(raw) {
   return str.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
 }
 
+// Products are imported from different regional marketplaces, so the raw
+// `price` string coming out of Grist can be "$16.19", "JPY 3,078",
+// "HKD 2,579.46", "KRW 74,457", etc. — whatever currency that market's
+// listing was in. Rendering that raw string next to other products'
+// prices (which are in different currencies) is misleading, so we parse
+// out an explicit ISO currency code here. When nothing matches, both
+// fields come back null — callers should treat that as "don't render a
+// price" rather than silently assuming USD.
+const CURRENCY_PATTERNS = [
+  { code: 'USD', re: /^\$\s?([\d,]+\.?\d*)/ },
+  { code: 'GBP', re: /£\s?([\d,]+\.?\d*)/ },
+  { code: 'EUR', re: /€\s?([\d,]+\.?\d*)/ },
+  { code: 'JPY', re: /JPY\s?([\d,]+\.?\d*)/i },
+  { code: 'HKD', re: /HKD\s?([\d,]+\.?\d*)/i },
+  { code: 'KRW', re: /KRW\s?([\d,]+\.?\d*)/i },
+  { code: 'THB', re: /(?:THB|฿)\s?([\d,]+\.?\d*)/i },
+];
+
+function parsePrice(raw) {
+  if (!raw) return { amount: null, currency: null };
+  const str = String(raw).trim();
+  for (const { code, re } of CURRENCY_PATTERNS) {
+    const m = str.match(re);
+    if (m) return { amount: Number(m[1].replace(/,/g, '')), currency: code };
+  }
+  return { amount: null, currency: null };
+}
+
 function normalizeProduct(fields) {
   // rating is optional — only shows in the UI when a real number is
   // entered in Grist. No fallback/mock value here on purpose: showing a
@@ -81,11 +109,18 @@ function normalizeProduct(fields) {
 
   const image = pickField(fields, ['image', 'image_url', 'photo']) || null;
   const galleryRaw = pickField(fields, ['gallery_images', 'gallery_image_urls', 'gallery', 'images', 'photos']);
+  const priceRaw = pickField(fields, ['price']) || null;
+  const { amount: priceAmount, currency: priceCurrency } = parsePrice(priceRaw);
 
   return {
     name: pickField(fields, ['name', 'product_name', 'title']) || 'สินค้าไม่มีชื่อ',
     brand: pickField(fields, ['brand']) || '',
-    price: pickField(fields, ['price']) || null,
+    // kept as-is for backward compat with any template still reading the
+    // raw string directly (e.g. homepage.js) — but prefer priceAmount /
+    // priceCurrency below for anything display-facing or schema-facing.
+    price: priceRaw,
+    priceAmount,
+    priceCurrency,
     image,
     // article.js reads image_url specifically for og:image — keep both
     // keys pointing at the same value so neither caller breaks.
