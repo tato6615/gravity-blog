@@ -601,13 +601,20 @@ const CHANNEL_OPTIONS = [
   ['facebook','Facebook'], ['instagram','Instagram'], ['threads','Threads'], ['x','X'], ['pinterest','Pinterest'],
   ['youtube','YouTube'], ['shorts','Shorts/TikTok'], ['website','Website/Blog']
 ];
-// Only these are actually wired to a real /api/distribute call (see
-// postToFacebookPage/postToInstagram/postToThreads/postToX/postToPinterest
-// in worker.js, plus the no-API "website" branch). youtube/shorts require a
-// full video upload + OAuth2 flow that doesn't exist yet — ticking those
-// boxes and hitting Publish records the intent as a tag only, it can never
-// actually post, so the UI says so explicitly instead of staying silent.
-const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest', 'website']);
+// Facebook/Instagram/Threads/X/Pinterest/website are wired to a real
+// /api/distribute call (see postToFacebookPage/postToInstagram/postToThreads/
+// postToX/postToPinterest in worker.js's distribute.js, plus the no-API
+// "website" branch). youtube now renders a short product video via
+// Shotstack and uploads it through the YouTube Data API v3 resumable
+// upload flow (postToYouTube in distribute.js) — added once
+// YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN and
+// SHOTSTACK_API_KEY / SHOTSTACK_ENV were configured as Worker secrets.
+// shorts/TikTok still requires a TikTok Developer App to pass review
+// before Content Posting API calls will work, so it stays excluded here
+// until that's approved — ticking that box and hitting Publish records
+// the intent as a tag only, it can never actually post, so the UI says
+// so explicitly instead of staying silent.
+const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest', 'website', 'youtube']);
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
 let chPickerRendered = false;
@@ -865,7 +872,7 @@ async function distributeToChannels(channels){
   const results = [];
   for (const ch of channels) {
     if (!DISTRIBUTABLE_CHANNELS.has(ch)) {
-      results.push({ channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องอัปโหลดวิดีโอผ่าน OAuth2 ซึ่งยังไม่ได้พัฒนา)' });
+      results.push({ channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องรอ TikTok Developer App ผ่าน review ก่อน)' });
       logEvent('pending', 'ข้าม ' + (CHANNEL_LABELS[ch] || ch) + ' — ยังไม่รองรับ');
       renderDistributeResults(results);
       continue;
