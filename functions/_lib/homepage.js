@@ -1,5 +1,5 @@
 import { getLiveArticles } from './grist.js';
-import { renderPage, escapeHtml, toListItems, renderStars } from './layout.js';
+import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo } from './layout.js';
 
 const STRINGS = {
   th: {
@@ -49,7 +49,7 @@ function homePath(lang) {
  * @param {'th'|'en'} lang
  * @returns {Promise<Response>}
  */
-export async function renderHomePage(env, lang = 'th') {
+export async function renderHomePage(env, lang = 'th', request = null) {
   const t = STRINGS[lang] || STRINGS.th;
 
   let articles = [];
@@ -60,7 +60,18 @@ export async function renderHomePage(env, lang = 'th') {
     errorMsg = e.message;
   }
 
-  const cards = articles.map((a, i) => {
+  const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
+  const categories = [...new Set(articles.map(a => a.category).filter(Boolean))];
+  const displayArticles = selectedCategory
+    ? articles.filter(a => a.category === selectedCategory)
+    : articles;
+
+  const filterHtml = categories.length > 0 ? `<div class="category-filter">
+    <a href="${homePath(lang)}" class="filter-pill${!selectedCategory ? ' is-active' : ''}">${lang === 'en' ? 'All' : 'ทั้งหมด'}</a>
+    ${categories.map(cat => `<a href="${homePath(lang)}?category=${encodeURIComponent(cat)}" class="filter-pill${selectedCategory === cat ? ' is-active' : ''}">${escapeHtml(cat)}</a>`).join('')}
+  </div>` : '';
+
+  const cards = displayArticles.map((a, i) => {
     const topPro = a.analysis ? toListItems(a.analysis.pros)[0] : null;
     const updatedLabel = a.updatedAt
       ? new Date(a.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -78,6 +89,7 @@ export async function renderHomePage(env, lang = 'th') {
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
+          ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>
         <h2>${escapeHtml(a.seoTitle)}</h2>
         ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
@@ -96,9 +108,9 @@ export async function renderHomePage(env, lang = 'th') {
         <p>${escapeHtml(t.loadErrorPrefix)} ${escapeHtml(errorMsg)}</p>
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
-    : (articles.length
-      ? `<div class="card-grid">${cards}</div>`
-      : `<div class="error-page">
+    : (displayArticles.length
+      ? `${filterHtml}<div class="card-grid">${cards}</div>`
+      : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
         </div>`);

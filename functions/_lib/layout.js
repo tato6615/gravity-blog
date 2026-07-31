@@ -325,6 +325,20 @@ const BASE_CSS = `
   .author-info h4{ margin:0 0 4px; font-size:15px; }
   .author-info p{ margin:0; font-size:13px; color:var(--ink-muted); }
   .author-info .author-role{ font-weight:600; color:var(--accent); }
+
+  .category-filter{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
+  .filter-pill{
+    display:inline-block; padding:6px 14px; border-radius:999px;
+    border:1px solid var(--hairline); color:var(--ink-muted); font-size:13px;
+    font-weight:600; text-decoration:none; background:var(--surface);
+  }
+  .filter-pill:hover{ border-color:var(--accent); color:var(--accent); }
+  .filter-pill.is-active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .author-badge{
+    font-size:11px; font-weight:600; color:var(--accent);
+    background:var(--accent-soft); padding:2px 8px; border-radius:999px;
+    margin-left:auto;
+  }
 `;
 
 const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
