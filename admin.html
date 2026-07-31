@@ -68,7 +68,32 @@
   .sb-phase.error{ background:var(--red); }
   .sb-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:8px; }
 
-  /* ===== card grid (dashboard home) ===== */
+  /* ===== MOCKUP D: single focus hero + peek strip ===== */
+  .hero{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:30px 26px; text-align:center; }
+  .hero-kicker{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--amber); letter-spacing:0.08em; margin-bottom:10px; text-transform:uppercase; }
+  .hero h1{ font-family:'Space Grotesk',sans-serif; font-size:22px; margin:0 0 8px; }
+  .hero .sub{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-bottom:22px; }
+
+  .ring-wrap{ display:flex; justify-content:center; margin-bottom:20px; }
+  .ring{ position:relative; width:96px; height:96px; }
+  .ring svg{ transform:rotate(-90deg); transform-origin:48px 48px; }
+  .ring-label{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; }
+
+  /* the "everything else" strip — small tappable chips, read-only glance, no navigation weight */
+  .peek-strip{ display:flex; gap:8px; margin-top:22px; overflow-x:auto; padding-bottom:2px; }
+  .peek{ flex-shrink:0; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px; min-width:108px; cursor:pointer; transition:border-color .15s; }
+  .peek:hover{ border-color:var(--teal); }
+  .peek-label{ font-size:10.5px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; margin-bottom:4px; }
+  .peek-val{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
+  .peek.done .peek-val{ color:var(--teal); }
+  .peek.locked{ opacity:0.42; cursor:not-allowed; }
+  .peek.locked:hover{ border-color:var(--line); }
+
+  .hero-note{ color:var(--text-faint); font-size:12.5px; margin-top:20px; text-align:center; }
+
+  /* ===== card grid (dashboard home) — kept for reference, no longer rendered ===== */
   .grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
   .gcard{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
     padding:20px; cursor:pointer; transition:border-color .15s, transform .1s, opacity .15s; position:relative; overflow:hidden; }
@@ -243,7 +268,7 @@
 <div class="wrap">
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
   <div class="page-title">Dashboard</div>
-  <div class="page-sub">กดการ์ดไหนก็ได้เพื่อเปิดดูรายละเอียด — Import → Generate Everything → Publish · ทุกอย่างที่เหลือ AI ทำ</div>
+  <div class="page-sub">ทำทีละขั้นตอน — Import → Generate Everything → Publish · ที่เหลือ AI ทำให้ทั้งหมด</div>
 
   <!-- sticky product overview bar -->
   <div class="status-bar hidden" id="statusBar">
@@ -259,93 +284,30 @@
     <div class="sb-meta" id="sbMeta"></div>
   </div>
 
-  <div class="grid">
+  <!-- ===== MOCKUP D: one focused hero card for "what to do now" ===== -->
+  <div class="hero" id="heroCard">
+    <div class="hero-kicker" id="heroKicker">—</div>
 
-    <!-- System status card -->
-    <div class="gcard" id="gcard-sys" onclick="openModal('sys')">
-      <div class="gcard-top">
-        <div>
-          <div class="gcard-title">สถานะระบบ</div>
-          <div class="gcard-meta">AI Providers · API Log</div>
-        </div>
-        <div class="gcard-icon ic-teal"><span class="sys-pulse-dot" id="sysPulse"></span></div>
+    <div class="ring-wrap hidden" id="heroRingWrap">
+      <div class="ring">
+        <svg width="96" height="96" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="42" stroke="#2a2f3b" stroke-width="8" fill="none"/>
+          <circle cx="48" cy="48" r="42" stroke="#e8a33d" stroke-width="8" fill="none"
+            stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" id="heroRingProgress"/>
+        </svg>
+        <div class="ring-label" id="heroRingLabel">0/0</div>
       </div>
-      <div class="gcard-stat" id="gc-sys-stat">…</div>
-      <div class="gcard-label" id="gc-sys-label">กำลังเช็ค AI providers...</div>
-      <div class="gcard-foot"><span id="gc-sys-foot">—</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
     </div>
 
-    <!-- Import card -->
-    <div class="gcard" id="gcard-import" onclick="openModal('import')">
-      <div class="gcard-top">
-        <div>
-          <div class="gcard-title">Import Product</div>
-          <div class="gcard-meta">STEP 1</div>
-        </div>
-        <div class="gcard-icon ic-dim" id="gc-import-icon">1</div>
-      </div>
-      <div class="gcard-stat" id="gc-import-stat" style="font-size:15px; font-weight:600; color:var(--text-dim);">ยังไม่ได้ Import</div>
-      <div class="gcard-label" id="gc-import-label">วาง URL หรือรายละเอียดสินค้า</div>
-      <div class="gcard-foot"><span id="gc-import-foot">รอเริ่มต้น</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
-    </div>
-
-    <!-- Generate card -->
-    <div class="gcard locked" id="gcard-generate" onclick="openModal('generate')">
-      <div class="gcard-top">
-        <div>
-          <div class="gcard-title">Generate Everything</div>
-          <div class="gcard-meta">STEP 2</div>
-        </div>
-        <div class="gcard-icon ic-amber">✎</div>
-      </div>
-      <div class="gcard-stat" id="gc-generate-stat">— / —</div>
-      <div class="gcard-label" id="gc-generate-label">ฟิลด์เสร็จแล้ว</div>
-      <div class="gcard-foot"><span id="gc-generate-foot">รอ Import ก่อน</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
-    </div>
-
-    <!-- Publish card -->
-    <div class="gcard locked" id="gcard-publish" onclick="openModal('publish')">
-      <div class="gcard-top">
-        <div>
-          <div class="gcard-title">Publish</div>
-          <div class="gcard-meta">STEP 3</div>
-        </div>
-        <div class="gcard-icon ic-teal">▶</div>
-      </div>
-      <div class="gcard-label" style="margin-bottom:2px;">ช่องทางที่เลือก</div>
-      <div class="pill-row" id="gc-publish-pills"><span class="pill">ยังไม่ได้เลือก</span></div>
-      <div class="gcard-foot"><span id="gc-publish-foot">รอ Generate ก่อน</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
-    </div>
-
-    <!-- Results card -->
-    <div class="gcard locked" id="gcard-results" onclick="openModal('results')">
-      <div class="gcard-top">
-        <div>
-          <div class="gcard-title">ผลลัพธ์ & Analytics</div>
-          <div class="gcard-meta">SUMMARY</div>
-        </div>
-        <div class="gcard-icon ic-teal">✓</div>
-      </div>
-      <div class="gcard-stat" id="gc-results-stat">—</div>
-      <div class="gcard-label" id="gc-results-label">ช่องทางเผยแพร่สำเร็จ</div>
-      <div class="gcard-foot"><span id="gc-results-foot">รอ Publish ก่อน</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
-    </div>
-
-    <!-- Products card -->
-    <div class="gcard" id="gcard-products" onclick="openModal('products')">
-      <div class="gcard-top">
-        <div>
-          <div class="gcard-title">สินค้าทั้งหมด</div>
-          <div class="gcard-meta">MANAGE</div>
-        </div>
-        <div class="gcard-icon ic-dim">☰</div>
-      </div>
-      <div class="gcard-stat" id="gc-products-stat">—</div>
-      <div class="gcard-label">รายการในระบบ</div>
-      <div class="gcard-foot"><span id="gc-products-foot">กดเพื่อโหลดรายการ</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
-    </div>
-
+    <h1 id="heroTitle">—</h1>
+    <div class="sub" id="heroSub">—</div>
+    <button class="btn-primary" id="heroBtn">—</button>
+    <button class="btn-ghost hidden" id="heroSecondaryBtn" style="width:100%; margin-top:10px;">—</button>
   </div>
+
+  <!-- everything else — small tappable chips, glance only, doesn't need to be opened -->
+  <div class="peek-strip" id="peekStrip"></div>
+  <div class="hero-note">แตะการ์ดเล็กด้านบนเพื่อดูรายละเอียดของขั้นนั้น — ไม่จำเป็นต้องกดก็ใช้งานต่อได้เลย</div>
 </div>
 
 <!-- ===================== MODALS ===================== -->
@@ -368,7 +330,7 @@
     </div>
 
     <div class="sys-section">
-      <div class="sys-section-title">Live Activity Log</div>
+      <div class="sys-section-title"><span class="sys-pulse-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
       <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
     </div>
   </div>
@@ -472,91 +434,137 @@ function closeModalOnBackdrop(e){
 }
 
 /* ================================================================= */
-/* GRID CARD SUMMARIES — kept in sync with the underlying state so    */
-/* the dashboard is readable without opening anything.                */
+/* MOCKUP D — HERO + PEEK STRIP                                       */
+/* One focused card shows only the step that needs action right now.  */
+/* Everything else (other steps, system, product count) collapses     */
+/* into small chips below: readable at a glance, tap for detail,      */
+/* never required to keep using the page.                             */
 /* ================================================================= */
-function setGcardLocked(key, locked){
-  const card = document.getElementById('gcard-' + key);
-  if (card) card.classList.toggle('locked', !!locked);
+let lastDistributeResults = null;
+let lastProductCount = null;
+
+// Kept as thin compatibility wrappers so every existing call site
+// (doImport, refreshStatus, toggleChannel, renderFieldChecklist, etc.)
+// keeps working unchanged — they all funnel into one renderer.
+function updateImportGcard(){ refreshHeroUI(); }
+function updateGenerateGcard(){ refreshHeroUI(); }
+function updatePublishGcard(){ refreshHeroUI(); }
+function updateResultsGcard(distributeResults){
+  if (distributeResults !== undefined) lastDistributeResults = distributeResults;
+  refreshHeroUI();
+}
+function updateProductsGcard(count){
+  lastProductCount = (count === null || count === undefined) ? null : count;
+  refreshHeroUI();
 }
 
-function updateImportGcard(){
-  const stat = document.getElementById('gc-import-stat');
-  const label = document.getElementById('gc-import-label');
-  const foot = document.getElementById('gc-import-foot');
-  const icon = document.getElementById('gc-import-icon');
-  if (productId){
-    stat.textContent = (latestProduct && (latestProduct.name || latestProduct.title)) || ('สินค้า #' + productId);
-    stat.style.fontSize = '15px'; stat.style.fontWeight = '600'; stat.style.color = 'var(--text-dim)';
-    label.textContent = 'นำเข้าแล้ว';
-    foot.textContent = 'เสร็จแล้ว';
-    icon.textContent = '✓';
-    icon.className = 'gcard-icon ic-teal';
-  } else {
-    stat.textContent = 'ยังไม่ได้ Import';
-    label.textContent = 'วาง URL หรือรายละเอียดสินค้า';
-    foot.textContent = 'รอเริ่มต้น';
-    icon.textContent = '1';
-    icon.className = 'gcard-icon ic-dim';
-  }
-}
-
-function updateGenerateGcard(){
-  setGcardLocked('generate', isLocked('generate'));
-  const stat = document.getElementById('gc-generate-stat');
-  const foot = document.getElementById('gc-generate-foot');
-  if (!productId){ stat.textContent = '— / —'; foot.textContent = 'รอ Import ก่อน'; return; }
+function getFieldsProgress(){
   const progressText = document.getElementById('fcProgress') ? document.getElementById('fcProgress').textContent : '';
   const m = /^(\d+)\s*\/\s*(\d+)/.exec(progressText || '');
-  stat.textContent = m ? (m[1] + ' / ' + m[2]) : '0 / —';
-  const tablesSaved = ALL_TABLE_IDS.filter(t => latestStages[t] && (latestStages[t].th !== undefined ? (latestStages[t].th || latestStages[t].en) : latestStages[t])).length;
-  foot.textContent = (latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published') ? 'เสร็จแล้ว' : (tablesSaved + '/' + ALL_TABLE_IDS.length + ' tables');
+  return m ? { done: +m[1], total: +m[2] } : { done: 0, total: 0 };
 }
 
-function updatePublishGcard(){
-  setGcardLocked('publish', isLocked('publish'));
-  const pillsEl = document.getElementById('gc-publish-pills');
-  const foot = document.getElementById('gc-publish-foot');
-  if (isLocked('publish')){
-    pillsEl.innerHTML = '<span class="pill">ยังไม่ได้เลือก</span>';
-    foot.textContent = 'รอ Generate ก่อน';
-    return;
-  }
-  if (!selectedChannels.size){
-    pillsEl.innerHTML = '<span class="pill">ยังไม่ได้เลือก</span>';
-  } else {
-    pillsEl.innerHTML = CHANNEL_OPTIONS.map(([key,label]) =>
-      '<span class="pill' + (selectedChannels.has(key) ? ' on' : '') + '">' + label + '</span>'
-    ).join('');
-  }
-  foot.textContent = latestPipelineStatus === 'published' ? 'เผยแพร่แล้ว' : 'พร้อมดูพรีวิว';
+// Which step deserves the hero right now.
+function getCurrentStepKey(){
+  if (!productId) return 'import';
+  if (latestPipelineStatus === 'published') return 'done';
+  if (latestPipelineStatus === 'enriched') return 'publish';
+  return 'generate'; // imported / enriching / error
 }
 
-function updateResultsGcard(distributeResults){
-  setGcardLocked('results', isLocked('results'));
-  const stat = document.getElementById('gc-results-stat');
-  const label = document.getElementById('gc-results-label');
-  const foot = document.getElementById('gc-results-foot');
-  if (isLocked('results')){
-    stat.textContent = '—'; foot.textContent = 'รอ Publish ก่อน';
-    return;
+function refreshHeroUI(){
+  const step = getCurrentStepKey();
+  const kicker = document.getElementById('heroKicker');
+  const title = document.getElementById('heroTitle');
+  const sub = document.getElementById('heroSub');
+  const btn = document.getElementById('heroBtn');
+  const secBtn = document.getElementById('heroSecondaryBtn');
+  const ringWrap = document.getElementById('heroRingWrap');
+  const ringLabel = document.getElementById('heroRingLabel');
+  const ringProgress = document.getElementById('heroRingProgress');
+  if (!kicker) return; // hero not in DOM yet
+
+  ringWrap.classList.add('hidden');
+  secBtn.classList.add('hidden');
+
+  if (step === 'import'){
+    kicker.textContent = 'ขั้นที่ 1 จาก 4 — เริ่มต้น';
+    title.textContent = 'Import Product';
+    sub.textContent = 'วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด';
+    btn.textContent = 'Import Product';
+    btn.onclick = () => openModal('import');
+  } else if (step === 'generate'){
+    const { done, total } = getFieldsProgress();
+    kicker.textContent = 'ขั้นที่ 2 จาก 4 — ต้องทำต่อ';
+    title.textContent = 'Generate Everything';
+    sub.textContent = 'ให้ AI สร้างคีย์เวิร์ด เนื้อหา SEO และโพสต์โซเชียลให้ครบ กดปุ่มเดียว รอสักครู่';
+    btn.textContent = latestPipelineStatus === 'enriching' ? 'กำลังสร้าง...' :
+      (latestPipelineStatus === 'error' ? 'ลองอีกครั้ง' : 'Generate Everything');
+    btn.onclick = () => openModal('generate');
+    if (total > 0){
+      ringWrap.classList.remove('hidden');
+      ringLabel.textContent = done + '/' + total;
+      const circumference = 264;
+      ringProgress.setAttribute('stroke-dashoffset', String(circumference - circumference * (done / total)));
+    }
+  } else if (step === 'publish'){
+    kicker.textContent = 'ขั้นที่ 3 จาก 4 — พร้อมเผยแพร่';
+    title.textContent = 'Publish';
+    sub.textContent = 'ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่ต้องการเผยแพร่ แล้วกด Publish';
+    btn.textContent = 'เลือกช่องทาง & Publish';
+    btn.onclick = () => openModal('publish');
+  } else { // done — published
+    kicker.textContent = 'เสร็จสมบูรณ์ · ขั้นที่ 4 จาก 4';
+    title.textContent = 'เผยแพร่สำเร็จ 🎉';
+    sub.textContent = 'ดูผลลัพธ์การเผยแพร่ หรือเริ่ม Import สินค้าชิ้นถัดไปได้เลย';
+    btn.textContent = 'ดูผลลัพธ์';
+    btn.onclick = () => openModal('results');
+    secBtn.textContent = 'Import สินค้าใหม่';
+    secBtn.onclick = () => openModal('import');
+    secBtn.classList.remove('hidden');
   }
-  if (distributeResults && distributeResults.length){
-    const ok = distributeResults.filter(r => !r.error && !r.skipped).length;
-    const errs = distributeResults.filter(r => r.error).length;
-    stat.textContent = String(ok);
-    label.textContent = 'ช่องทางเผยแพร่สำเร็จ';
-    foot.textContent = errs ? (errs + ' error') : '0 error';
-  } else {
-    stat.textContent = '✓';
-    label.textContent = 'บันทึกลงตารางแล้ว';
-    foot.textContent = 'ดูรายละเอียด';
-  }
+
+  renderPeekStrip(step);
 }
 
-function updateProductsGcard(count){
-  document.getElementById('gc-products-stat').textContent = (count === null || count === undefined) ? '—' : String(count);
-  document.getElementById('gc-products-foot').textContent = (count === null || count === undefined) ? 'กดเพื่อโหลดรายการ' : 'อัพเดตล่าสุดแล้ว';
+function peekChip(label, valueHtml, extraClass, modalKey){
+  return '<div class="peek' + (extraClass ? (' ' + extraClass) : '') + '" onclick="openModal(\'' + modalKey + '\')">' +
+    '<div class="peek-label">' + label + '</div><div class="peek-val">' + valueHtml + '</div></div>';
+}
+
+function renderPeekStrip(currentStep){
+  const strip = document.getElementById('peekStrip');
+  if (!strip) return;
+  const chips = [];
+  const order = ['import', 'generate', 'publish', 'results'];
+
+  order.forEach(k => {
+    if (k === currentStep) return;
+    if (k === 'results' && currentStep === 'done') return; // "done" state already highlights results in the hero
+
+    if (k === 'import'){
+      const done = !!productId;
+      chips.push(peekChip('IMPORT', done ? '✓ เสร็จ' : 'ยังไม่เริ่ม', done ? 'done' : '', 'import'));
+    } else if (k === 'generate'){
+      const done = latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published';
+      const locked = !productId;
+      chips.push(peekChip('GENERATE', done ? '✓ เสร็จ' : (locked ? 'รอก่อน' : 'รอทำ'), done ? 'done' : (locked ? 'locked' : ''), 'generate'));
+    } else if (k === 'publish'){
+      const done = latestPipelineStatus === 'published';
+      const locked = isLocked('publish');
+      chips.push(peekChip('PUBLISH', done ? '✓ เสร็จ' : (locked ? 'รอก่อน' : 'พร้อม'), done ? 'done' : (locked ? 'locked' : ''), 'publish'));
+    } else if (k === 'results'){
+      const locked = isLocked('results');
+      chips.push(peekChip('ผลลัพธ์', locked ? 'รอก่อน' : 'ดูผล', locked ? 'locked' : 'done', 'results'));
+    }
+  });
+
+  const aiAvailable = lastAiStatus.filter(p => p.available).length;
+  const aiTotal = lastAiStatus.length;
+  chips.push(peekChip('ระบบ', aiTotal ? (aiAvailable + '/' + aiTotal + ' AI') : '…', '', 'sys'));
+  chips.push(peekChip('สินค้า', lastProductCount == null ? '—' : (lastProductCount + ' ชิ้น'), '', 'products'));
+
+  strip.innerHTML = chips.join('');
 }
 
 /* ================================================================= */
@@ -610,16 +618,9 @@ function renderLog(){
 }
 function updateSysSummary(){
   const pending = activityLog.some(e => e.status === 'pending');
-  document.getElementById('sysPulse').classList.toggle('live', pending);
-  const errs = activityLog.filter(e => e.status === 'error').length;
-  const savedCount = ALL_TABLE_IDS.filter(t => latestStages[t] && (latestStages[t].th !== undefined ? (latestStages[t].th || latestStages[t].en) : latestStages[t])).length;
-  const aiAvailable = lastAiStatus.filter(p => p.available).length;
-
-  document.getElementById('gc-sys-stat').textContent = aiAvailable + '/' + (lastAiStatus.length || '…');
-  document.getElementById('gc-sys-label').textContent = 'AI providers พร้อมใช้งาน';
-  document.getElementById('gc-sys-foot').textContent = savedCount + '/' + ALL_TABLE_IDS.length + ' table บันทึกแล้ว' + (errs ? (' · ' + errs + ' error') : '');
-
-  updateGenerateGcard();
+  const pulseDot = document.getElementById('sysPulse');
+  if (pulseDot) pulseDot.classList.toggle('live', pending);
+  refreshHeroUI();
 }
 
 // Fired once on page load — shows which AI providers actually have API
@@ -1263,11 +1264,13 @@ async function deleteProductRow(id){
 
 /* ---------- boot ---------- */
 renderTableGrid({});
-updateImportGcard();
-updateGenerateGcard();
-updatePublishGcard();
-updateResultsGcard();
+refreshHeroUI();
 loadAiStatus();
+
+// allow Enter to submit the import field
+document.getElementById('in').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doImport();
+});
 </script>
 </body>
 </html>
