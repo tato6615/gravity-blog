@@ -49,7 +49,7 @@ export const AUTHOR_REGISTRY = {
     name: 'GRAVITY OS Editorial Team',
     short: 'GRAVITY OS',
     bio: 'Product experts who test and verify every recommendation before it goes live.',
-    avatar: 'https://via.placeholder.com/64', // Replace with real avatar URL
+    avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Editorial Director'
   },
   'expert-tech': {
@@ -57,7 +57,7 @@ export const AUTHOR_REGISTRY = {
     name: 'Tech Experts',
     short: 'Tech Team',
     bio: 'Specialists in consumer tech and gadgets.',
-    avatar: 'https://via.placeholder.com/64',
+    avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Technology Reviewer'
   },
   'expert-lifestyle': {
@@ -65,7 +65,7 @@ export const AUTHOR_REGISTRY = {
     name: 'Lifestyle Curators',
     short: 'Lifestyle Team',
     bio: 'Focused on home, wellness, and everyday products.',
-    avatar: 'https://via.placeholder.com/64',
+    avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Lifestyle Reviewer'
   }
 };
@@ -77,7 +77,7 @@ export function getAuthorInfo(authorId = 'gravity-os-team') {
     name: 'GRAVITY OS Editorial Team',
     short: 'GRAVITY OS',
     bio: 'Product verification and research team.',
-    avatar: DEFAULT_OG_IMAGE,
+    avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Reviewer'
   };
 }
