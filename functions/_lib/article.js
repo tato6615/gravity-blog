@@ -15,6 +15,7 @@ const STRINGS = {
     pros: 'ข้อดี',
     cons: 'ข้อควรพิจารณา',
     buyBtn: 'ดูราคา / ซื้อสินค้า →',
+    disclosureText: 'ลิงก์ในบทความนี้เป็นลิงก์พันธมิตร เราอาจได้รับค่าคอมมิชชั่นจากการซื้อสินค้าผ่านลิงก์เหล่านี้ โดยไม่มีค่าใช้จ่ายเพิ่มเติมสำหรับคุณ',
     buyingGuideTitle: 'คู่มือการเลือกซื้อ',
     faqTitle: 'คำถามที่พบบ่อย',
     moreReviews: '← ดูรีวิวอื่นๆ',
@@ -33,6 +34,7 @@ const STRINGS = {
     cons: 'Things to consider',
     buyBtn: 'Check price / Buy →',
     buyingGuideTitle: 'Buying guide',
+    disclosureText: 'Links in this article are affiliate links. We may earn a commission from qualifying purchases at no extra cost to you.',
     faqTitle: 'Frequently asked questions',
     moreReviews: '← See more reviews',
     dateLocale: 'en-US',
@@ -171,6 +173,7 @@ export async function renderArticlePage(env, slug, lang = 'th') {
       ${ratingHtml ? `<div style="margin-bottom:16px;">${ratingHtml}</div>` : ''}
       ${priceHtml}
       ${galleryHtml}
+      <p class="disclosure" style="font-size:13px;color:#8a90a0;margin:8px 0;">${escapeHtml(t.disclosureText)}</p>
       ${renderShareButtons(canonicalPath, article.seoTitle, lang, article.product.image_url)}
       <div class="meta" style="margin-bottom:16px;">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · ${escapeHtml(t.reviewedBy)} ${escapeHtml(article.analysis?.reviewer_name || 'GRAVITY OS')}</div>
       ${buyBtn}
