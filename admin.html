@@ -10,41 +10,39 @@
   :root{
     --bg:#0e1016; --panel:#171a22; --panel-2:#1e222c; --line:#2a2f3b;
     --text:#e8eaf0; --text-dim:#8a90a0; --text-faint:#565c6c;
-    --amber:#e8a33d; --amber-dim:#6b5127; --teal:#4fd1c5; --red:#e2604f;
-    --radius:12px; font-size:16px;
+    --amber:#e8a33d; --teal:#4fd1c5; --red:#e2604f;
+    --radius:14px; font-size:16px;
   }
   *{ box-sizing:border-box; }
   body{
     margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
-    min-height:100vh; padding:32px 20px 80px;
-    background-image:
-      radial-gradient(circle at 85% 8%, rgba(232,163,61,0.07), transparent 40%),
-      radial-gradient(circle at 10% 90%, rgba(79,209,197,0.05), transparent 40%);
+    min-height:100vh; padding:28px 18px 90px;
+    background-image: radial-gradient(circle at 88% 6%, rgba(232,163,61,0.05), transparent 42%);
   }
-  .wrap{ max-width:920px; margin:0 auto; }
+  .wrap{ max-width:680px; margin:0 auto; }
 
   .crumb{ display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace;
-    font-size:12.5px; color:var(--text-faint); margin-bottom:6px; letter-spacing:0.02em; }
+    font-size:12px; color:var(--text-faint); margin-bottom:5px; letter-spacing:0.02em; }
   .crumb b{ color:var(--text-dim); font-weight:500; }
-  .page-title{ font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; margin:0 0 4px; }
-  .page-sub{ color:var(--text-dim); font-size:13.5px; margin-bottom:22px; }
+  .page-title{ font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; margin:0 0 22px; }
 
   button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; border-radius:8px;
-    border:none; cursor:pointer; padding:13px 20px; transition:transform .1s, filter .15s; }
-  button:active{ transform:scale(0.98); }
+    border:none; cursor:pointer; padding:13px 20px; transition:filter .15s; }
+  button:active{ filter:brightness(0.96); }
   .btn-primary{ background:var(--amber); color:#1a1206; width:100%; }
   .btn-primary:hover{ filter:brightness(1.08); }
   .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
   .btn-teal{ background:var(--teal); color:#062421; width:100%; }
   .btn-teal:hover{ filter:brightness(1.08); }
   .btn-teal:disabled{ opacity:0.5; cursor:not-allowed; }
-  .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--text-dim); font-weight:500; font-size:13px; padding:8px 14px; }
+  .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--text-dim); font-weight:500; font-size:13px; padding:10px 14px; }
+  .btn-ghost:hover{ border-color:var(--teal); color:var(--text); }
 
   input[type=text]{ width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
     border-radius:7px; padding:12px 14px; font-size:14.5px; font-family:'Inter',sans-serif; margin-bottom:12px; }
   input:focus{ outline:none; border-color:var(--amber); }
 
-  .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:20px; }
+  .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:20px; background:var(--panel-2); color:var(--text-faint); }
   .tag.imported{ background:rgba(79,209,197,0.12); color:var(--teal); }
   .tag.enriching{ background:rgba(232,163,61,0.12); color:var(--amber); }
   .tag.enriched{ background:rgba(79,209,197,0.12); color:var(--teal); }
@@ -54,107 +52,61 @@
   .err{ color:#f0b3a8; font-size:13px; margin-top:10px; display:none; white-space:pre-wrap; }
   .note{ color:var(--text-faint); font-size:12.5px; margin-top:16px; text-align:center; }
   .hidden{ display:none !important; }
+  .sub{ color:var(--text-dim); font-size:13px; line-height:1.55; }
 
-  /* ===== sticky product overview bar ===== */
-  .status-bar{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
-    border-radius:var(--radius); padding:14px 20px; margin-bottom:20px; }
-  .sb-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-  .sb-product{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; color:var(--text);
+  /* ===== sticky overview bar — the one place the whole pipeline is visible at a glance ===== */
+  .overview{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:16px 18px; margin-bottom:22px; }
+  .ov-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .ov-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; color:var(--text);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .sb-phases{ display:flex; align-items:center; gap:6px; }
-  .sb-phase{ flex:1; height:5px; border-radius:3px; background:var(--line); }
-  .sb-phase.done{ background:var(--teal); }
-  .sb-phase.active{ background:var(--amber); }
-  .sb-phase.error{ background:var(--red); }
-  .sb-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:8px; }
+  .ov-track{ display:flex; gap:5px; margin-bottom:7px; }
+  .ov-seg{ flex:1; height:4px; border-radius:3px; background:var(--line); }
+  .ov-seg.done{ background:var(--teal); }
+  .ov-seg.active{ background:var(--amber); }
+  .ov-seg.error{ background:var(--red); }
+  .ov-labels{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace;
+    font-size:10px; color:var(--text-faint); margin-bottom:14px; text-transform:uppercase; letter-spacing:0.03em; }
+  .ov-labels span.current{ color:var(--text); font-weight:600; }
+  .ov-foot{ display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:12px; }
+  .ov-chip{ display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+    color:var(--text-dim); background:var(--panel-2); border:1px solid var(--line); border-radius:20px;
+    padding:6px 12px; cursor:pointer; }
+  .ov-chip:hover{ border-color:var(--teal); }
+  .ov-dot{ width:6px; height:6px; border-radius:50%; background:var(--text-faint); }
+  .ov-dot.live{ background:var(--teal); }
 
-  /* ===== MOCKUP D: single focus hero + peek strip ===== */
-  .hero{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:30px 26px; text-align:center; }
-  .hero-kicker{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--amber); letter-spacing:0.08em; margin-bottom:10px; text-transform:uppercase; }
-  .hero h1{ font-family:'Space Grotesk',sans-serif; font-size:22px; margin:0 0 8px; }
-  .hero .sub{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-bottom:22px; }
+  /* ===== stepper — the single working surface, no popups, everything happens inline ===== */
+  .stepper{ display:flex; flex-direction:column; gap:10px; margin-bottom:26px; }
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+  .panel.locked{ opacity:0.4; }
+  .panel-head{ display:flex; align-items:center; gap:13px; padding:16px 18px; cursor:pointer; user-select:none; }
+  .panel.locked .panel-head{ cursor:not-allowed; }
+  .panel-num{ width:26px; height:26px; border-radius:50%; border:1.5px solid var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-faint); }
+  .panel.done .panel-num{ background:var(--teal); border-color:var(--teal); color:#062421; }
+  .panel.active .panel-num{ border-color:var(--amber); color:var(--amber); }
+  .panel-num.aux-ic{ border-radius:8px; border-style:dashed; font-size:13px; }
+  .panel-head-text{ flex:1; min-width:0; }
+  .panel-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; }
+  .panel-sub{ color:var(--text-dim); font-size:12.5px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .panel-chev{ font-family:'IBM Plex Mono',monospace; color:var(--text-faint); flex-shrink:0; font-size:15px; transition:transform .15s; }
+  .panel.expanded .panel-chev{ transform:rotate(90deg); }
+  .panel-body{ display:none; padding:0 18px 20px; border-top:1px solid var(--line); }
+  .panel.expanded .panel-body{ display:block; padding-top:16px; animation:fadeIn .15s ease; }
+  .panel.locked .panel-body{ display:none !important; }
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(-4px);} to{ opacity:1; transform:translateY(0);} }
 
-  .ring-wrap{ display:flex; justify-content:center; margin-bottom:20px; }
-  .ring{ position:relative; width:96px; height:96px; }
-  .ring svg{ transform:rotate(-90deg); transform-origin:48px 48px; }
-  .ring-label{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; }
+  .mini-bar{ height:4px; border-radius:3px; background:var(--line); overflow:hidden; margin-top:8px; max-width:220px; }
+  .mini-bar-fill{ height:100%; background:var(--teal); transition:width .3s; }
 
-  /* the "everything else" strip — small tappable chips, read-only glance, no navigation weight */
-  .peek-strip{ display:flex; gap:8px; margin-top:22px; overflow-x:auto; padding-bottom:2px; }
-  .peek{ flex-shrink:0; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
-    padding:10px 14px; min-width:108px; cursor:pointer; transition:border-color .15s; }
-  .peek:hover{ border-color:var(--teal); }
-  .peek-label{ font-size:10.5px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; margin-bottom:4px; }
-  .peek-val{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
-  .peek.done .peek-val{ color:var(--teal); }
-  .peek.locked{ opacity:0.42; cursor:not-allowed; }
-  .peek.locked:hover{ border-color:var(--line); }
-
-  .hero-note{ color:var(--text-faint); font-size:12.5px; margin-top:20px; text-align:center; }
-
-  /* ===== card grid (dashboard home) — kept for reference, no longer rendered ===== */
-  .grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
-  .gcard{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    padding:20px; cursor:pointer; transition:border-color .15s, transform .1s, opacity .15s; position:relative; overflow:hidden; }
-  .gcard:hover{ border-color:var(--teal); transform:translateY(-2px); }
-  .gcard:active{ transform:translateY(0); }
-  .gcard.locked{ opacity:0.42; cursor:not-allowed; }
-  .gcard.locked:hover{ border-color:var(--line); transform:none; }
-  .gcard-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:14px; }
-  .gcard-icon{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center;
-    font-size:16px; flex-shrink:0; }
-  .gcard-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; margin:0 0 3px; }
-  .gcard-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); }
-  .gcard-stat{ font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; line-height:1; margin-bottom:4px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .gcard-label{ font-size:12.5px; color:var(--text-dim); }
-  .gcard-foot{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line);
-    display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--text-faint); }
-  .gcard-foot span:first-child{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .gcard-arrow{ color:var(--teal); font-weight:700; flex-shrink:0; }
-  .gcard.locked .gcard-arrow{ color:var(--text-faint); }
-
-  .ic-teal{ background:rgba(79,209,197,0.12); color:var(--teal); }
-  .ic-amber{ background:rgba(232,163,61,0.12); color:var(--amber); }
-  .ic-dim{ background:var(--panel-2); color:var(--text-dim); }
-  .ic-red{ background:rgba(226,96,79,0.12); color:var(--red); }
-
-  .sys-pulse-dot{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); }
-  .sys-pulse-dot.live{ background:var(--teal); box-shadow:0 0 0 0 rgba(79,209,197,0.5); animation:pulse 1.6s infinite; }
-  @keyframes pulse{
-    0%{ box-shadow:0 0 0 0 rgba(79,209,197,0.5); }
-    70%{ box-shadow:0 0 0 7px rgba(79,209,197,0); }
-    100%{ box-shadow:0 0 0 0 rgba(79,209,197,0); }
-  }
-
-  .pill-row{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .pill{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:3px 8px; border-radius:20px;
-    background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line); }
-  .pill.on{ color:var(--teal); border-color:rgba(79,209,197,0.3); }
-
-  /* ===== modal ===== */
-  .backdrop{ position:fixed; inset:0; background:rgba(6,7,10,0.72); backdrop-filter:blur(2px);
-    display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:50; overflow-y:auto; }
-  .backdrop.open{ display:flex; }
-  .modal{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    max-width:560px; width:100%; padding:26px; position:relative; display:none; }
-  .modal.open{ display:block; }
-  .modal-close{ position:absolute; top:16px; right:16px; background:var(--panel-2); border:1px solid var(--line);
-    color:var(--text-dim); width:30px; height:30px; border-radius:50%; display:flex; align-items:center;
-    justify-content:center; cursor:pointer; font-size:14px; padding:0; }
-  .modal h2{ font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0 0 4px; padding-right:36px; }
-  .modal .sub{ color:var(--text-dim); font-size:13px; margin-bottom:18px; line-height:1.5; }
-
-  /* ---- steps (Generate modal) ---- */
+  /* ---- steps (inside Generate panel) ---- */
   .steps{ list-style:none; margin:0 0 14px; padding:0; }
   .step{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
   .step:last-child{ border-bottom:none; }
   .dot{ width:18px; height:18px; border-radius:50%; border:2px solid var(--line); flex-shrink:0;
     display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-faint); }
   .step.done .dot{ background:var(--teal); border-color:var(--teal); color:#062421; }
-  .step.active .dot{ border-color:var(--amber); color:var(--amber); }
-  .step.error .dot{ border-color:var(--red); color:var(--red); }
   .step.done .label{ color:var(--text); }
   .step .label{ color:var(--text-dim); }
 
@@ -175,7 +127,7 @@
   .fc-row.done .fc-label{ color:var(--text); }
   .fc-label{ color:var(--text-faint); }
 
-  /* ---- publish modal ---- */
+  /* ---- publish ---- */
   .ch-picker{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
   .ch-chip{ display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--line);
     border-radius:20px; padding:8px 14px; font-size:13px; color:var(--text-dim); cursor:pointer; user-select:none; }
@@ -207,14 +159,14 @@
     font-size:11.5px; padding:5px 10px; margin-left:auto; flex-shrink:0; }
   .cl-trim-btn:hover{ background:rgba(232,163,61,0.1); }
 
-  /* ---- results modal ---- */
-  .result-table{ margin-top:6px; }
+  /* ---- results ---- */
+  .result-table{ margin-top:2px; }
   .rt-row{ padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .rt-row:last-child{ border-bottom:none; }
   .rt-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-bottom:3px; }
   .rt-val{ color:var(--text-dim); white-space:pre-wrap; line-height:1.5; }
 
-  /* ---- products modal ---- */
+  /* ---- products ---- */
   .pl-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
   .pl-row:last-child{ border-bottom:none; }
   .pl-info{ min-width:0; flex:1; }
@@ -224,8 +176,8 @@
   .pl-del-btn:hover{ background:rgba(226,96,79,0.1); }
   .pl-del-btn:disabled{ opacity:0.5; cursor:not-allowed; }
 
-  /* ---- system status modal ---- */
-  .sys-section{ margin-top:0; margin-bottom:18px; }
+  /* ---- system status ---- */
+  .sys-section{ margin-bottom:18px; }
   .sys-section:last-child{ margin-bottom:0; }
   .sys-section-title{ font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600;
     color:var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px; }
@@ -236,11 +188,10 @@
   .ai-chip .ai-dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
   .ai-chip.on{ color:var(--text); border-color:rgba(79,209,197,0.3); }
   .ai-chip.on .ai-dot{ background:var(--teal); }
-  .ai-chip.off .ai-dot{ background:var(--text-faint); }
   .ai-chip.used{ border-color:var(--amber); background:rgba(232,163,61,0.08); }
   .ai-chip.used .ai-dot{ background:var(--amber); }
 
-  .table-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:7px; }
+  .table-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:7px; }
   .table-chip{ display:flex; align-items:center; gap:7px; background:var(--panel-2); border:1px solid var(--line);
     border-radius:7px; padding:9px 11px; font-size:12px; color:var(--text-faint); }
   .table-chip .tc-dot{ width:14px; height:14px; border-radius:4px; border:1.5px solid var(--line); flex-shrink:0;
@@ -268,128 +219,151 @@
 <div class="wrap">
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
   <div class="page-title">Dashboard</div>
-  <div class="page-sub">ทำทีละขั้นตอน — Import → Generate Everything → Publish · ที่เหลือ AI ทำให้ทั้งหมด</div>
 
-  <!-- sticky product overview bar -->
-  <div class="status-bar hidden" id="statusBar">
-    <div class="sb-row">
-      <span class="sb-product" id="sbProduct">—</span>
-      <span class="tag" id="sbStatusTag"></span>
+  <!-- ===== overview — sticky, always visible, this IS the "see everything at a glance" surface ===== -->
+  <div class="overview" id="overview">
+    <div class="ov-top">
+      <span class="ov-name" id="ovName">ยังไม่มีสินค้า</span>
+      <span class="tag" id="ovTag">ยังไม่เริ่ม</span>
     </div>
-    <div class="sb-phases">
-      <div class="sb-phase" id="sbPhase1"></div>
-      <div class="sb-phase" id="sbPhase2"></div>
-      <div class="sb-phase" id="sbPhase3"></div>
+    <div class="ov-track">
+      <div class="ov-seg" id="ovSeg-import"></div>
+      <div class="ov-seg" id="ovSeg-generate"></div>
+      <div class="ov-seg" id="ovSeg-publish"></div>
+      <div class="ov-seg" id="ovSeg-results"></div>
     </div>
-    <div class="sb-meta" id="sbMeta"></div>
+    <div class="ov-labels">
+      <span id="ovlab-import">Import</span><span id="ovlab-generate">Generate</span>
+      <span id="ovlab-publish">Publish</span><span id="ovlab-results">Done</span>
+    </div>
+    <div class="ov-foot">
+      <div class="ov-chip" onclick="toggleAux('system')"><span class="ov-dot" id="ovAiDot"></span><span id="ovAiText">AI …</span></div>
+      <div class="ov-chip" onclick="toggleAux('products')"><span id="ovProductsText">สินค้า —</span></div>
+    </div>
   </div>
 
-  <!-- ===== MOCKUP D: one focused hero card for "what to do now" ===== -->
-  <div class="hero" id="heroCard">
-    <div class="hero-kicker" id="heroKicker">—</div>
+  <!-- ===== the one working surface — no dialogs, everything happens right here ===== -->
+  <div class="stepper" id="stepper">
 
-    <div class="ring-wrap hidden" id="heroRingWrap">
-      <div class="ring">
-        <svg width="96" height="96" viewBox="0 0 96 96">
-          <circle cx="48" cy="48" r="42" stroke="#2a2f3b" stroke-width="8" fill="none"/>
-          <circle cx="48" cy="48" r="42" stroke="#e8a33d" stroke-width="8" fill="none"
-            stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" id="heroRingProgress"/>
-        </svg>
-        <div class="ring-label" id="heroRingLabel">0/0</div>
+    <section class="panel" id="panel-import" data-key="import">
+      <div class="panel-head" onclick="onPanelHeadClick('import')">
+        <span class="panel-num" id="pnum-import">1</span>
+        <div class="panel-head-text">
+          <div class="panel-title">Import Product</div>
+          <div class="panel-sub" id="psub-import">วาง URL สินค้าหรือพิมพ์รายละเอียด</div>
+        </div>
+        <span class="panel-chev">›</span>
       </div>
-    </div>
+      <div class="panel-body">
+        <div class="sub" style="margin-bottom:14px;">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
+        <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
+        <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
+        <div class="err" id="importErr"></div>
+      </div>
+    </section>
 
-    <h1 id="heroTitle">—</h1>
-    <div class="sub" id="heroSub">—</div>
-    <button class="btn-primary" id="heroBtn">—</button>
-    <button class="btn-ghost hidden" id="heroSecondaryBtn" style="width:100%; margin-top:10px;">—</button>
+    <section class="panel" id="panel-generate" data-key="generate">
+      <div class="panel-head" onclick="onPanelHeadClick('generate')">
+        <span class="panel-num" id="pnum-generate">2</span>
+        <div class="panel-head-text">
+          <div class="panel-title">Generate Everything <span class="tag" id="statusTag" style="margin-left:6px;"></span></div>
+          <div class="panel-sub" id="psub-generate">รอนำเข้าสินค้าก่อน</div>
+          <div class="mini-bar hidden" id="genBar"><div class="mini-bar-fill" id="genBarFill" style="width:0%;"></div></div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sub" style="margin-bottom:14px;">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
+        <ul class="steps" id="stepsList"></ul>
+        <div class="fc-wrap">
+          <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
+          <div class="fc-groups hidden" id="fcGroups"></div>
+        </div>
+        <div style="height:16px;"></div>
+        <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
+        <div class="err" id="generateErr"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-publish" data-key="publish">
+      <div class="panel-head" onclick="onPanelHeadClick('publish')">
+        <span class="panel-num" id="pnum-publish">3</span>
+        <div class="panel-head-text">
+          <div class="panel-title">Publish</div>
+          <div class="panel-sub" id="psub-publish">รอสร้างเนื้อหาให้เสร็จก่อน</div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sub" style="margin-bottom:14px;">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่ต้องการเผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
+        <div class="ch-picker" id="chPicker"></div>
+        <div class="pv-wrap hidden" id="pvWrap"></div>
+        <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
+        <div class="err" id="publishErr"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-results" data-key="results">
+      <div class="panel-head" onclick="onPanelHeadClick('results')">
+        <span class="panel-num" id="pnum-results">4</span>
+        <div class="panel-head-text">
+          <div class="panel-title">ผลลัพธ์</div>
+          <div class="panel-sub" id="psub-results">รอเผยแพร่ก่อน</div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sub" style="margin-bottom:14px;">สรุปข้อมูลที่บันทึกแล้ว และผลการโพสต์แต่ละช่องทาง</div>
+        <div class="result-table" id="resultTable"></div>
+        <button class="btn-ghost" id="newProductBtn" onclick="startNewProduct()" style="width:100%; margin-top:16px;">+ Import สินค้าใหม่</button>
+      </div>
+    </section>
+
   </div>
 
-  <!-- everything else — small tappable chips, glance only, doesn't need to be opened -->
-  <div class="peek-strip" id="peekStrip"></div>
-  <div class="hero-note">แตะการ์ดเล็กด้านบนเพื่อดูรายละเอียดของขั้นนั้น — ไม่จำเป็นต้องกดก็ใช้งานต่อได้เลย</div>
-</div>
+  <!-- ===== secondary info — collapsed by default, never blocks the main flow ===== -->
+  <div class="stepper">
+    <section class="panel" id="panel-system">
+      <div class="panel-head" onclick="toggleAux('system')">
+        <span class="panel-num aux-ic">⚙</span>
+        <div class="panel-head-text">
+          <div class="panel-title">สถานะระบบ</div>
+          <div class="panel-sub">AI providers, ตารางที่บันทึกแล้ว, log การเรียก API</div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sys-section">
+          <div class="sys-section-title">AI Providers</div>
+          <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
+        </div>
+        <div class="sys-section">
+          <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
+          <div class="table-grid" id="tableGrid"></div>
+        </div>
+        <div class="sys-section">
+          <div class="sys-section-title"><span class="ov-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
+          <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
+        </div>
+      </div>
+    </section>
 
-<!-- ===================== MODALS ===================== -->
-<div class="backdrop" id="backdrop" onclick="closeModalOnBackdrop(event)">
-
-  <!-- System status modal -->
-  <div class="modal" id="modal-sys">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h2>สถานะระบบ</h2>
-    <div class="sub">AI providers ที่พร้อมใช้งานตอนนี้, ตารางที่บันทึกแล้ว และ log การเรียก API ล่าสุด</div>
-
-    <div class="sys-section">
-      <div class="sys-section-title">AI Providers (ตัวไหนพร้อมใช้งาน)</div>
-      <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
-    </div>
-
-    <div class="sys-section">
-      <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
-      <div class="table-grid" id="tableGrid"></div>
-    </div>
-
-    <div class="sys-section">
-      <div class="sys-section-title"><span class="sys-pulse-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
-      <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
-    </div>
+    <section class="panel" id="panel-products">
+      <div class="panel-head" onclick="toggleAux('products')">
+        <span class="panel-num aux-ic">▤</span>
+        <div class="panel-head-text">
+          <div class="panel-title">สินค้าทั้งหมด</div>
+          <div class="panel-sub" id="psub-products">กดเพื่อดูรายการ</div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sub" style="margin-bottom:14px;">ลบสินค้าที่ไม่ต้องการได้ (ลบแล้วกู้คืนไม่ได้ ข้อมูลทุก table ของสินค้านั้นจะหายไปด้วย)</div>
+        <button class="btn-ghost" id="productListRefreshBtn" onclick="loadProductList()" style="width:100%; margin-bottom:14px;">รีเฟรชรายการ</button>
+        <div id="productListBody"><div class="note">กด "รีเฟรชรายการ" เพื่อโหลดข้อมูล</div></div>
+      </div>
+    </section>
   </div>
-
-  <!-- Import modal -->
-  <div class="modal" id="modal-import">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h2>Import Product</h2>
-    <div class="sub">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
-    <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
-    <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
-    <div class="err" id="importErr"></div>
-  </div>
-
-  <!-- Generate modal -->
-  <div class="modal" id="modal-generate">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h2>Generate Everything <span class="tag" id="statusTag" style="margin-left:6px;"></span></h2>
-    <div class="sub">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
-    <ul class="steps" id="stepsList"></ul>
-
-    <div class="fc-wrap">
-      <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
-      <div class="fc-groups hidden" id="fcGroups"></div>
-    </div>
-
-    <div style="height:16px"></div>
-    <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
-    <div class="err" id="generateErr"></div>
-  </div>
-
-  <!-- Publish modal -->
-  <div class="modal" id="modal-publish">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h2>Publish</h2>
-    <div class="sub">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่เผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
-    <div class="ch-picker" id="chPicker"></div>
-    <div class="pv-wrap hidden" id="pvWrap"></div>
-    <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
-    <div class="err" id="publishErr"></div>
-  </div>
-
-  <!-- Results modal -->
-  <div class="modal" id="modal-results">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h2>สรุปข้อมูลที่บันทึกแล้ว</h2>
-    <div class="sub">ผลการซิงก์เข้าตาราง และผลการโพสต์แต่ละช่องทาง</div>
-    <div class="result-table" id="resultTable"></div>
-  </div>
-
-  <!-- Products modal -->
-  <div class="modal" id="modal-products">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h2>รายการสินค้าทั้งหมด</h2>
-    <div class="sub">ดูสินค้าทุกชิ้นที่เคย Import ไว้ พร้อมสถานะ — ลบทิ้งได้ถ้าไม่ต้องการแล้ว (ลบแล้วกู้คืนไม่ได้ ข้อมูลทุก table ของสินค้านั้นจะหายไปด้วย)</div>
-    <button class="btn-ghost" id="productListRefreshBtn" onclick="loadProductList()" style="width:100%; margin-bottom:14px;">รีเฟรชรายการ</button>
-    <div id="productListBody"><div class="note">กด "รีเฟรชรายการ" เพื่อโหลดข้อมูล</div></div>
-  </div>
-
 </div>
 
 <script>
@@ -407,56 +381,18 @@ function escapeHtml(s){
 }
 
 /* ================================================================= */
-/* MODAL PLUMBING — grid cards open a matching modal. Locked cards    */
-/* (steps that aren't reachable yet) just no-op on click.             */
+/* STEPPER — one page, no popups. Each step is an accordion panel:    */
+/* locked (greyed, can't open), done (collapsed, tap to peek), or     */
+/* active (expanded, this is where you work). The pipeline advances   */
+/* automatically as state changes; tapping any unlocked panel lets    */
+/* you look at it without losing your place.                         */
 /* ================================================================= */
-const LOCK_RULES = {
-  generate: () => !productId,
-  publish: () => !(latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published'),
-  results: () => latestPipelineStatus !== 'published'
-};
-function isLocked(key){
-  const rule = LOCK_RULES[key];
-  return rule ? rule() : false;
-}
-function openModal(key){
-  if (isLocked(key)) return;
-  document.querySelectorAll('.modal').forEach(m => m.classList.remove('open'));
-  document.getElementById('modal-' + key).classList.add('open');
-  document.getElementById('backdrop').classList.add('open');
-}
-function closeModal(){
-  document.getElementById('backdrop').classList.remove('open');
-  document.querySelectorAll('.modal').forEach(m => m.classList.remove('open'));
-}
-function closeModalOnBackdrop(e){
-  if (e.target.id === 'backdrop') closeModal();
-}
-
-/* ================================================================= */
-/* MOCKUP D — HERO + PEEK STRIP                                       */
-/* One focused card shows only the step that needs action right now.  */
-/* Everything else (other steps, system, product count) collapses     */
-/* into small chips below: readable at a glance, tap for detail,      */
-/* never required to keep using the page.                             */
-/* ================================================================= */
-let lastDistributeResults = null;
+const PANEL_ORDER = ['import', 'generate', 'publish', 'results'];
+let expandedStep = 'import';
+let lastAutoKey = null;
+const auxExpanded = { system:false, products:false };
+let lastAiStatus = [];
 let lastProductCount = null;
-
-// Kept as thin compatibility wrappers so every existing call site
-// (doImport, refreshStatus, toggleChannel, renderFieldChecklist, etc.)
-// keeps working unchanged — they all funnel into one renderer.
-function updateImportGcard(){ refreshHeroUI(); }
-function updateGenerateGcard(){ refreshHeroUI(); }
-function updatePublishGcard(){ refreshHeroUI(); }
-function updateResultsGcard(distributeResults){
-  if (distributeResults !== undefined) lastDistributeResults = distributeResults;
-  refreshHeroUI();
-}
-function updateProductsGcard(count){
-  lastProductCount = (count === null || count === undefined) ? null : count;
-  refreshHeroUI();
-}
 
 function getFieldsProgress(){
   const progressText = document.getElementById('fcProgress') ? document.getElementById('fcProgress').textContent : '';
@@ -464,107 +400,135 @@ function getFieldsProgress(){
   return m ? { done: +m[1], total: +m[2] } : { done: 0, total: 0 };
 }
 
-// Which step deserves the hero right now.
 function getCurrentStepKey(){
   if (!productId) return 'import';
-  if (latestPipelineStatus === 'published') return 'done';
+  if (latestPipelineStatus === 'published') return 'results';
   if (latestPipelineStatus === 'enriched') return 'publish';
   return 'generate'; // imported / enriching / error
 }
 
-function refreshHeroUI(){
-  const step = getCurrentStepKey();
-  const kicker = document.getElementById('heroKicker');
-  const title = document.getElementById('heroTitle');
-  const sub = document.getElementById('heroSub');
-  const btn = document.getElementById('heroBtn');
-  const secBtn = document.getElementById('heroSecondaryBtn');
-  const ringWrap = document.getElementById('heroRingWrap');
-  const ringLabel = document.getElementById('heroRingLabel');
-  const ringProgress = document.getElementById('heroRingProgress');
-  if (!kicker) return; // hero not in DOM yet
+function isPanelLocked(key){
+  if (key === 'import') return false;
+  if (key === 'generate') return !productId;
+  if (key === 'publish') return !(latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published');
+  if (key === 'results') return latestPipelineStatus !== 'published';
+  return false;
+}
 
-  ringWrap.classList.add('hidden');
-  secBtn.classList.add('hidden');
+function onPanelHeadClick(key){
+  if (isPanelLocked(key)) return;
+  expandedStep = (expandedStep === key) ? null : key;
+  renderStepper();
+}
 
-  if (step === 'import'){
-    kicker.textContent = 'ขั้นที่ 1 จาก 4 — เริ่มต้น';
-    title.textContent = 'Import Product';
-    sub.textContent = 'วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด';
-    btn.textContent = 'Import Product';
-    btn.onclick = () => openModal('import');
-  } else if (step === 'generate'){
-    const { done, total } = getFieldsProgress();
-    kicker.textContent = 'ขั้นที่ 2 จาก 4 — ต้องทำต่อ';
-    title.textContent = 'Generate Everything';
-    sub.textContent = 'ให้ AI สร้างคีย์เวิร์ด เนื้อหา SEO และโพสต์โซเชียลให้ครบ กดปุ่มเดียว รอสักครู่';
-    btn.textContent = latestPipelineStatus === 'enriching' ? 'กำลังสร้าง...' :
-      (latestPipelineStatus === 'error' ? 'ลองอีกครั้ง' : 'Generate Everything');
-    btn.onclick = () => openModal('generate');
-    if (total > 0){
-      ringWrap.classList.remove('hidden');
-      ringLabel.textContent = done + '/' + total;
-      const circumference = 264;
-      ringProgress.setAttribute('stroke-dashoffset', String(circumference - circumference * (done / total)));
-    }
-  } else if (step === 'publish'){
-    kicker.textContent = 'ขั้นที่ 3 จาก 4 — พร้อมเผยแพร่';
-    title.textContent = 'Publish';
-    sub.textContent = 'ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่ต้องการเผยแพร่ แล้วกด Publish';
-    btn.textContent = 'เลือกช่องทาง & Publish';
-    btn.onclick = () => openModal('publish');
-  } else { // done — published
-    kicker.textContent = 'เสร็จสมบูรณ์ · ขั้นที่ 4 จาก 4';
-    title.textContent = 'เผยแพร่สำเร็จ 🎉';
-    sub.textContent = 'ดูผลลัพธ์การเผยแพร่ หรือเริ่ม Import สินค้าชิ้นถัดไปได้เลย';
-    btn.textContent = 'ดูผลลัพธ์';
-    btn.onclick = () => openModal('results');
-    secBtn.textContent = 'Import สินค้าใหม่';
-    secBtn.onclick = () => openModal('import');
-    secBtn.classList.remove('hidden');
+function toggleAux(key){
+  auxExpanded[key] = !auxExpanded[key];
+  const panel = document.getElementById('panel-' + key);
+  panel.classList.toggle('expanded', auxExpanded[key]);
+  if (key === 'products' && auxExpanded[key] && lastProductCount === null) loadProductList();
+  if (auxExpanded[key]) panel.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function renderStepper(){
+  const current = getCurrentStepKey();
+  if (current !== lastAutoKey) { expandedStep = current; lastAutoKey = current; } // auto-advance on real progress
+
+  const doneFlags = {
+    import: !!productId,
+    generate: latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published',
+    publish: latestPipelineStatus === 'published',
+    results: latestPipelineStatus === 'published'
+  };
+  const { done: fDone, total: fTotal } = getFieldsProgress();
+
+  const subText = {
+    import: productId ? ('นำเข้าแล้ว — ' + (latestProduct && (latestProduct.name || latestProduct.title) || ('สินค้า #' + productId))) : 'วาง URL สินค้าหรือพิมพ์รายละเอียด',
+    generate: (() => {
+      if (!productId) return 'รอนำเข้าสินค้าก่อน';
+      if (latestPipelineStatus === 'error') return 'เกิดข้อผิดพลาด — แตะเพื่อลองอีกครั้ง';
+      if (doneFlags.generate) return 'สร้างเนื้อหาเสร็จครบ ' + fTotal + ' ฟิลด์';
+      return fTotal ? (fDone + '/' + fTotal + ' ฟิลด์เสร็จแล้ว') : 'พร้อมเริ่ม Generate Everything';
+    })(),
+    publish: (() => {
+      if (doneFlags.publish) return 'เผยแพร่แล้ว · ' + selectedChannels.size + ' ช่องทาง';
+      if (latestPipelineStatus === 'enriched') return 'เลือกช่องทางแล้วกด Publish';
+      return 'รอสร้างเนื้อหาให้เสร็จก่อน';
+    })(),
+    results: doneFlags.results ? 'ดูผลลัพธ์การเผยแพร่แต่ละช่องทาง' : 'รอเผยแพร่ก่อน'
+  };
+
+  PANEL_ORDER.forEach((key, i) => {
+    const panel = document.getElementById('panel-' + key);
+    const num = document.getElementById('pnum-' + key);
+    const sub = document.getElementById('psub-' + key);
+    const locked = isPanelLocked(key);
+    const isActive = key === current;
+    panel.classList.toggle('locked', locked);
+    panel.classList.toggle('done', doneFlags[key] && !isActive);
+    panel.classList.toggle('active', isActive);
+    panel.classList.toggle('expanded', key === expandedStep && !locked);
+    num.textContent = (doneFlags[key] && !isActive) ? '✓' : String(i + 1);
+    sub.textContent = subText[key];
+  });
+
+  const genBar = document.getElementById('genBar');
+  const genBarFill = document.getElementById('genBarFill');
+  if (fTotal > 0 && !doneFlags.generate) {
+    genBar.classList.remove('hidden');
+    genBarFill.style.width = Math.round((fDone / fTotal) * 100) + '%';
+  } else {
+    genBar.classList.add('hidden');
   }
 
-  renderPeekStrip(step);
+  renderOverview(current, doneFlags);
 }
 
-function peekChip(label, valueHtml, extraClass, modalKey){
-  return '<div class="peek' + (extraClass ? (' ' + extraClass) : '') + '" onclick="openModal(\'' + modalKey + '\')">' +
-    '<div class="peek-label">' + label + '</div><div class="peek-val">' + valueHtml + '</div></div>';
-}
+function renderOverview(current, doneFlags){
+  const name = latestProduct ? (latestProduct.name || latestProduct.title) : null;
+  document.getElementById('ovName').textContent = productId ? (name || ('สินค้า #' + productId)) : 'ยังไม่มีสินค้า';
 
-function renderPeekStrip(currentStep){
-  const strip = document.getElementById('peekStrip');
-  if (!strip) return;
-  const chips = [];
-  const order = ['import', 'generate', 'publish', 'results'];
+  const ovTag = document.getElementById('ovTag');
+  ovTag.textContent = latestPipelineStatus ? latestPipelineStatus.toUpperCase() : 'ยังไม่เริ่ม';
+  ovTag.className = 'tag' + (latestPipelineStatus ? ' ' + latestPipelineStatus : '');
 
-  order.forEach(k => {
-    if (k === currentStep) return;
-    if (k === 'results' && currentStep === 'done') return; // "done" state already highlights results in the hero
-
-    if (k === 'import'){
-      const done = !!productId;
-      chips.push(peekChip('IMPORT', done ? '✓ เสร็จ' : 'ยังไม่เริ่ม', done ? 'done' : '', 'import'));
-    } else if (k === 'generate'){
-      const done = latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published';
-      const locked = !productId;
-      chips.push(peekChip('GENERATE', done ? '✓ เสร็จ' : (locked ? 'รอก่อน' : 'รอทำ'), done ? 'done' : (locked ? 'locked' : ''), 'generate'));
-    } else if (k === 'publish'){
-      const done = latestPipelineStatus === 'published';
-      const locked = isLocked('publish');
-      chips.push(peekChip('PUBLISH', done ? '✓ เสร็จ' : (locked ? 'รอก่อน' : 'พร้อม'), done ? 'done' : (locked ? 'locked' : ''), 'publish'));
-    } else if (k === 'results'){
-      const locked = isLocked('results');
-      chips.push(peekChip('ผลลัพธ์', locked ? 'รอก่อน' : 'ดูผล', locked ? 'locked' : 'done', 'results'));
-    }
+  PANEL_ORDER.forEach(key => {
+    const seg = document.getElementById('ovSeg-' + key);
+    seg.className = 'ov-seg';
+    if (key === current && latestPipelineStatus === 'error') seg.classList.add('error');
+    else if (doneFlags[key] && key !== current) seg.classList.add('done');
+    else if (key === current) seg.classList.add('active');
+    document.getElementById('ovlab-' + key).classList.toggle('current', key === current);
   });
 
   const aiAvailable = lastAiStatus.filter(p => p.available).length;
   const aiTotal = lastAiStatus.length;
-  chips.push(peekChip('ระบบ', aiTotal ? (aiAvailable + '/' + aiTotal + ' AI') : '…', '', 'sys'));
-  chips.push(peekChip('สินค้า', lastProductCount == null ? '—' : (lastProductCount + ' ชิ้น'), '', 'products'));
+  document.getElementById('ovAiText').textContent = aiTotal ? (aiAvailable + '/' + aiTotal + ' AI พร้อมใช้') : 'AI …';
+  document.getElementById('ovAiDot').classList.toggle('live', activityLog.some(e => e.status === 'pending'));
+  document.getElementById('ovProductsText').textContent = lastProductCount == null ? 'สินค้า —' : ('สินค้า ' + lastProductCount + ' ชิ้น');
+}
 
-  strip.innerHTML = chips.join('');
+function updateProductsSummary(count){
+  lastProductCount = (count === null || count === undefined) ? null : count;
+  renderStepper();
+}
+
+function startNewProduct(){
+  productId = null;
+  latestPipelineStatus = null;
+  latestStages = {};
+  latestProduct = null;
+  selectedChannels = new Set();
+  chPickerRendered = false;
+  window._captionOverrides = {};
+  pipelineSteps = [];
+  document.getElementById('in').value = '';
+  document.getElementById('resultTable').innerHTML = '';
+  document.getElementById('stepsList').innerHTML = '';
+  const dr = document.getElementById('distributeResults'); if (dr) dr.remove();
+  renderFieldChecklist({});
+  lastAutoKey = null; // forces renderStepper to auto-jump back to "import"
+  renderStepper();
+  document.getElementById('panel-import').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ================================================================= */
@@ -583,7 +547,6 @@ const TABLE_LABELS_SHORT = {
 // it succeeded, and which AI provider actually answered.
 let activityLog = [];
 let aiUsageThisRun = {}; // providerId -> count, so the AI grid can highlight who's actually doing the work
-let lastAiStatus = [];
 
 function fmtTime(d){
   return d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
@@ -620,7 +583,7 @@ function updateSysSummary(){
   const pending = activityLog.some(e => e.status === 'pending');
   const pulseDot = document.getElementById('sysPulse');
   if (pulseDot) pulseDot.classList.toggle('live', pending);
-  refreshHeroUI();
+  renderStepper();
 }
 
 // Fired once on page load — shows which AI providers actually have API
@@ -699,42 +662,6 @@ async function apiCall(path, options, label){
   }
 }
 
-/* ---------- sticky product overview bar ---------- */
-function renderStatusBar(data){
-  const bar = document.getElementById('statusBar');
-  if (!bar) return;
-  bar.classList.remove('hidden');
-  const product = data.product || data.item || data.productData || latestProduct || {};
-  const name = product.name || product.title || ('สินค้า #' + productId);
-  document.getElementById('sbProduct').textContent = name;
-
-  const status = data.pipeline.status;
-  latestPipelineStatus = status;
-  const tag = document.getElementById('sbStatusTag');
-  tag.className = 'tag ' + status;
-  tag.textContent = status.toUpperCase();
-
-  const phase1 = document.getElementById('sbPhase1'); // import
-  const phase2 = document.getElementById('sbPhase2'); // generate
-  const phase3 = document.getElementById('sbPhase3'); // publish
-  phase1.className = 'sb-phase done';
-  phase2.className = 'sb-phase' + (
-    status === 'enriching' ? ' active' :
-    (status === 'enriched' || status === 'published') ? ' done' :
-    status === 'error' ? ' error' : ''
-  );
-  phase3.className = 'sb-phase' + (status === 'published' ? ' done' : '');
-
-  const steps = (data.pipeline.steps || []);
-  const doneSteps = steps.filter(s => s.done).length;
-  document.getElementById('sbMeta').textContent =
-    doneSteps + '/' + steps.length + ' ขั้นตอนสร้างเนื้อหา · #' + productId;
-
-  updateGenerateGcard();
-  updatePublishGcard();
-  updateResultsGcard();
-}
-
 async function doImport(){
   const btn = document.getElementById('importBtn');
   const val = document.getElementById('in').value.trim();
@@ -747,10 +674,11 @@ async function doImport(){
     }, 'POST /api/import');
     productId = data.productId;
     window._captionOverrides = {};
+    latestPipelineStatus = data.pipeline.status;
     updateStatusTag(data.pipeline.status);
     renderFieldChecklist({});
-    updateImportGcard();
-    closeModal();
+    document.getElementById('in').value = '';
+    renderStepper();
     await refreshStatus();
   }catch(e){
     showErr('importErr', e.message);
@@ -811,7 +739,7 @@ function toggleChannel(key){
   const chip = document.getElementById('chip_' + key);
   chip.classList.toggle('checked', selectedChannels.has(key));
   renderPrePublishPreview();
-  updatePublishGcard();
+  renderStepper();
 }
 
 const CHANNEL_POST_FIELD = {
@@ -959,14 +887,13 @@ async function retryRehostImage(){
 
 async function refreshStatus(){
   const data = await apiCall('/api/status?productId=' + productId, undefined, 'GET /api/status');
+  latestPipelineStatus = data.pipeline.status;
+  latestStages = data.stages || {};
+  latestProduct = data.product || data.item || data.productData || null;
   updateStatusTag(data.pipeline.status);
   renderSteps(data.pipeline.steps);
   renderFieldChecklist(data.stages);
-  latestStages = data.stages || {};
-  latestProduct = data.product || data.item || data.productData || null;
-  renderStatusBar(data);
   renderTableGrid(data.stages);
-  updateImportGcard();
   if (data.pipeline.status === 'enriched' || data.pipeline.status === 'published') {
     if (!chPickerRendered) renderChannelPicker();
     renderPrePublishPreview();
@@ -974,9 +901,7 @@ async function refreshStatus(){
   if (data.pipeline.status === 'published') {
     renderResults(data.stages);
   }
-  updateGenerateGcard();
-  updatePublishGcard();
-  updateResultsGcard();
+  renderStepper();
   return data;
 }
 
@@ -985,6 +910,8 @@ async function runGenerateAll(){
   hideErr('generateErr');
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   updateStatusTag('enriching');
+  latestPipelineStatus = 'enriching';
+  renderStepper();
   try{
     let done = false;
     while(!done){
@@ -1082,10 +1009,10 @@ function renderDistributeResults(results){
     el.style.marginTop = '16px';
     el.style.borderTop = '1px solid var(--line)';
     el.style.paddingTop = '14px';
-    document.getElementById('modal-publish').appendChild(el);
+    document.querySelector('#panel-publish .panel-body').appendChild(el);
   }
   el.innerHTML = '<div class="fc-group-title" style="margin-bottom:8px;">ผลการเผยแพร่แต่ละช่องทาง</div>' + rows;
-  updateResultsGcard(results);
+  renderStepper();
 }
 
 const FIELD_SCHEMA = [
@@ -1151,7 +1078,7 @@ function renderFieldChecklist(stages){
   }).join('');
   document.getElementById('fcGroups').innerHTML = groupsHtml;
   document.getElementById('fcProgress').textContent = doneCount + ' / ' + totalCount + ' ฟิลด์เสร็จแล้ว';
-  updateGenerateGcard();
+  renderStepper();
 }
 
 const STAGE_LABELS = {
@@ -1191,7 +1118,7 @@ function renderSyncSummary(sync){
     rows.push('<div class="rt-row"><div class="rt-label">Sync Errors</div><div class="rt-val">' + sync.errors.join('\n') + '</div></div>');
   }
   el.innerHTML = rows.join('');
-  updateResultsGcard();
+  renderStepper();
 }
 
 const PL_STATUS_LABELS = {
@@ -1216,7 +1143,8 @@ async function loadProductList(){
 
 function renderProductList(products){
   const bodyEl = document.getElementById('productListBody');
-  updateProductsGcard(products.length);
+  updateProductsSummary(products.length);
+  document.getElementById('psub-products').textContent = products.length + ' ชิ้น — แตะเพื่อดูรายการ';
   if (!products.length) {
     bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
     return;
@@ -1254,7 +1182,7 @@ async function deleteProductRow(id){
     const bodyEl = document.getElementById('productListBody');
     if (!bodyEl.querySelector('.pl-row')) bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
     const remaining = document.querySelectorAll('#productListBody .pl-row').length;
-    updateProductsGcard(remaining);
+    updateProductsSummary(remaining);
   } catch(e) {
     alert('ลบไม่สำเร็จ: ' + e.message);
     if (row) row.style.opacity = '1';
@@ -1264,7 +1192,8 @@ async function deleteProductRow(id){
 
 /* ---------- boot ---------- */
 renderTableGrid({});
-refreshHeroUI();
+renderFieldChecklist({});
+renderStepper();
 loadAiStatus();
 
 // allow Enter to submit the import field
