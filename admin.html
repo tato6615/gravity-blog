@@ -11,31 +11,23 @@
     --bg:#0e1016; --panel:#171a22; --panel-2:#1e222c; --line:#2a2f3b;
     --text:#e8eaf0; --text-dim:#8a90a0; --text-faint:#565c6c;
     --amber:#e8a33d; --amber-dim:#6b5127; --teal:#4fd1c5; --red:#e2604f;
-    --radius:10px; font-size:16px;
+    --radius:12px; font-size:16px;
   }
   *{ box-sizing:border-box; }
   body{
     margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
-    min-height:100vh; padding:40px 20px 80px;
+    min-height:100vh; padding:32px 20px 80px;
     background-image:
       radial-gradient(circle at 85% 8%, rgba(232,163,61,0.07), transparent 40%),
       radial-gradient(circle at 10% 90%, rgba(79,209,197,0.05), transparent 40%);
   }
-  .wrap{ max-width:640px; margin:0 auto; }
+  .wrap{ max-width:920px; margin:0 auto; }
 
   .crumb{ display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace;
-    font-size:12.5px; color:var(--text-faint); margin-bottom:18px; letter-spacing:0.02em; }
+    font-size:12.5px; color:var(--text-faint); margin-bottom:6px; letter-spacing:0.02em; }
   .crumb b{ color:var(--text-dim); font-weight:500; }
-
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    padding:28px; margin-bottom:20px; }
-  .card h1{ font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; margin:0 0 4px; letter-spacing:-0.01em; }
-  .card h2{ font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin:0 0 14px; }
-  .card .sub{ color:var(--text-dim); font-size:13.5px; margin-bottom:20px; line-height:1.5; }
-
-  input[type=text]{ width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    border-radius:7px; padding:12px 14px; font-size:14.5px; font-family:'Inter',sans-serif; margin-bottom:12px; }
-  input:focus{ outline:none; border-color:var(--amber); }
+  .page-title{ font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; margin:0 0 4px; }
+  .page-sub{ color:var(--text-dim); font-size:13.5px; margin-bottom:22px; }
 
   button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; border-radius:8px;
     border:none; cursor:pointer; padding:13px 20px; transition:transform .1s, filter .15s; }
@@ -48,7 +40,89 @@
   .btn-teal:disabled{ opacity:0.5; cursor:not-allowed; }
   .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--text-dim); font-weight:500; font-size:13px; padding:8px 14px; }
 
-  .steps{ list-style:none; margin:0; padding:0; }
+  input[type=text]{ width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:7px; padding:12px 14px; font-size:14.5px; font-family:'Inter',sans-serif; margin-bottom:12px; }
+  input:focus{ outline:none; border-color:var(--amber); }
+
+  .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:20px; }
+  .tag.imported{ background:rgba(79,209,197,0.12); color:var(--teal); }
+  .tag.enriching{ background:rgba(232,163,61,0.12); color:var(--amber); }
+  .tag.enriched{ background:rgba(79,209,197,0.12); color:var(--teal); }
+  .tag.published{ background:rgba(79,209,197,0.2); color:var(--teal); }
+  .tag.error{ background:rgba(226,96,79,0.12); color:#f0b3a8; }
+
+  .err{ color:#f0b3a8; font-size:13px; margin-top:10px; display:none; white-space:pre-wrap; }
+  .note{ color:var(--text-faint); font-size:12.5px; margin-top:16px; text-align:center; }
+  .hidden{ display:none !important; }
+
+  /* ===== sticky product overview bar ===== */
+  .status-bar{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:14px 20px; margin-bottom:20px; }
+  .sb-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .sb-product{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-phases{ display:flex; align-items:center; gap:6px; }
+  .sb-phase{ flex:1; height:5px; border-radius:3px; background:var(--line); }
+  .sb-phase.done{ background:var(--teal); }
+  .sb-phase.active{ background:var(--amber); }
+  .sb-phase.error{ background:var(--red); }
+  .sb-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:8px; }
+
+  /* ===== card grid (dashboard home) ===== */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
+  .gcard{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px; cursor:pointer; transition:border-color .15s, transform .1s, opacity .15s; position:relative; overflow:hidden; }
+  .gcard:hover{ border-color:var(--teal); transform:translateY(-2px); }
+  .gcard:active{ transform:translateY(0); }
+  .gcard.locked{ opacity:0.42; cursor:not-allowed; }
+  .gcard.locked:hover{ border-color:var(--line); transform:none; }
+  .gcard-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .gcard-icon{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-size:16px; flex-shrink:0; }
+  .gcard-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; margin:0 0 3px; }
+  .gcard-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); }
+  .gcard-stat{ font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; line-height:1; margin-bottom:4px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gcard-label{ font-size:12.5px; color:var(--text-dim); }
+  .gcard-foot{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--text-faint); }
+  .gcard-foot span:first-child{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gcard-arrow{ color:var(--teal); font-weight:700; flex-shrink:0; }
+  .gcard.locked .gcard-arrow{ color:var(--text-faint); }
+
+  .ic-teal{ background:rgba(79,209,197,0.12); color:var(--teal); }
+  .ic-amber{ background:rgba(232,163,61,0.12); color:var(--amber); }
+  .ic-dim{ background:var(--panel-2); color:var(--text-dim); }
+  .ic-red{ background:rgba(226,96,79,0.12); color:var(--red); }
+
+  .sys-pulse-dot{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); }
+  .sys-pulse-dot.live{ background:var(--teal); box-shadow:0 0 0 0 rgba(79,209,197,0.5); animation:pulse 1.6s infinite; }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(79,209,197,0.5); }
+    70%{ box-shadow:0 0 0 7px rgba(79,209,197,0); }
+    100%{ box-shadow:0 0 0 0 rgba(79,209,197,0); }
+  }
+
+  .pill-row{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .pill{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:3px 8px; border-radius:20px;
+    background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line); }
+  .pill.on{ color:var(--teal); border-color:rgba(79,209,197,0.3); }
+
+  /* ===== modal ===== */
+  .backdrop{ position:fixed; inset:0; background:rgba(6,7,10,0.72); backdrop-filter:blur(2px);
+    display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:50; overflow-y:auto; }
+  .backdrop.open{ display:flex; }
+  .modal{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    max-width:560px; width:100%; padding:26px; position:relative; display:none; }
+  .modal.open{ display:block; }
+  .modal-close{ position:absolute; top:16px; right:16px; background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text-dim); width:30px; height:30px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; cursor:pointer; font-size:14px; padding:0; }
+  .modal h2{ font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0 0 4px; padding-right:36px; }
+  .modal .sub{ color:var(--text-dim); font-size:13px; margin-bottom:18px; line-height:1.5; }
+
+  /* ---- steps (Generate modal) ---- */
+  .steps{ list-style:none; margin:0 0 14px; padding:0; }
   .step{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
   .step:last-child{ border-bottom:none; }
   .dot{ width:18px; height:18px; border-radius:50%; border:2px solid var(--line); flex-shrink:0;
@@ -59,7 +133,7 @@
   .step.done .label{ color:var(--text); }
   .step .label{ color:var(--text-dim); }
 
-  .fc-wrap{ margin-top:14px; border-top:1px solid var(--line); padding-top:14px; }
+  .fc-wrap{ margin-top:8px; border-top:1px solid var(--line); padding-top:14px; }
   .fc-toggle{ background:transparent; border:1px solid var(--line); color:var(--text-dim); font-family:'IBM Plex Mono',monospace;
     font-size:12px; padding:7px 12px; width:auto; }
   .fc-progress{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-faint); margin-left:10px; }
@@ -76,29 +150,12 @@
   .fc-row.done .fc-label{ color:var(--text); }
   .fc-label{ color:var(--text-faint); }
 
+  /* ---- publish modal ---- */
   .ch-picker{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
   .ch-chip{ display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--line);
     border-radius:20px; padding:8px 14px; font-size:13px; color:var(--text-dim); cursor:pointer; user-select:none; }
   .ch-chip input{ accent-color:var(--teal); width:14px; height:14px; margin:0; }
   .ch-chip.checked{ border-color:var(--teal); color:var(--text); background:rgba(79,209,197,0.08); }
-
-  .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:20px; }
-  .tag.imported{ background:rgba(79,209,197,0.12); color:var(--teal); }
-  .tag.enriching{ background:rgba(232,163,61,0.12); color:var(--amber); }
-  .tag.enriched{ background:rgba(79,209,197,0.12); color:var(--teal); }
-  .tag.published{ background:rgba(79,209,197,0.2); color:var(--teal); }
-  .tag.error{ background:rgba(226,96,79,0.12); color:#f0b3a8; }
-
-  .err{ color:#f0b3a8; font-size:13px; margin-top:10px; display:none; white-space:pre-wrap; }
-  .note{ color:var(--text-faint); font-size:12.5px; margin-top:12px; text-align:center; }
-
-  .result-table{ margin-top:6px; }
-  .rt-row{ padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
-  .rt-row:last-child{ border-bottom:none; }
-  .rt-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-bottom:3px; }
-  .rt-val{ color:var(--text-dim); white-space:pre-wrap; line-height:1.5; }
-
-  .hidden{ display:none !important; }
 
   .pv-wrap{ margin-top:16px; border-top:1px solid var(--line); padding-top:16px; }
   .pv-title-row{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:10px; }
@@ -115,36 +172,6 @@
   .pv-check-row.ok .ico{ color:var(--teal); }
   .pv-check-row.warn .ico{ color:var(--amber); }
 
-  .pl-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
-  .pl-row:last-child{ border-bottom:none; }
-  .pl-info{ min-width:0; flex:1; }
-  .pl-name{ font-size:13.5px; color:var(--text); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pl-meta{ font-size:11.5px; color:var(--text-faint); margin-top:3px; display:flex; align-items:center; gap:6px; }
-  .pl-del-btn{ background:transparent; border:1px solid var(--red); color:var(--red); font-weight:600; font-size:12px; padding:7px 12px; flex-shrink:0; }
-  .pl-del-btn:hover{ background:rgba(226,96,79,0.1); }
-  .pl-del-btn:disabled{ opacity:0.5; cursor:not-allowed; }
-
-  /* --- status bar (product-level overview strip) --- */
-  .status-bar{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
-    border-radius:var(--radius); padding:14px 18px; margin-bottom:18px; }
-  .sb-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-  .sb-product{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; color:var(--text);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .sb-phases{ display:flex; align-items:center; gap:6px; }
-  .sb-phase{ flex:1; height:5px; border-radius:3px; background:var(--line); }
-  .sb-phase.done{ background:var(--teal); }
-  .sb-phase.active{ background:var(--amber); }
-  .sb-phase.error{ background:var(--red); }
-  .sb-meta{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:8px; }
-
-  /* --- collapsible card headers --- */
-  .card-head{ display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; gap:10px; }
-  .chev{ color:var(--text-faint); font-size:13px; flex-shrink:0; }
-  .card-summary{ display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--text-dim);
-    background:var(--panel-2); border-radius:7px; padding:10px 14px; margin-top:12px; }
-  .card-summary .tick{ color:var(--teal); font-weight:700; }
-
-  /* --- per-platform character limit rows --- */
   .cl-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12px; padding:8px 12px;
     color:var(--text-dim); background:#1b1e27; border-top:1px solid var(--line); }
   .cl-row .ico{ flex-shrink:0; width:14px; font-weight:700; }
@@ -155,28 +182,26 @@
     font-size:11.5px; padding:5px 10px; margin-left:auto; flex-shrink:0; }
   .cl-trim-btn:hover{ background:rgba(232,163,61,0.1); }
 
-  /* ============================================================= */
-  /* SYSTEM STATUS PANEL — AI providers / live API log / table saves */
-  /* Always visible (never hidden) so you can watch the whole       */
-  /* pipeline work without hunting for it, right up until Publish.  */
-  /* ============================================================= */
-  .sys-panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    margin-bottom:20px; overflow:hidden; }
-  .sys-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px;
-    cursor:pointer; user-select:none; gap:10px; }
-  .sys-head-left{ display:flex; align-items:center; gap:10px; }
-  .sys-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; }
-  .sys-pulse{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
-  .sys-pulse.live{ background:var(--teal); box-shadow:0 0 0 0 rgba(79,209,197,0.5); animation:pulse 1.6s infinite; }
-  @keyframes pulse{
-    0%{ box-shadow:0 0 0 0 rgba(79,209,197,0.5); }
-    70%{ box-shadow:0 0 0 7px rgba(79,209,197,0); }
-    100%{ box-shadow:0 0 0 0 rgba(79,209,197,0); }
-  }
-  .sys-summary{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-faint); }
-  .sys-body{ padding:0 20px 18px; border-top:1px solid var(--line); }
+  /* ---- results modal ---- */
+  .result-table{ margin-top:6px; }
+  .rt-row{ padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .rt-row:last-child{ border-bottom:none; }
+  .rt-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-bottom:3px; }
+  .rt-val{ color:var(--text-dim); white-space:pre-wrap; line-height:1.5; }
 
-  .sys-section{ margin-top:16px; }
+  /* ---- products modal ---- */
+  .pl-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .pl-row:last-child{ border-bottom:none; }
+  .pl-info{ min-width:0; flex:1; }
+  .pl-name{ font-size:13.5px; color:var(--text); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pl-meta{ font-size:11.5px; color:var(--text-faint); margin-top:3px; display:flex; align-items:center; gap:6px; }
+  .pl-del-btn{ background:transparent; border:1px solid var(--red); color:var(--red); font-weight:600; font-size:12px; padding:7px 12px; flex-shrink:0; }
+  .pl-del-btn:hover{ background:rgba(226,96,79,0.1); }
+  .pl-del-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  /* ---- system status modal ---- */
+  .sys-section{ margin-top:0; margin-bottom:18px; }
+  .sys-section:last-child{ margin-bottom:0; }
   .sys-section-title{ font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600;
     color:var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px; }
 
@@ -217,45 +242,10 @@
 <body>
 <div class="wrap">
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
+  <div class="page-title">Dashboard</div>
+  <div class="page-sub">กดการ์ดไหนก็ได้เพื่อเปิดดูรายละเอียด — Import → Generate Everything → Publish · ทุกอย่างที่เหลือ AI ทำ</div>
 
-  <!-- ============================================================ -->
-  <!-- SYSTEM STATUS PANEL — always visible: AI providers, live API  -->
-  <!-- call log, and which Grist tables have actually been saved.    -->
-  <!-- Collapsed to a one-line summary by default; expand to watch   -->
-  <!-- everything happen in real time.                                -->
-  <!-- ============================================================ -->
-  <div class="sys-panel">
-    <div class="sys-head" onclick="toggleSysPanel()">
-      <div class="sys-head-left">
-        <span class="sys-pulse" id="sysPulse"></span>
-        <span class="sys-title">สถานะระบบ</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="sys-summary" id="sysSummary">กำลังเช็ค AI providers...</span>
-        <span class="chev" id="sysChev">▸</span>
-      </div>
-    </div>
-    <div class="sys-body hidden" id="sysBody">
-
-      <div class="sys-section">
-        <div class="sys-section-title">AI Providers (ตัวไหนพร้อมใช้งาน)</div>
-        <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
-      </div>
-
-      <div class="sys-section">
-        <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
-        <div class="table-grid" id="tableGrid"></div>
-      </div>
-
-      <div class="sys-section">
-        <div class="sys-section-title">Live Activity Log</div>
-        <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Product-level overview status bar -->
+  <!-- sticky product overview bar -->
   <div class="status-bar hidden" id="statusBar">
     <div class="sb-row">
       <span class="sb-product" id="sbProduct">—</span>
@@ -269,77 +259,175 @@
     <div class="sb-meta" id="sbMeta"></div>
   </div>
 
-  <!-- STEP A: Import -->
-  <div class="card" id="importCard">
-    <div class="card-head" onclick="toggleCardCollapse('import')">
-      <h1>Import Product</h1>
-      <span class="chev" id="importChev">▾</span>
-    </div>
-    <div class="card-summary hidden" id="importSummary"></div>
-    <div id="importBody">
-      <div class="sub">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
-      <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
-      <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
-      <div class="err" id="importErr"></div>
-    </div>
-  </div>
+  <div class="grid">
 
-  <!-- STEP B: Generate Everything -->
-  <div class="card hidden" id="generateCard">
-    <div class="card-head" onclick="toggleCardCollapse('generate')">
-      <h2>Generate Everything <span class="tag" id="statusTag" style="margin-left:8px;"></span></h2>
-      <span class="chev" id="generateChev">▾</span>
-    </div>
-    <div class="card-summary hidden" id="generateSummary"></div>
-    <div id="generateBody">
-      <div class="sub">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
-      <ul class="steps" id="stepsList"></ul>
-
-      <div class="fc-wrap">
-        <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
-        <div class="fc-groups hidden" id="fcGroups"></div>
+    <!-- System status card -->
+    <div class="gcard" id="gcard-sys" onclick="openModal('sys')">
+      <div class="gcard-top">
+        <div>
+          <div class="gcard-title">สถานะระบบ</div>
+          <div class="gcard-meta">AI Providers · API Log</div>
+        </div>
+        <div class="gcard-icon ic-teal"><span class="sys-pulse-dot" id="sysPulse"></span></div>
       </div>
+      <div class="gcard-stat" id="gc-sys-stat">…</div>
+      <div class="gcard-label" id="gc-sys-label">กำลังเช็ค AI providers...</div>
+      <div class="gcard-foot"><span id="gc-sys-foot">—</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
+    </div>
 
-      <div style="height:16px"></div>
-      <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
-      <div class="err" id="generateErr"></div>
+    <!-- Import card -->
+    <div class="gcard" id="gcard-import" onclick="openModal('import')">
+      <div class="gcard-top">
+        <div>
+          <div class="gcard-title">Import Product</div>
+          <div class="gcard-meta">STEP 1</div>
+        </div>
+        <div class="gcard-icon ic-dim" id="gc-import-icon">1</div>
+      </div>
+      <div class="gcard-stat" id="gc-import-stat" style="font-size:15px; font-weight:600; color:var(--text-dim);">ยังไม่ได้ Import</div>
+      <div class="gcard-label" id="gc-import-label">วาง URL หรือรายละเอียดสินค้า</div>
+      <div class="gcard-foot"><span id="gc-import-foot">รอเริ่มต้น</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
+    </div>
+
+    <!-- Generate card -->
+    <div class="gcard locked" id="gcard-generate" onclick="openModal('generate')">
+      <div class="gcard-top">
+        <div>
+          <div class="gcard-title">Generate Everything</div>
+          <div class="gcard-meta">STEP 2</div>
+        </div>
+        <div class="gcard-icon ic-amber">✎</div>
+      </div>
+      <div class="gcard-stat" id="gc-generate-stat">— / —</div>
+      <div class="gcard-label" id="gc-generate-label">ฟิลด์เสร็จแล้ว</div>
+      <div class="gcard-foot"><span id="gc-generate-foot">รอ Import ก่อน</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
+    </div>
+
+    <!-- Publish card -->
+    <div class="gcard locked" id="gcard-publish" onclick="openModal('publish')">
+      <div class="gcard-top">
+        <div>
+          <div class="gcard-title">Publish</div>
+          <div class="gcard-meta">STEP 3</div>
+        </div>
+        <div class="gcard-icon ic-teal">▶</div>
+      </div>
+      <div class="gcard-label" style="margin-bottom:2px;">ช่องทางที่เลือก</div>
+      <div class="pill-row" id="gc-publish-pills"><span class="pill">ยังไม่ได้เลือก</span></div>
+      <div class="gcard-foot"><span id="gc-publish-foot">รอ Generate ก่อน</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
+    </div>
+
+    <!-- Results card -->
+    <div class="gcard locked" id="gcard-results" onclick="openModal('results')">
+      <div class="gcard-top">
+        <div>
+          <div class="gcard-title">ผลลัพธ์ & Analytics</div>
+          <div class="gcard-meta">SUMMARY</div>
+        </div>
+        <div class="gcard-icon ic-teal">✓</div>
+      </div>
+      <div class="gcard-stat" id="gc-results-stat">—</div>
+      <div class="gcard-label" id="gc-results-label">ช่องทางเผยแพร่สำเร็จ</div>
+      <div class="gcard-foot"><span id="gc-results-foot">รอ Publish ก่อน</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
+    </div>
+
+    <!-- Products card -->
+    <div class="gcard" id="gcard-products" onclick="openModal('products')">
+      <div class="gcard-top">
+        <div>
+          <div class="gcard-title">สินค้าทั้งหมด</div>
+          <div class="gcard-meta">MANAGE</div>
+        </div>
+        <div class="gcard-icon ic-dim">☰</div>
+      </div>
+      <div class="gcard-stat" id="gc-products-stat">—</div>
+      <div class="gcard-label">รายการในระบบ</div>
+      <div class="gcard-foot"><span id="gc-products-foot">กดเพื่อโหลดรายการ</span><span class="gcard-arrow">ดูรายละเอียด →</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+<div class="backdrop" id="backdrop" onclick="closeModalOnBackdrop(event)">
+
+  <!-- System status modal -->
+  <div class="modal" id="modal-sys">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>สถานะระบบ</h2>
+    <div class="sub">AI providers ที่พร้อมใช้งานตอนนี้, ตารางที่บันทึกแล้ว และ log การเรียก API ล่าสุด</div>
+
+    <div class="sys-section">
+      <div class="sys-section-title">AI Providers (ตัวไหนพร้อมใช้งาน)</div>
+      <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
+    </div>
+
+    <div class="sys-section">
+      <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
+      <div class="table-grid" id="tableGrid"></div>
+    </div>
+
+    <div class="sys-section">
+      <div class="sys-section-title">Live Activity Log</div>
+      <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
     </div>
   </div>
 
-  <!-- STEP C: Publish -->
-  <div class="card hidden" id="publishCard">
-    <div class="card-head" onclick="toggleCardCollapse('publish')">
-      <h2>Publish</h2>
-      <span class="chev" id="publishChev">▾</span>
-    </div>
-    <div class="card-summary hidden" id="publishSummary"></div>
-    <div id="publishBody">
-      <div class="sub">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่เผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
-      <div class="ch-picker" id="chPicker"></div>
-      <div class="pv-wrap hidden" id="pvWrap"></div>
-      <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
-      <div class="err" id="publishErr"></div>
-    </div>
+  <!-- Import modal -->
+  <div class="modal" id="modal-import">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>Import Product</h2>
+    <div class="sub">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
+    <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
+    <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
+    <div class="err" id="importErr"></div>
   </div>
 
-  <!-- Result summary -->
-  <div class="card hidden" id="resultCard">
+  <!-- Generate modal -->
+  <div class="modal" id="modal-generate">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>Generate Everything <span class="tag" id="statusTag" style="margin-left:6px;"></span></h2>
+    <div class="sub">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
+    <ul class="steps" id="stepsList"></ul>
+
+    <div class="fc-wrap">
+      <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
+      <div class="fc-groups hidden" id="fcGroups"></div>
+    </div>
+
+    <div style="height:16px"></div>
+    <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
+    <div class="err" id="generateErr"></div>
+  </div>
+
+  <!-- Publish modal -->
+  <div class="modal" id="modal-publish">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>Publish</h2>
+    <div class="sub">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่เผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
+    <div class="ch-picker" id="chPicker"></div>
+    <div class="pv-wrap hidden" id="pvWrap"></div>
+    <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
+    <div class="err" id="publishErr"></div>
+  </div>
+
+  <!-- Results modal -->
+  <div class="modal" id="modal-results">
+    <button class="modal-close" onclick="closeModal()">✕</button>
     <h2>สรุปข้อมูลที่บันทึกแล้ว</h2>
+    <div class="sub">ผลการซิงก์เข้าตาราง และผลการโพสต์แต่ละช่องทาง</div>
     <div class="result-table" id="resultTable"></div>
   </div>
 
-  <div class="note">Import → Generate Everything → Publish · ทุกอย่างที่เหลือ AI ทำ</div>
-
-  <!-- Product List / Manage -->
-  <div class="fc-wrap" style="border-top:none; margin-top:24px; padding-top:0;">
-    <button class="fc-toggle" id="plToggle" onclick="toggleProductList()" style="width:100%;">▸ จัดการสินค้าทั้งหมด</button>
-  </div>
-  <div class="card hidden" id="productListCard" style="margin-top:14px;">
+  <!-- Products modal -->
+  <div class="modal" id="modal-products">
+    <button class="modal-close" onclick="closeModal()">✕</button>
     <h2>รายการสินค้าทั้งหมด</h2>
     <div class="sub">ดูสินค้าทุกชิ้นที่เคย Import ไว้ พร้อมสถานะ — ลบทิ้งได้ถ้าไม่ต้องการแล้ว (ลบแล้วกู้คืนไม่ได้ ข้อมูลทุก table ของสินค้านั้นจะหายไปด้วย)</div>
     <button class="btn-ghost" id="productListRefreshBtn" onclick="loadProductList()" style="width:100%; margin-bottom:14px;">รีเฟรชรายการ</button>
     <div id="productListBody"><div class="note">กด "รีเฟรชรายการ" เพื่อโหลดข้อมูล</div></div>
   </div>
+
 </div>
 
 <script>
@@ -348,6 +436,7 @@ let productId = null;
 let pipelineSteps = [];
 let latestStages = {};
 let latestProduct = null;
+let latestPipelineStatus = null;
 
 function showErr(id, msg){ const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
 function hideErr(id){ document.getElementById(id).style.display = 'none'; }
@@ -356,15 +445,123 @@ function escapeHtml(s){
 }
 
 /* ================================================================= */
-/* SYSTEM STATUS PANEL — live log + AI provider status + table saves */
+/* MODAL PLUMBING — grid cards open a matching modal. Locked cards    */
+/* (steps that aren't reachable yet) just no-op on click.             */
 /* ================================================================= */
-
-let sysExpanded = false;
-function toggleSysPanel(){
-  sysExpanded = !sysExpanded;
-  document.getElementById('sysBody').classList.toggle('hidden', !sysExpanded);
-  document.getElementById('sysChev').textContent = sysExpanded ? '▾' : '▸';
+const LOCK_RULES = {
+  generate: () => !productId,
+  publish: () => !(latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published'),
+  results: () => latestPipelineStatus !== 'published'
+};
+function isLocked(key){
+  const rule = LOCK_RULES[key];
+  return rule ? rule() : false;
 }
+function openModal(key){
+  if (isLocked(key)) return;
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('open'));
+  document.getElementById('modal-' + key).classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('backdrop').classList.remove('open');
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('open'));
+}
+function closeModalOnBackdrop(e){
+  if (e.target.id === 'backdrop') closeModal();
+}
+
+/* ================================================================= */
+/* GRID CARD SUMMARIES — kept in sync with the underlying state so    */
+/* the dashboard is readable without opening anything.                */
+/* ================================================================= */
+function setGcardLocked(key, locked){
+  const card = document.getElementById('gcard-' + key);
+  if (card) card.classList.toggle('locked', !!locked);
+}
+
+function updateImportGcard(){
+  const stat = document.getElementById('gc-import-stat');
+  const label = document.getElementById('gc-import-label');
+  const foot = document.getElementById('gc-import-foot');
+  const icon = document.getElementById('gc-import-icon');
+  if (productId){
+    stat.textContent = (latestProduct && (latestProduct.name || latestProduct.title)) || ('สินค้า #' + productId);
+    stat.style.fontSize = '15px'; stat.style.fontWeight = '600'; stat.style.color = 'var(--text-dim)';
+    label.textContent = 'นำเข้าแล้ว';
+    foot.textContent = 'เสร็จแล้ว';
+    icon.textContent = '✓';
+    icon.className = 'gcard-icon ic-teal';
+  } else {
+    stat.textContent = 'ยังไม่ได้ Import';
+    label.textContent = 'วาง URL หรือรายละเอียดสินค้า';
+    foot.textContent = 'รอเริ่มต้น';
+    icon.textContent = '1';
+    icon.className = 'gcard-icon ic-dim';
+  }
+}
+
+function updateGenerateGcard(){
+  setGcardLocked('generate', isLocked('generate'));
+  const stat = document.getElementById('gc-generate-stat');
+  const foot = document.getElementById('gc-generate-foot');
+  if (!productId){ stat.textContent = '— / —'; foot.textContent = 'รอ Import ก่อน'; return; }
+  const progressText = document.getElementById('fcProgress') ? document.getElementById('fcProgress').textContent : '';
+  const m = /^(\d+)\s*\/\s*(\d+)/.exec(progressText || '');
+  stat.textContent = m ? (m[1] + ' / ' + m[2]) : '0 / —';
+  const tablesSaved = ALL_TABLE_IDS.filter(t => latestStages[t] && (latestStages[t].th !== undefined ? (latestStages[t].th || latestStages[t].en) : latestStages[t])).length;
+  foot.textContent = (latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published') ? 'เสร็จแล้ว' : (tablesSaved + '/' + ALL_TABLE_IDS.length + ' tables');
+}
+
+function updatePublishGcard(){
+  setGcardLocked('publish', isLocked('publish'));
+  const pillsEl = document.getElementById('gc-publish-pills');
+  const foot = document.getElementById('gc-publish-foot');
+  if (isLocked('publish')){
+    pillsEl.innerHTML = '<span class="pill">ยังไม่ได้เลือก</span>';
+    foot.textContent = 'รอ Generate ก่อน';
+    return;
+  }
+  if (!selectedChannels.size){
+    pillsEl.innerHTML = '<span class="pill">ยังไม่ได้เลือก</span>';
+  } else {
+    pillsEl.innerHTML = CHANNEL_OPTIONS.map(([key,label]) =>
+      '<span class="pill' + (selectedChannels.has(key) ? ' on' : '') + '">' + label + '</span>'
+    ).join('');
+  }
+  foot.textContent = latestPipelineStatus === 'published' ? 'เผยแพร่แล้ว' : 'พร้อมดูพรีวิว';
+}
+
+function updateResultsGcard(distributeResults){
+  setGcardLocked('results', isLocked('results'));
+  const stat = document.getElementById('gc-results-stat');
+  const label = document.getElementById('gc-results-label');
+  const foot = document.getElementById('gc-results-foot');
+  if (isLocked('results')){
+    stat.textContent = '—'; foot.textContent = 'รอ Publish ก่อน';
+    return;
+  }
+  if (distributeResults && distributeResults.length){
+    const ok = distributeResults.filter(r => !r.error && !r.skipped).length;
+    const errs = distributeResults.filter(r => r.error).length;
+    stat.textContent = String(ok);
+    label.textContent = 'ช่องทางเผยแพร่สำเร็จ';
+    foot.textContent = errs ? (errs + ' error') : '0 error';
+  } else {
+    stat.textContent = '✓';
+    label.textContent = 'บันทึกลงตารางแล้ว';
+    foot.textContent = 'ดูรายละเอียด';
+  }
+}
+
+function updateProductsGcard(count){
+  document.getElementById('gc-products-stat').textContent = (count === null || count === undefined) ? '—' : String(count);
+  document.getElementById('gc-products-foot').textContent = (count === null || count === undefined) ? 'กดเพื่อโหลดรายการ' : 'อัพเดตล่าสุดแล้ว';
+}
+
+/* ================================================================= */
+/* SYSTEM STATUS — live log + AI provider status + table saves       */
+/* ================================================================= */
 
 const ALL_TABLE_IDS = ['AI_ANALYSIS', 'KEYWORDS', 'CONTENT', 'SOCIAL', 'AI_MEDIA', 'AI_PUBLISH', 'AI_ANALYTICS'];
 const TABLE_LABELS_SHORT = {
@@ -412,17 +609,17 @@ function renderLog(){
   ).join('');
 }
 function updateSysSummary(){
-  const pulse = document.getElementById('sysPulse');
   const pending = activityLog.some(e => e.status === 'pending');
-  pulse.classList.toggle('live', pending);
+  document.getElementById('sysPulse').classList.toggle('live', pending);
   const errs = activityLog.filter(e => e.status === 'error').length;
   const savedCount = ALL_TABLE_IDS.filter(t => latestStages[t] && (latestStages[t].th !== undefined ? (latestStages[t].th || latestStages[t].en) : latestStages[t])).length;
   const aiAvailable = lastAiStatus.filter(p => p.available).length;
-  let parts = [];
-  parts.push(aiAvailable + '/' + (lastAiStatus.length || '…') + ' AI พร้อม');
-  parts.push(savedCount + '/' + ALL_TABLE_IDS.length + ' table บันทึกแล้ว');
-  if (errs) parts.push(errs + ' error');
-  document.getElementById('sysSummary').textContent = parts.join(' · ');
+
+  document.getElementById('gc-sys-stat').textContent = aiAvailable + '/' + (lastAiStatus.length || '…');
+  document.getElementById('gc-sys-label').textContent = 'AI providers พร้อมใช้งาน';
+  document.getElementById('gc-sys-foot').textContent = savedCount + '/' + ALL_TABLE_IDS.length + ' table บันทึกแล้ว' + (errs ? (' · ' + errs + ' error') : '');
+
+  updateGenerateGcard();
 }
 
 // Fired once on page load — shows which AI providers actually have API
@@ -477,8 +674,8 @@ function renderTableGrid(stages){
 // Thin wrapper around fetch() used by every API call on this page. It
 // automatically logs a "pending" line, then flips it to ok/error with
 // the HTTP status and (when the response says so) which AI provider
-// answered — so the System Status panel above is a complete, honest
-// record of every real network call this page makes, not a simulation.
+// answered — so the System Status panel is a complete, honest record of
+// every real network call this page makes, not a simulation.
 async function apiCall(path, options, label){
   const logId = logEvent('pending', label + ' — กำลังเรียก...');
   try{
@@ -501,26 +698,6 @@ async function apiCall(path, options, label){
   }
 }
 
-/* ---------- collapsible cards (less scrolling) ---------- */
-const cardCollapse = { import:false, generate:false, publish:false };
-function toggleCardCollapse(key){
-  cardCollapse[key] = !cardCollapse[key];
-  applyCardCollapse(key);
-}
-function applyCardCollapse(key){
-  const body = document.getElementById(key + 'Body');
-  const chev = document.getElementById(key + 'Chev');
-  const summary = document.getElementById(key + 'Summary');
-  const collapsed = cardCollapse[key];
-  if (body) body.classList.toggle('hidden', collapsed);
-  if (chev) chev.textContent = collapsed ? '▸' : '▾';
-  if (summary) summary.classList.toggle('hidden', !collapsed);
-}
-function setCardSummary(key, html){
-  const summary = document.getElementById(key + 'Summary');
-  if (summary) summary.innerHTML = html;
-}
-
 /* ---------- sticky product overview bar ---------- */
 function renderStatusBar(data){
   const bar = document.getElementById('statusBar');
@@ -531,6 +708,7 @@ function renderStatusBar(data){
   document.getElementById('sbProduct').textContent = name;
 
   const status = data.pipeline.status;
+  latestPipelineStatus = status;
   const tag = document.getElementById('sbStatusTag');
   tag.className = 'tag ' + status;
   tag.textContent = status.toUpperCase();
@@ -550,6 +728,10 @@ function renderStatusBar(data){
   const doneSteps = steps.filter(s => s.done).length;
   document.getElementById('sbMeta').textContent =
     doneSteps + '/' + steps.length + ' ขั้นตอนสร้างเนื้อหา · #' + productId;
+
+  updateGenerateGcard();
+  updatePublishGcard();
+  updateResultsGcard();
 }
 
 async function doImport(){
@@ -564,15 +746,10 @@ async function doImport(){
     }, 'POST /api/import');
     productId = data.productId;
     window._captionOverrides = {};
-    document.getElementById('generateCard').classList.remove('hidden');
     updateStatusTag(data.pipeline.status);
     renderFieldChecklist({});
-    setCardSummary('import', '<span class="tick">✓</span> นำเข้าแล้ว: ' + escapeHtml(val));
-    cardCollapse.import = true;
-    applyCardCollapse('import');
-    sysExpanded = true;
-    document.getElementById('sysBody').classList.remove('hidden');
-    document.getElementById('sysChev').textContent = '▾';
+    updateImportGcard();
+    closeModal();
     await refreshStatus();
   }catch(e){
     showErr('importErr', e.message);
@@ -633,6 +810,7 @@ function toggleChannel(key){
   const chip = document.getElementById('chip_' + key);
   chip.classList.toggle('checked', selectedChannels.has(key));
   renderPrePublishPreview();
+  updatePublishGcard();
 }
 
 const CHANNEL_POST_FIELD = {
@@ -787,15 +965,17 @@ async function refreshStatus(){
   latestProduct = data.product || data.item || data.productData || null;
   renderStatusBar(data);
   renderTableGrid(data.stages);
+  updateImportGcard();
   if (data.pipeline.status === 'enriched' || data.pipeline.status === 'published') {
-    document.getElementById('publishCard').classList.remove('hidden');
     if (!chPickerRendered) renderChannelPicker();
     renderPrePublishPreview();
   }
   if (data.pipeline.status === 'published') {
     renderResults(data.stages);
-    document.getElementById('resultCard').classList.remove('hidden');
   }
+  updateGenerateGcard();
+  updatePublishGcard();
+  updateResultsGcard();
   return data;
 }
 
@@ -818,10 +998,6 @@ async function runGenerateAll(){
       await refreshStatus();
     }
     btn.textContent = 'เสร็จแล้ว ✓';
-    setCardSummary('generate', '<span class="tick">✓</span> สร้างเนื้อหาเสร็จแล้ว — ' +
-      (document.getElementById('fcProgress').textContent || ''));
-    cardCollapse.generate = true;
-    applyCardCollapse('generate');
   }catch(e){
     showErr('generateErr', e.message + ' — กด Generate Everything อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
     btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
@@ -857,10 +1033,6 @@ async function doPublish(){
     await distributeToChannels(channels);
 
     btn.textContent = 'Published ✓';
-    setCardSummary('publish', '<span class="tick">✓</span> เผยแพร่แล้ว — ' +
-      channels.map(c => CHANNEL_LABELS[c] || c).join(', '));
-    cardCollapse.publish = true;
-    applyCardCollapse('publish');
   }catch(e){
     showErr('publishErr', e.message + ' — กด Publish อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
     btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
@@ -909,10 +1081,10 @@ function renderDistributeResults(results){
     el.style.marginTop = '16px';
     el.style.borderTop = '1px solid var(--line)';
     el.style.paddingTop = '14px';
-    const card = document.getElementById('publishCard');
-    card.appendChild(el);
+    document.getElementById('modal-publish').appendChild(el);
   }
   el.innerHTML = '<div class="fc-group-title" style="margin-bottom:8px;">ผลการเผยแพร่แต่ละช่องทาง</div>' + rows;
+  updateResultsGcard(results);
 }
 
 const FIELD_SCHEMA = [
@@ -978,6 +1150,7 @@ function renderFieldChecklist(stages){
   }).join('');
   document.getElementById('fcGroups').innerHTML = groupsHtml;
   document.getElementById('fcProgress').textContent = doneCount + ' / ' + totalCount + ' ฟิลด์เสร็จแล้ว';
+  updateGenerateGcard();
 }
 
 const STAGE_LABELS = {
@@ -1017,20 +1190,7 @@ function renderSyncSummary(sync){
     rows.push('<div class="rt-row"><div class="rt-label">Sync Errors</div><div class="rt-val">' + sync.errors.join('\n') + '</div></div>');
   }
   el.innerHTML = rows.join('');
-  document.getElementById('resultCard').classList.remove('hidden');
-}
-
-let plExpanded = false;
-let productListLoadedOnce = false;
-
-function toggleProductList(){
-  plExpanded = !plExpanded;
-  document.getElementById('productListCard').classList.toggle('hidden', !plExpanded);
-  document.getElementById('plToggle').textContent = (plExpanded ? '▾' : '▸') + ' จัดการสินค้าทั้งหมด';
-  if (plExpanded && !productListLoadedOnce) {
-    productListLoadedOnce = true;
-    loadProductList();
-  }
+  updateResultsGcard();
 }
 
 const PL_STATUS_LABELS = {
@@ -1055,6 +1215,7 @@ async function loadProductList(){
 
 function renderProductList(products){
   const bodyEl = document.getElementById('productListBody');
+  updateProductsGcard(products.length);
   if (!products.length) {
     bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
     return;
@@ -1091,6 +1252,8 @@ async function deleteProductRow(id){
     if (row) row.remove();
     const bodyEl = document.getElementById('productListBody');
     if (!bodyEl.querySelector('.pl-row')) bodyEl.innerHTML = '<div class="note">ยังไม่มีสินค้าในระบบ</div>';
+    const remaining = document.querySelectorAll('#productListBody .pl-row').length;
+    updateProductsGcard(remaining);
   } catch(e) {
     alert('ลบไม่สำเร็จ: ' + e.message);
     if (row) row.style.opacity = '1';
@@ -1100,6 +1263,10 @@ async function deleteProductRow(id){
 
 /* ---------- boot ---------- */
 renderTableGrid({});
+updateImportGcard();
+updateGenerateGcard();
+updatePublishGcard();
+updateResultsGcard();
 loadAiStatus();
 </script>
 </body>
