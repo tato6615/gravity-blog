@@ -54,7 +54,6 @@
   .hidden{ display:none !important; }
   .sub{ color:var(--text-dim); font-size:13px; line-height:1.55; }
 
-  /* ===== sticky overview bar — the one place the whole pipeline is visible at a glance ===== */
   .overview{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
     border-radius:var(--radius); padding:16px 18px; margin-bottom:22px; }
   .ov-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
@@ -76,7 +75,6 @@
   .ov-dot{ width:6px; height:6px; border-radius:50%; background:var(--text-faint); }
   .ov-dot.live{ background:var(--teal); }
 
-  /* ===== stepper — the single working surface, no popups, everything happens inline ===== */
   .stepper{ display:flex; flex-direction:column; gap:10px; margin-bottom:26px; }
   .panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
   .panel.locked{ opacity:0.4; }
@@ -100,7 +98,6 @@
   .mini-bar{ height:4px; border-radius:3px; background:var(--line); overflow:hidden; margin-top:8px; max-width:220px; }
   .mini-bar-fill{ height:100%; background:var(--teal); transition:width .3s; }
 
-  /* ---- steps (inside Generate panel) ---- */
   .steps{ list-style:none; margin:0 0 14px; padding:0; }
   .step{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
   .step:last-child{ border-bottom:none; }
@@ -127,7 +124,6 @@
   .fc-row.done .fc-label{ color:var(--text); }
   .fc-label{ color:var(--text-faint); }
 
-  /* ---- publish ---- */
   .ch-picker{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
   .ch-chip{ display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--line);
     border-radius:20px; padding:8px 14px; font-size:13px; color:var(--text-dim); cursor:pointer; user-select:none; }
@@ -159,14 +155,17 @@
     font-size:11.5px; padding:5px 10px; margin-left:auto; flex-shrink:0; }
   .cl-trim-btn:hover{ background:rgba(232,163,61,0.1); }
 
-  /* ---- results ---- */
   .result-table{ margin-top:2px; }
   .rt-row{ padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .rt-row:last-child{ border-bottom:none; }
   .rt-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-bottom:3px; }
   .rt-val{ color:var(--text-dim); white-space:pre-wrap; line-height:1.5; }
 
-  /* ---- products ---- */
+  /* distribute results section inside panel-results */
+  .distribute-section{ margin-top:20px; border-top:1px solid var(--line); padding-top:16px; }
+  .distribute-section-title{ font-family:'Space Grotesk',sans-serif; font-size:12.5px; font-weight:600;
+    color:var(--text-dim); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+
   .pl-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
   .pl-row:last-child{ border-bottom:none; }
   .pl-info{ min-width:0; flex:1; }
@@ -176,7 +175,6 @@
   .pl-del-btn:hover{ background:rgba(226,96,79,0.1); }
   .pl-del-btn:disabled{ opacity:0.5; cursor:not-allowed; }
 
-  /* ---- system status ---- */
   .sys-section{ margin-bottom:18px; }
   .sys-section:last-child{ margin-bottom:0; }
   .sys-section-title{ font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600;
@@ -220,7 +218,6 @@
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
   <div class="page-title">Dashboard</div>
 
-  <!-- ===== overview — sticky, always visible, this IS the "see everything at a glance" surface ===== -->
   <div class="overview" id="overview">
     <div class="ov-top">
       <span class="ov-name" id="ovName">ยังไม่มีสินค้า</span>
@@ -242,7 +239,6 @@
     </div>
   </div>
 
-  <!-- ===== the one working surface — no dialogs, everything happens right here ===== -->
   <div class="stepper" id="stepper">
 
     <section class="panel" id="panel-import" data-key="import">
@@ -303,6 +299,7 @@
       </div>
     </section>
 
+    <!-- ═══ Panel 4: ผลลัพธ์ — ผลการบันทึก + ผลการเผยแพร่แต่ละช่องทาง ═══ -->
     <section class="panel" id="panel-results" data-key="results">
       <div class="panel-head" onclick="onPanelHeadClick('results')">
         <span class="panel-num" id="pnum-results">4</span>
@@ -314,14 +311,16 @@
       </div>
       <div class="panel-body">
         <div class="sub" style="margin-bottom:14px;">สรุปข้อมูลที่บันทึกแล้ว และผลการโพสต์แต่ละช่องทาง</div>
+        <!-- ข้อมูลที่บันทึกลง Grist -->
         <div class="result-table" id="resultTable"></div>
+        <!-- ผลการเผยแพร่แต่ละช่องทาง — แสดงที่นี่ (ย้ายจาก panel-publish) -->
+        <div id="distributeResults"></div>
         <button class="btn-ghost" id="newProductBtn" onclick="startNewProduct()" style="width:100%; margin-top:16px;">+ Import สินค้าใหม่</button>
       </div>
     </section>
 
   </div>
 
-  <!-- ===== secondary info — collapsed by default, never blocks the main flow ===== -->
   <div class="stepper">
     <section class="panel" id="panel-system">
       <div class="panel-head" onclick="toggleAux('system')">
@@ -367,7 +366,7 @@
 </div>
 
 <script>
-const API = 'https://af.pakpiromjajaja.workers.dev'; // backend Worker lives on a different subdomain than this static page
+const API = 'https://af.pakpiromjajaja.workers.dev';
 let productId = null;
 let pipelineSteps = [];
 let latestStages = {};
@@ -380,13 +379,6 @@ function escapeHtml(s){
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-/* ================================================================= */
-/* STEPPER — one page, no popups. Each step is an accordion panel:    */
-/* locked (greyed, can't open), done (collapsed, tap to peek), or     */
-/* active (expanded, this is where you work). The pipeline advances   */
-/* automatically as state changes; tapping any unlocked panel lets    */
-/* you look at it without losing your place.                         */
-/* ================================================================= */
 const PANEL_ORDER = ['import', 'generate', 'publish', 'results'];
 let expandedStep = 'import';
 let lastAutoKey = null;
@@ -404,7 +396,7 @@ function getCurrentStepKey(){
   if (!productId) return 'import';
   if (latestPipelineStatus === 'published') return 'results';
   if (latestPipelineStatus === 'enriched') return 'publish';
-  return 'generate'; // imported / enriching / error
+  return 'generate';
 }
 
 function isPanelLocked(key){
@@ -431,7 +423,7 @@ function toggleAux(key){
 
 function renderStepper(){
   const current = getCurrentStepKey();
-  if (current !== lastAutoKey) { expandedStep = current; lastAutoKey = current; } // auto-advance on real progress
+  if (current !== lastAutoKey) { expandedStep = current; lastAutoKey = current; }
 
   const doneFlags = {
     import: !!productId,
@@ -524,16 +516,14 @@ function startNewProduct(){
   document.getElementById('in').value = '';
   document.getElementById('resultTable').innerHTML = '';
   document.getElementById('stepsList').innerHTML = '';
-  const dr = document.getElementById('distributeResults'); if (dr) dr.remove();
+  // ล้าง distributeResults ใน panel-results
+  const dr = document.getElementById('distributeResults');
+  if (dr) dr.innerHTML = '';
   renderFieldChecklist({});
-  lastAutoKey = null; // forces renderStepper to auto-jump back to "import"
+  lastAutoKey = null;
   renderStepper();
   document.getElementById('panel-import').scrollIntoView({ behavior:'smooth', block:'start' });
 }
-
-/* ================================================================= */
-/* SYSTEM STATUS — live log + AI provider status + table saves       */
-/* ================================================================= */
 
 const ALL_TABLE_IDS = ['AI_ANALYSIS', 'KEYWORDS', 'CONTENT', 'SOCIAL', 'AI_MEDIA', 'AI_PUBLISH', 'AI_ANALYTICS'];
 const TABLE_LABELS_SHORT = {
@@ -541,12 +531,8 @@ const TABLE_LABELS_SHORT = {
   SOCIAL: 'Social', AI_MEDIA: 'Media', AI_PUBLISH: 'Publish', AI_ANALYTICS: 'Analytics'
 };
 
-// One shared, timestamped event log. Every real API call the page makes
-// funnels through logEvent() so you can see — without hunting through
-// dev tools — exactly what's happening: which endpoint was hit, whether
-// it succeeded, and which AI provider actually answered.
 let activityLog = [];
-let aiUsageThisRun = {}; // providerId -> count, so the AI grid can highlight who's actually doing the work
+let aiUsageThisRun = {};
 
 function fmtTime(d){
   return d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
@@ -586,8 +572,6 @@ function updateSysSummary(){
   renderStepper();
 }
 
-// Fired once on page load — shows which AI providers actually have API
-// keys configured on the Worker right now.
 async function loadAiStatus(){
   const logId = logEvent('pending', 'GET /api/ai-status — เช็ค AI providers...');
   try{
@@ -614,8 +598,6 @@ function renderAiGrid(){
       '</span>';
   }).join('');
 }
-// Called whenever a step/import result tells us which provider answered
-// (worker.js returns { provider: 'gemini', ... } on AI-backed steps).
 function markProviderUsed(providerId){
   if (!providerId) return;
   aiUsageThisRun[providerId] = (aiUsageThisRun[providerId] || 0) + 1;
@@ -635,11 +617,6 @@ function renderTableGrid(stages){
   updateSysSummary();
 }
 
-// Thin wrapper around fetch() used by every API call on this page. It
-// automatically logs a "pending" line, then flips it to ok/error with
-// the HTTP status and (when the response says so) which AI provider
-// answered — so the System Status panel is a complete, honest record of
-// every real network call this page makes, not a simulation.
 async function apiCall(path, options, label){
   const logId = logEvent('pending', label + ' — กำลังเรียก...');
   try{
@@ -707,19 +684,6 @@ const CHANNEL_OPTIONS = [
   ['facebook','Facebook'], ['instagram','Instagram'], ['threads','Threads'], ['x','X'], ['pinterest','Pinterest'],
   ['youtube','YouTube'], ['shorts','Shorts/TikTok'], ['website','Website/Blog']
 ];
-// Facebook/Instagram/Threads/X/Pinterest/website are wired to a real
-// /api/distribute call (see postToFacebookPage/postToInstagram/postToThreads/
-// postToX/postToPinterest in worker.js's distribute.js, plus the no-API
-// "website" branch). youtube now renders a short product video via
-// Shotstack and uploads it through the YouTube Data API v3 resumable
-// upload flow (postToYouTube in distribute.js) — added once
-// YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN and
-// SHOTSTACK_API_KEY / SHOTSTACK_ENV were configured as Worker secrets.
-// shorts/TikTok still requires a TikTok Developer App to pass review
-// before Content Posting API calls will work, so it stays excluded here
-// until that's approved — ticking that box and hitting Publish records
-// the intent as a tag only, it can never actually post, so the UI says
-// so explicitly instead of staying silent.
 const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest', 'website', 'youtube']);
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
@@ -748,19 +712,11 @@ const CHANNEL_POST_FIELD = {
 };
 const PREVIEWABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest']);
 
-// Real platform caption limits. Today only X is actually truncated
-// server-side (see worker.js) — everything else just trusts the AI to write
-// short, which isn't always accurate. This checks the real length client-side
-// against each platform's hard cap and offers a one-click, word-boundary-safe
-// trim. NOTE: this is a client-side safety net for what gets *shown* and for
-// what gets sent as captionOverride below — for a guaranteed fix, worker.js's
-// /api/distribute handler should also enforce these caps server-side and
-// should read `captionOverride` when present instead of regenerating text.
 const PLATFORM_LIMITS = {
-  facebook:  { hardCap: 63206 }, // technically huge, but keep the check wired for consistency
+  facebook:  { hardCap: 63206 },
   instagram: { hardCap: 2200 },
   threads:   { hardCap: 500 },
-  x:         { hardCap: 280 },  // already enforced server-side, kept here for the UI badge
+  x:         { hardCap: 280 },
   pinterest: { hardCap: 500 }
 };
 window._captionOverrides = window._captionOverrides || {};
@@ -961,6 +917,12 @@ async function doPublish(){
     await distributeToChannels(channels);
 
     btn.textContent = 'Published ✓';
+
+    // ═══ FIX: auto-open panel-results และ scroll ไปหาผลลัพธ์ ═══
+    expandedStep = 'results';
+    renderStepper();
+    document.getElementById('panel-results').scrollIntoView({ behavior:'smooth', block:'start' });
+
   }catch(e){
     showErr('publishErr', e.message + ' — กด Publish อีกครั้งเพื่อทำต่อจากจุดที่ค้าง');
     btn.textContent = 'ลองอีกครั้ง (ทำต่อจากจุดที่ค้าง)';
@@ -992,6 +954,7 @@ async function distributeToChannels(channels){
   return results;
 }
 
+// ═══ FIX: render ผลการเผยแพร่ใน panel-results แทน panel-publish ═══
 function renderDistributeResults(results){
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
@@ -1001,17 +964,15 @@ function renderDistributeResults(results){
     else val = '✓ โพสต์สำเร็จ' + (r.link ? ' — <a href="' + r.link + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '');
     return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
   }).join('');
-  let el = document.getElementById('distributeResults');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'distributeResults';
-    el.className = 'result-table';
-    el.style.marginTop = '16px';
-    el.style.borderTop = '1px solid var(--line)';
-    el.style.paddingTop = '14px';
-    document.querySelector('#panel-publish .panel-body').appendChild(el);
-  }
-  el.innerHTML = '<div class="fc-group-title" style="margin-bottom:8px;">ผลการเผยแพร่แต่ละช่องทาง</div>' + rows;
+
+  // target: panel-results (ไม่ใช่ panel-publish แล้ว)
+  const el = document.getElementById('distributeResults');
+  el.innerHTML =
+    '<div class="distribute-section">' +
+      '<div class="distribute-section-title">📡 ผลการเผยแพร่แต่ละช่องทาง</div>' +
+      rows +
+    '</div>';
+
   renderStepper();
 }
 
@@ -1196,7 +1157,6 @@ renderFieldChecklist({});
 renderStepper();
 loadAiStatus();
 
-// allow Enter to submit the import field
 document.getElementById('in').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doImport();
 });
