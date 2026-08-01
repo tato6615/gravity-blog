@@ -1,51 +1,39 @@
-/**
- * Click Tracking API
- * GET /api/click?product_id=ASIN-123&utm_source=blog
- */
-
 export async function onRequest(context) {
   try {
     const { request, env } = context;
     const url = new URL(request.url);
     
-    // ✅ ดึง parameters
     const product_id = url.searchParams.get('product_id');
     const utm_source = url.searchParams.get('utm_source') || 'direct';
     const utm_medium = url.searchParams.get('utm_medium') || 'affiliate';
-    const referrer = request.headers.get('referer') || '';
-    const user_agent = request.headers.get('user-agent') || '';
-    const ip = request.headers.get('cf-connecting-ip') || '';
     
     if (!product_id) {
       return new Response('Missing product_id', { status: 400 });
     }
     
-    // ✅ Log ลง database
-    const stmt = env.DB.prepare(`
-      INSERT INTO clicks (product_id, timestamp, referrer, utm_source, utm_medium, user_agent, ip)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+    // ✅ Call D1 via HTTP API
+    const dbId = "da05a906-cf21-4717-a96f-c1da3966fd56";
+    const accountId = "6cb3cb63c3df5143d124b45a80ab7b95";
     
-    await stmt.bind(
-      product_id,
-      new Date().toISOString(),
-      referrer,
-      utm_source,
-      utm_medium,
-      user_agent,
-      ip
-    ).run();
+    await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/query`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sql: `INSERT INTO clicks (product_id, timestamp, utm_source, utm_medium) VALUES (?, ?, ?, ?)`,
+        params: [product_id, new Date().toISOString(), utm_source, utm_medium]
+      })
+    });
     
     console.log('✅ Click logged:', product_id);
     
-    // ✅ Redirect ไป Amazon
-    const affiliate_url = `https://amazon.com/dp/${product_id}`;
-    
+    // ✅ Redirect
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': affiliate_url,
-        'Cache-Control': 'no-cache'
+        'Location': `https://amazon.com/dp/${product_id}`
       }
     });
     
