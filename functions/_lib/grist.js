@@ -232,3 +232,18 @@ export async function getAvailableLanguages(env, productId) {
   }
   return result;
 }
+/**
+ * Looks up a single product's buyUrl by its Grist row id — used by the
+ * /go/[id] redirect function. Doesn't require the product to have live
+ * CONTENT/slug (unlike getLiveArticles) — just needs to exist in
+ * PRODUCTS with an affiliate_link.
+ * @param {object} env
+ * @param {number|string} productId
+ */
+export async function getProductBuyUrlById(env, productId) {
+  const productsTableId = await findProductsTableId(env);
+  const products = await fetchTableRecords(env, productsTableId);
+  const row = products.find(p => Number(p.id) === Number(productId));
+  if (!row) return null;
+  return normalizeProduct(row.fields).buyUrl;
+}

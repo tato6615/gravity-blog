@@ -141,8 +141,11 @@ export async function renderArticlePage(env, slug, lang = 'th') {
         </div>`
       : '';
 
-    const buyBtn = article.product.buyUrl
-      ? `<a class="buy-btn" href="${escapeHtml(article.product.buyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`
+    const trackedBuyUrl = article.product.buyUrl
+      ? `${prefix}/go/${encodeURIComponent(article.id)}`
+      : '';
+    const buyBtn = trackedBuyUrl
+      ? `<a class="buy-btn" href="${escapeHtml(trackedBuyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`
       : '';
 
     const tagsHtml = article.tags.length
