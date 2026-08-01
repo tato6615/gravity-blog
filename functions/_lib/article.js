@@ -190,6 +190,18 @@ export async function renderArticlePage(env, slug, lang = 'th') {
       ${renderAuthorSection(authorId, lang)}
       ${tagsHtml}
       <p style="margin-top:32px;"><a href="${prefix}/">${t.moreReviews}</a></p>
+      <script>
+        (function () {
+          try {
+            fetch('https://af.pakpiromjajaja.workers.dev/api/track-view', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ productId: ${JSON.stringify(article.id)} }),
+              keepalive: true
+            }).catch(function () {});
+          } catch (e) {}
+        })();
+      </script>
     `;
 
     const html = renderPage({
