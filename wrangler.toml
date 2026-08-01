@@ -2,7 +2,7 @@ name = "gravity-blog"
 type = "javascript"
 account_id = "6cb3cb63c3df5143d124b45a80ab7b95"
 workers_dev = true
-main = "src/index.js"
+main = "functions/_worker.js"
 compatibility_date = "2024-01-01"
 
 [[d1_databases]]
