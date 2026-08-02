@@ -6,58 +6,66 @@ echo ""
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
-NC='\033[0mมา
+NC='\033[0m'
 
 COMPLETED=0
 TOTAL=0
 
+check_file() {
+  local file="$1"
+  local label="$2"
+  TOTAL=$((TOTAL+1))
+  if [ -f "$file" ]; then
+    echo -e "${GREEN}✅${NC} $label"
+    COMPLETED=$((COMPLETED+1))
+  else
+    echo -e "${RED}❌${NC} $label"
+  fi
+}
+
 echo "📦 PHASE 0: FOUNDATION"
-[ -f "wrangler.toml" ] && echo -e "${GREEN}✅${NC} wrangler.toml" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} wrangler.toml"
-TOTAL=$((TOTAL+1))
-[ -f "package.json" ] && echo -e "${GREEN}✅${NC} package.json" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} package.json"
-TOTAL=$((TOTAL+1))
+check_file "wrangler.toml" "wrangler.toml"
+check_file "package.json" "package.json"
 echo ""
 
 echo "📊 PHASE 1: TRACKING"
-[ -f "functions/api/click.js" ] && echo -e "${GREEN}✅${NC} click.js" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} click.js"
-TOTAL=$((TOTAL+1))
+check_file "functions/api/click.js" "click.js"
+check_file "functions/go/[id].js" "go/[id].js (ตัวจริงที่ปุ่ม Buy เรียก)"
 echo ""
 
 echo "💳 PHASE 2: CONVERSION"
-[ -f "functions/api/product-webhook.js" ] && echo -e "${GREEN}✅${NC} product-webhook.js" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} product-webhook.js"
-TOTAL=$((TOTAL+1))
+check_file "functions/api/product-webhook.js" "product-webhook.js"
 echo ""
 
 echo "📈 PHASE 3: ANALYTICS"
-[ -f "functions/api/stats.js" ] && echo -e "${GREEN}✅${NC} stats.js" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} stats.js"
-TOTAL=$((TOTAL+1))
+check_file "functions/api/stats.js" "stats.js"
 echo ""
 
 echo "✍️  PHASE 4: CONTENT"
 ARTICLE_COUNT=$(find . -name "*.html" -path "*/product/*" 2>/dev/null | wc -l)
 echo "📄 Articles: $ARTICLE_COUNT"
-[ -f "admin.html" ] && echo -e "${GREEN}✅${NC} admin.html" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} admin.html"
-TOTAL=$((TOTAL+1))
+check_file "admin.html" "admin.html"
 echo ""
 
 echo "🌱 PHASE 5: GROWTH"
-[ -f "functions/api/email.js" ] && echo -e "${GREEN}✅${NC} email.js" && COMPLETED=$((COMPLETED+1)) || echo -e "${YELLOW}⚠️${NC}  email.js (TODO)"
-TOTAL=$((TOTAL+1))
+check_file "functions/api/email.js" "email.js"
 echo ""
 
 echo "⚙️  PHASE 6: AUTOMATION"
-[ -f "fix-content-product-links.js" ] && echo -e "${GREEN}✅${NC} fix-content-product-links.js" && COMPLETED=$((COMPLETED+1)) || echo -e "${RED}❌${NC} fix-content-product-links.js"
-TOTAL=$((TOTAL+1))
+check_file "fix-content-product-links.js" "fix-content-product-links.js"
 echo ""
 
-PERCENTAGE=$((COMPLETED * 100 / TOTAL))
-BAR_LENGTH=30
-FILLED=$((PERCENTAGE * BAR_LENGTH / 100))
-BAR=""
-for ((i = 0; i < FILLED; i++)); do BAR="${BAR}█"; done
-for ((i = FILLED; i < BAR_LENGTH; i++)); do BAR="${BAR}░"; done
-
 echo "======================================"
-echo "📊 PROGRESS: ${BAR} ${PERCENTAGE}%"
+PERCENT=$((COMPLETED * 100 / TOTAL))
+FILLED=$((PERCENT * 30 / 100))
+BAR=""
+for ((i=0; i<FILLED; i++)); do BAR="${BAR}█"; done
+for ((i=FILLED; i<30; i++)); do BAR="${BAR}░"; done
+echo "📊 PROGRESS: $BAR $PERCENT%"
 echo "✅ $COMPLETED / $TOTAL complete"
 echo "======================================"
+echo ""
+echo "⚠️  หมายเหตุ: เช็คนี้ดูแค่ว่า 'ไฟล์มีอยู่ไหม' เท่านั้น"
+echo "   ไม่ได้พิสูจน์ว่ามันทำงานถูกต้อง หรือข้อมูลเบื้องหลัง"
+echo "   (เช่น affiliate_link ใน Grist) ถูกกรอกครบ"
+echo "   เขียว 100% ที่นี่ ไม่เท่ากับ 'ใช้งานได้จริง 100%'"
