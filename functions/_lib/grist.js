@@ -40,7 +40,9 @@ async function fetchTableRecords(env, tableId) {
 function pickField(fields, candidates) {
   for (const c of candidates) {
     for (const key of Object.keys(fields)) {
-      if (key.toLowerCase() === c.toLowerCase()) return fields[key];
+      if (key.toLowerCase() === c.toLowerCase() && fields[key] != null && fields[key] !== '') {
+        return fields[key];
+      }
     }
   }
   return null;
