@@ -9,11 +9,25 @@ export async function onRequestGet({ params, env, waitUntil }) {
   try {
     buyUrl = await getProductBuyUrlById(env, productId);
   } catch (e) {
-    return new Response('โหลดข้อมูลสินค้าไม่สำเร็จ: ' + e.message, { status: 500 });
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><title>เกิดข้อผิดพลาด</title>
+       <body style="font-family:sans-serif;padding:40px;text-align:center;">
+         <p>โหลดข้อมูลสินค้าไม่สำเร็จ: ${e.message}</p>
+         <p><a href="/">← กลับหน้าแรก</a></p>
+       </body>`,
+      { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
   }
 
   if (!buyUrl) {
-    return new Response('ไม่พบลิงก์สินค้านี้', { status: 404 });
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><title>ไม่พบลิงก์สินค้านี้</title>
+       <body style="font-family:sans-serif;padding:40px;text-align:center;">
+         <p>ไม่พบลิงก์สินค้านี้ (product id: ${productId})</p>
+         <p><a href="/">← กลับหน้าแรก</a></p>
+       </body>`,
+      { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
   }
 
   waitUntil(
