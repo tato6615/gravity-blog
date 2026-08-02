@@ -14,3 +14,9 @@ database_id = "da05a906-cf21-4717-a96f-c1da3966fd56"
 routes = [
   { pattern = "gravity-blog.pages.dev/*", zone_name = "gravity-blog.pages.dev" }
 ]
+
+# Phase 5: Email configuration
+# Add these secrets via: wrangler secret put NAME
+# MAILCHIMP_API_KEY
+# MAILCHIMP_SERVER (e.g., us1)
+# MAILCHIMP_LIST_ID
