@@ -56,7 +56,7 @@ async function main() {
   console.log(`✅ CONTENT: ${content.length} แถว\n`);
 
   const productById = new Map(products.map(p => [p.id, p]));
-  const okRows = [], autoFixRows = [], reviewRows = [];
+  const okRows = [], autoFixRows = [], brokenRows = [], borderlineRows = [];
 
   for (const row of content) {
     const currentId = toId(row.fields.product);
@@ -81,11 +81,17 @@ async function main() {
     const scoreMargin = mismatch.suggestedScore - mismatch.currentScore;
     const safeToAutoFix = meetsMinScore && (!currentValid || scoreMargin >= BORDERLINE_MARGIN);
 
-    if (safeToAutoFix) autoFixRows.push(mismatch); else reviewRows.push(mismatch);
+    if (safeToAutoFix) {
+      autoFixRows.push(mismatch);
+    } else if (!currentValid) {
+      brokenRows.push(mismatch);
+    } else {
+      borderlineRows.push(mismatch);
+    }
   }
 
   console.log('='.repeat(90));
-  console.log(`สรุป: ตรงกันแล้ว ${okRows.length} | แก้อัตโนมัติได้ ${autoFixRows.length} | ต้องเช็คมือ ${reviewRows.length}`);
+  console.log(`สรุป: ตรงกันแล้ว ${okRows.length} | แก้อัตโนมัติได้ ${autoFixRows.length} | ลิงก์พังจริง ${brokenRows.length} | borderline (ไม่บล็อก) ${borderlineRows.length}`);
   console.log('='.repeat(90));
 
   if (autoFixRows.length) {
@@ -98,9 +104,19 @@ async function main() {
     }
   }
 
-  if (reviewRows.length) {
-    console.log(`\n⚠️  ต้องเช็คมือก่อน (score ต่ำกว่าเกณฑ์ หรือ borderline):\n`);
-    for (const m of reviewRows) {
+  if (brokenRows.length) {
+    console.log(`\n🚨 ลิงก์พังจริง (product ID ไม่มีอยู่จริงใน PRODUCTS) — ต้องแก้:\n`);
+    for (const m of brokenRows) {
+      console.log(`CONTENT#${m.contentId}  slug="${m.slug}"`);
+      console.log(`  ตอนนี้:   product=${m.currentId} (${m.currentName})`);
+      console.log(`  แนะนำ:    product=${m.suggestedId} (${m.suggestedName})  [score=${m.suggestedScore}]`);
+      console.log('-'.repeat(90));
+    }
+  }
+
+  if (borderlineRows.length) {
+    console.log(`\n💡 Borderline (ใช้งานได้อยู่ แค่เผื่อมี match ที่ดีกว่า — ไม่บล็อก deploy):\n`);
+    for (const m of borderlineRows) {
       console.log(`CONTENT#${m.contentId}  slug="${m.slug}"`);
       console.log(`  ตอนนี้:   product=${m.currentId} (${m.currentName})  [score=${m.currentScore}]`);
       console.log(`  แนะนำ:    product=${m.suggestedId} (${m.suggestedName})  [score=${m.suggestedScore}]`);
@@ -111,13 +127,13 @@ async function main() {
   if (!APPLY_FIX) {
     console.log('\n💡 โหมดตรวจสอบเท่านั้น รันคำสั่งนี้เพื่อแก้เฉพาะแถวที่มั่นใจ:');
     console.log('   node fix-content-product-links.js --fix');
-    if (reviewRows.length) process.exitCode = 2;
+    if (brokenRows.length) process.exitCode = 2;
     return;
   }
 
   if (!autoFixRows.length) {
-    console.log('\n✅ ไม่มีแถวไหนที่มั่นใจพอจะแก้อัตโนมัติ — ทุกอย่างต้องเช็คมือ');
-    if (reviewRows.length) process.exitCode = 2;
+    console.log('\n✅ ไม่มีแถวไหนที่มั่นใจพอจะแก้อัตโนมัติ');
+    if (brokenRows.length) process.exitCode = 2;
     return;
   }
 
@@ -125,9 +141,12 @@ async function main() {
   const records = autoFixRows.map(m => ({ id: m.contentId, fields: { product: m.suggestedId } }));
   await gristPatch('CONTENT', records);
   console.log(`✅ แก้ไขสำเร็จ ${autoFixRows.length} แถว`);
-  if (reviewRows.length) {
-    console.log(`⚠️  เหลืออีก ${reviewRows.length} แถวที่ยังต้องเช็คมือใน Grist`);
+  if (brokenRows.length) {
+    console.log(`🚨 เหลืออีก ${brokenRows.length} แถวที่ลิงก์พังจริง ต้องเช็คมือใน Grist`);
     process.exitCode = 2;
+  }
+  if (borderlineRows.length) {
+    console.log(`💡 มี ${borderlineRows.length} แถว borderline (ไม่บล็อก, แค่แจ้งไว้)`);
   }
 }
 
