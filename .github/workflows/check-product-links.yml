@@ -1,0 +1,24 @@
+name: Check Product Links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fix-content-product-links.js'
+  schedule:
+    - cron: '0 20 * * *'   # ทุกวัน 20:00 UTC = ตี 3 เมืองไทย
+  workflow_dispatch:        # กดรันเองจากแท็บ Actions บน GitHub ได้ด้วย
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check + auto-fix confident rows
+        env:
+          GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
+          GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
+        run: node fix-content-product-links.js --fix
