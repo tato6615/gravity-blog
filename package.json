@@ -1,4 +1,7 @@
 {
   "name": "gravity-enhanced",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "^4.118.0"
+  }
 }
