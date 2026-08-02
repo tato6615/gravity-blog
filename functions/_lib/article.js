@@ -193,10 +193,10 @@ export async function renderArticlePage(env, slug, lang = 'th') {
       <script>
         (function () {
           try {
-            fetch('https://af.pakpiromjajaja.workers.dev/api/track-view', {
+            fetch('/api/track', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ productId: ${JSON.stringify(article.id)} }),
+              body: JSON.stringify({ productId: ${JSON.stringify(article.id)}, eventType: "view" }),
               keepalive: true
             }).catch(function () {});
           } catch (e) {}
