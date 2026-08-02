@@ -66,7 +66,6 @@ async function main() {
     const suggestion = bestMatch(contentWords, products);
     const currentScore = currentValid ? overlapScore(contentWords, normalize(currentProduct.fields.product_name)) : -1;
 
-    // tie หรือ current ดีกว่า/เท่ากับ suggestion = ไม่ต้องแก้
     if (currentValid && suggestion && suggestion.score <= currentScore) { okRows.push(row); continue; }
 
     const mismatch = {
@@ -112,17 +111,24 @@ async function main() {
   if (!APPLY_FIX) {
     console.log('\n💡 โหมดตรวจสอบเท่านั้น รันคำสั่งนี้เพื่อแก้เฉพาะแถวที่มั่นใจ:');
     console.log('   node fix-content-product-links.js --fix');
+    if (reviewRows.length) process.exitCode = 2;
     return;
   }
 
-  if (!autoFixRows.length) { console.log('\n✅ ไม่มีแถวไหนที่มั่นใจพอจะแก้อัตโนมัติ'); return; }
+  if (!autoFixRows.length) {
+    console.log('\n✅ ไม่มีแถวไหนที่มั่นใจพอจะแก้อัตโนมัติ — ทุกอย่างต้องเช็คมือ');
+    if (reviewRows.length) process.exitCode = 2;
+    return;
+  }
 
   console.log(`\n🔧 กำลังแก้ ${autoFixRows.length} แถว...`);
   const records = autoFixRows.map(m => ({ id: m.contentId, fields: { product: m.suggestedId } }));
   await gristPatch('CONTENT', records);
   console.log(`✅ แก้ไขสำเร็จ ${autoFixRows.length} แถว`);
-  if (reviewRows.length) console.log(`⚠️  เหลืออีก ${reviewRows.length} แถวที่ยังต้องเช็คมือใน Grist`);
+  if (reviewRows.length) {
+    console.log(`⚠️  เหลืออีก ${reviewRows.length} แถวที่ยังต้องเช็คมือใน Grist`);
     process.exitCode = 2;
+  }
 }
 
 main().catch(err => { console.error('❌ ผิดพลาด:', err.message); process.exit(1); });
