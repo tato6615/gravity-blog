@@ -54,6 +54,14 @@
   .hidden{ display:none !important; }
   .sub{ color:var(--text-dim); font-size:13px; line-height:1.55; }
 
+  /* ═══ Tabs ═══ */
+  .tab-nav{ display:flex; gap:8px; max-width:680px; margin:0 auto 20px; }
+  .tab-btn{ flex:1; background:var(--panel); border:1px solid var(--line); color:var(--text-dim);
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; padding:13px 16px;
+    border-radius:10px; cursor:pointer; transition:all .15s; }
+  .tab-btn:hover{ border-color:var(--text-faint); color:var(--text); }
+  .tab-btn.active{ background:var(--panel-2); border-color:var(--amber); color:var(--text); }
+
   .overview{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
     border-radius:var(--radius); padding:16px 18px; margin-bottom:22px; }
   .ov-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
@@ -211,64 +219,68 @@
   .log-text{ color:var(--text-dim); word-break:break-word; }
   .log-entry.ok .log-text{ color:var(--text); }
   .log-entry.error .log-text{ color:#f0b3a8; }
+
+  /* ═══ Analytics tab — re-themed to match design tokens above ═══ */
+  #analytics-dashboard{ max-width:680px; margin:0 auto; }
+  .an-card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; }
+  .an-title{ font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; margin:0 0 18px; color:var(--text); }
+  .an-controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+  .an-controls label{ color:var(--text-dim); font-size:13px; display:flex; align-items:center; gap:6px; }
+  .an-controls input[type=date]{ background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:7px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13.5px; }
+  .an-load-btn{ padding:9px 18px; font-size:13.5px; }
+  .an-status{ color:var(--text-faint); font-size:12.5px; }
+  .an-chart-wrap{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:18px; }
+  .an-table-wrap{ overflow-x:auto; }
+  #stat-table{ width:100%; border-collapse:collapse; }
+  #stat-table th{ padding:10px 12px; color:var(--text-faint); font-size:12px; font-weight:600; text-align:left;
+    font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid var(--line); }
+  #stat-table td{ padding:10px 12px; color:var(--text); font-size:13.5px; border-bottom:1px solid var(--line); }
+  #stat-table td.an-commission{ color:var(--amber); font-weight:600; }
 </style>
 </head>
 <body>
+
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
+  <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')">🚀 Product Engine</button>
+</div>
+
 <!-- ===== Phase 3: Analytics Dashboard ===== -->
-<section id="analytics-dashboard" style="
-  max-width:1000px;
-  margin:24px auto;
-  padding:24px;
-  font-family:inherit;
-  background:#12141c;
-  border:1px solid #2a2d3a;
-  border-radius:16px;
-  color:#e5e5e5;
-">
-  <h2 style="margin:0 0 20px 0;font-size:22px;font-weight:700;display:flex;align-items:center;gap:8px;">
-    Product Performance
-  </h2>
+<section id="analytics-dashboard" class="tab-panel" data-tab="analytics">
+  <div class="an-card">
+    <h2 class="an-title">Product Performance</h2>
 
-  <div style="margin-bottom:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-    <label style="color:#9ca3af;font-size:14px;">
-      จาก:
-      <input type="date" id="stat-start" style="
-        margin-left:6px;padding:6px 10px;border-radius:8px;
-        border:1px solid #2a2d3a;background:#1a1d29;color:#e5e5e5;
-      ">
-    </label>
-    <label style="color:#9ca3af;font-size:14px;">
-      ถึง:
-      <input type="date" id="stat-end" style="
-        margin-left:6px;padding:6px 10px;border-radius:8px;
-        border:1px solid #2a2d3a;background:#1a1d29;color:#e5e5e5;
-      ">
-    </label>
-    <button id="stat-load" style="
-      padding:7px 20px;cursor:pointer;border:none;border-radius:8px;
-      background:#f5a623;color:#12141c;font-weight:600;font-size:14px;
-    ">ดูข้อมูล</button>
-    <span id="stat-status" style="color:#6b7280;font-size:13px;"></span>
-  </div>
+    <div class="an-controls">
+      <label>จาก:
+        <input type="date" id="stat-start">
+      </label>
+      <label>ถึง:
+        <input type="date" id="stat-end">
+      </label>
+      <button id="stat-load" class="btn-primary an-load-btn" style="width:auto;">ดูข้อมูล</button>
+      <span id="stat-status" class="an-status"></span>
+    </div>
 
-  <div style="background:#1a1d29;border-radius:12px;padding:16px;margin-bottom:20px;">
-    <canvas id="stat-chart" height="90"></canvas>
-  </div>
+    <div class="an-chart-wrap">
+      <canvas id="stat-chart" height="90"></canvas>
+    </div>
 
-  <div style="overflow-x:auto;">
-    <table id="stat-table" style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="border-bottom:1px solid #2a2d3a;text-align:left;">
-          <th style="padding:10px 12px;color:#9ca3af;font-size:13px;font-weight:600;">Product ID</th>
-          <th style="padding:10px 12px;color:#9ca3af;font-size:13px;font-weight:600;">Clicks</th>
-          <th style="padding:10px 12px;color:#9ca3af;font-size:13px;font-weight:600;">Conversions</th>
-          <th style="padding:10px 12px;color:#9ca3af;font-size:13px;font-weight:600;">CVR %</th>
-          <th style="padding:10px 12px;color:#9ca3af;font-size:13px;font-weight:600;">Commission</th>
-          <th style="padding:10px 12px;color:#9ca3af;font-size:13px;font-weight:600;">Comm/Click</th>
-        </tr>
-      </thead>
-      <tbody id="stat-tbody"></tbody>
-    </table>
+    <div class="an-table-wrap">
+      <table id="stat-table">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Clicks</th>
+            <th>Conversions</th>
+            <th>CVR %</th>
+            <th>Commission</th>
+            <th>Comm/Click</th>
+          </tr>
+        </thead>
+        <tbody id="stat-tbody"></tbody>
+      </table>
+    </div>
   </div>
 </section>
 
@@ -307,30 +319,35 @@
   function renderTable(products) {
     tbody.innerHTML = '';
     if (!products.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#6b7280;">ไม่มีข้อมูลในช่วงนี้</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-faint);">ไม่มีข้อมูลในช่วงนี้</td></tr>';
       return;
     }
     for (const p of products) {
       const tr = document.createElement('tr');
-      tr.style.borderBottom = '1px solid #2a2d3a';
       tr.innerHTML = `
-        <td style="padding:10px 12px;color:#e5e5e5;">${p.product_id}</td>
-        <td style="padding:10px 12px;color:#e5e5e5;">${p.total_clicks}</td>
-        <td style="padding:10px 12px;color:#e5e5e5;">${p.conversions}</td>
-        <td style="padding:10px 12px;color:#e5e5e5;">${p.conversion_rate ?? 0}%</td>
-        <td style="padding:10px 12px;color:#f5a623;font-weight:600;">$${p.total_commission ?? 0}</td>
-        <td style="padding:10px 12px;color:#e5e5e5;">$${p.commission_per_click ?? 0}</td>
+        <td>${p.product_id}</td>
+        <td>${p.total_clicks}</td>
+        <td>${p.conversions}</td>
+        <td>${p.conversion_rate ?? 0}%</td>
+        <td class="an-commission">$${p.total_commission ?? 0}</td>
+        <td>$${p.commission_per_click ?? 0}</td>
       `;
       tbody.appendChild(tr);
     }
   }
 
   function renderChart(products) {
-    const ctx = document.getElementById('stat-chart').getContext('2d');
+    const canvas = document.getElementById('stat-chart');
+    const ctx = canvas.getContext('2d');
     const labels = products.map(p => `Product ${p.product_id}`);
     const values = products.map(p => p.total_commission || 0);
 
+    // ป้องกัน "Canvas is already in use" — เผื่อมี Chart instance ค้างอยู่บน canvas นี้
+    // จากการ re-render ใด ๆ ที่ตัวแปร chart local ไม่รู้จัก
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
     if (chart) chart.destroy();
+
     chart = new Chart(ctx, {
       type: 'line',
       data: {
@@ -338,11 +355,11 @@
         datasets: [{
           label: 'Total Commission ($)',
           data: values,
-          borderColor: '#f5a623',
-          backgroundColor: 'rgba(245, 166, 35, 0.15)',
+          borderColor: '#e8a33d',
+          backgroundColor: 'rgba(232, 163, 61, 0.15)',
           fill: true,
           tension: 0.3,
-          pointBackgroundColor: '#f5a623',
+          pointBackgroundColor: '#e8a33d',
           pointRadius: 4
         }]
       },
@@ -350,8 +367,8 @@
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          y: { beginAtZero: true, ticks: { color: '#9ca3af' }, grid: { color: '#2a2d3a' } },
-          x: { ticks: { color: '#9ca3af' }, grid: { display: false } }
+          y: { beginAtZero: true, ticks: { color: '#8a90a0' }, grid: { color: '#2a2f3b' } },
+          x: { ticks: { color: '#8a90a0' }, grid: { display: false } }
         }
       }
     });
@@ -362,7 +379,7 @@
 })();
 </script>
 
-<div class="wrap">
+<div class="wrap tab-panel hidden" data-tab="engine">
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
   <div class="page-title">Dashboard</div>
 
@@ -512,6 +529,18 @@
     </section>
   </div>
 </div>
+
+<script>
+/* ═══ Tab switching ═══ */
+function switchTab(tab){
+  document.querySelectorAll('.tab-panel').forEach(el => {
+    el.classList.toggle('hidden', el.dataset.tab !== tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+</script>
 
 <script>
 const API = 'https://af.pakpiromjajaja.workers.dev';
@@ -1309,87 +1338,6 @@ loadAiStatus();
 document.getElementById('in').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doImport();
 });
-</script>
-
-<script>
-(function () {
-  const startInput = document.getElementById('stat-start');
-  const endInput = document.getElementById('stat-end');
-  const statusEl = document.getElementById('stat-status');
-  const tbody = document.getElementById('stat-tbody');
-  let chart = null;
-
-  const today = new Date();
-  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-  endInput.value = today.toISOString().slice(0, 10);
-  startInput.value = monthAgo.toISOString().slice(0, 10);
-
-  async function loadStats() {
-    statusEl.textContent = 'กำลังโหลด...';
-    const start = new Date(startInput.value).toISOString();
-    const end = new Date(endInput.value + 'T23:59:59').toISOString();
-
-    try {
-      const res = await fetch(`/api/stats?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'unknown error');
-
-      renderTable(data.products);
-      renderChart(data.products);
-      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
-    } catch (err) {
-      statusEl.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
-    }
-  }
-
-  function renderTable(products) {
-    tbody.innerHTML = '';
-    if (!products.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;text-align:center;color:#888;">ไม่มีข้อมูลในช่วงนี้</td></tr>';
-      return;
-    }
-    for (const p of products) {
-      const tr = document.createElement('tr');
-      tr.style.borderBottom = '1px solid #eee';
-      tr.innerHTML = `
-        <td style="padding:8px;">${p.product_id}</td>
-        <td style="padding:8px;">${p.total_clicks}</td>
-        <td style="padding:8px;">${p.conversions}</td>
-        <td style="padding:8px;">${p.conversion_rate ?? 0}%</td>
-        <td style="padding:8px;">$${p.total_commission ?? 0}</td>
-        <td style="padding:8px;">$${p.commission_per_click ?? 0}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-  }
-
-  function renderChart(products) {
-    const ctx = document.getElementById('stat-chart').getContext('2d');
-    const labels = products.map(p => `Product ${p.product_id}`);
-    const values = products.map(p => p.total_commission || 0);
-
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Total Commission ($)',
-          data: values,
-          backgroundColor: 'rgba(54, 162, 235, 0.6)'
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
-      }
-    });
-  }
-
-  document.getElementById('stat-load').addEventListener('click', loadStats);
-  loadStats();
-})();
 </script>
 
 </body>
