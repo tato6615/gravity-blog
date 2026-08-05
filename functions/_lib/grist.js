@@ -197,7 +197,7 @@ export async function getLiveArticles(env, lang = 'th') {
       tags: (c.tags || '').split(',').map(s => s.trim()).filter(Boolean),
       updatedAt: p.fields.updated_at || c.generated_at || null,
       authorId: c.reviewer_id || c.author_id || null,
-      category: c.category || null,
+      category: p.fields.category || null,
       analysis: analysisByProduct.get(String(p.id)) || null
     });
   }

@@ -61,7 +61,17 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   }
 
   const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
-  const categories = [...new Set(articles.map(a => a.category).filter(Boolean))];
+
+  // นับจำนวนสินค้าต่อหมวด แล้วโชว์เฉพาะหมวดที่มีสินค้า >= 2 ชิ้น (กันแถบ pills รกเวลาสินค้าเยอะขึ้น)
+  const MIN_PRODUCTS_PER_CATEGORY = 2;
+  const categoryCounts = {};
+  articles.forEach(a => {
+    if (a.category) categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
+  });
+  const categories = Object.keys(categoryCounts)
+    .filter(cat => categoryCounts[cat] >= MIN_PRODUCTS_PER_CATEGORY)
+    .sort((a, b) => categoryCounts[b] - categoryCounts[a]);
+
   const displayArticles = selectedCategory
     ? articles.filter(a => a.category === selectedCategory)
     : articles;
