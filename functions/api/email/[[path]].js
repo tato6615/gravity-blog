@@ -1,7 +1,7 @@
 // functions/api/email.js
 // Phase 5: Email automation (Mailchimp integration)
 
-import { getProductNamesByIds } from '../_lib/grist.js';
+import { getProductNamesByIds } from '../../_lib/grist.js';
 
 export async function onRequest(context) {
   const { env, request } = context;
