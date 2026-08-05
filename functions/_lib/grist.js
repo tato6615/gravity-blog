@@ -249,3 +249,25 @@ export async function getProductBuyUrlById(env, productId) {
   if (!row) return null;
   return normalizeProduct(row.fields).buyUrl;
 }
+
+/**
+ * Looks up product names for a set of Grist row ids — used by
+ * email.js's weekly newsletter so it doesn't need a duplicate D1
+ * `products` table. Best-effort per id; missing ids are simply
+ * absent from the returned map.
+ * @param {object} env
+ * @param {(number|string)[]} productIds
+ * @returns {Promise<Map<string, string>>} id (as string) -> name
+ */
+export async function getProductNamesByIds(env, productIds) {
+  const productsTableId = await findProductsTableId(env);
+  const products = await fetchTableRecords(env, productsTableId);
+  const wanted = new Set(productIds.map(String));
+  const map = new Map();
+  for (const p of products) {
+    if (wanted.has(String(p.id))) {
+      map.set(String(p.id), normalizeProduct(p.fields).name);
+    }
+  }
+  return map;
+}

@@ -1,6 +1,8 @@
 // functions/api/email.js
 // Phase 5: Email automation (Mailchimp integration)
 
+import { getProductNamesByIds } from '../_lib/grist.js';
+
 export async function onRequest(context) {
   const { env, request } = context;
 
@@ -101,23 +103,24 @@ async function handleSendNewsletter(env) {
 
     const topProducts = await env.DB.prepare(`
       SELECT 
-        p.id,
-        p.name,
+        c.product_id as id,
         COUNT(DISTINCT c.id) as clicks,
         ROUND(SUM(cv.commission), 2) as commission
       FROM clicks c
       LEFT JOIN conversions cv ON c.product_id = cv.product_id
-      JOIN products p ON c.product_id = p.id
       WHERE c.timestamp > datetime('now', '-7 days')
-      GROUP BY p.id
+      GROUP BY c.product_id
       ORDER BY commission DESC
       LIMIT 5
     `).all();
 
+    const productIds = topProducts.results.map(p => p.id);
+    const nameMap = await getProductNamesByIds(env, productIds);
+
     const productList = topProducts.results
       .map(p => `
         <li>
-          <strong>${p.name}</strong><br/>
+          <strong>${nameMap.get(String(p.id)) || `Product #${p.id}`}</strong><br/>
           Clicks: ${p.clicks} | Commission: $${p.commission || 0}
         </li>
       `)
