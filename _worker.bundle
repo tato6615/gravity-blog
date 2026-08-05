@@ -1,9 +1,9 @@
-------formdata-undici-088200627293
+------formdata-undici-086193774225
 Content-Disposition: form-data; name="metadata"
 
-{"main_module":"functionsWorker-0.030291226089583234.js"}
-------formdata-undici-088200627293
-Content-Disposition: form-data; name="functionsWorker-0.030291226089583234.js"; filename="functionsWorker-0.030291226089583234.js"
+{"main_module":"functionsWorker-0.5809662108423951.js"}
+------formdata-undici-086193774225
+Content-Disposition: form-data; name="functionsWorker-0.5809662108423951.js"; filename="functionsWorker-0.5809662108423951.js"
 Content-Type: application/javascript+module
 
 var __defProp = Object.defineProperty;
@@ -998,7 +998,7 @@ async function handleSubscribe(request, env) {
     }
   } catch (error) {
     console.error("Subscribe error:", error);
-    return jsonResponse({ error: "Server error" }, 500);
+    return jsonResponse({ error: "Server error", debug: error.message, stack: error.stack }, 500);
   }
 }
 __name(handleSubscribe, "handleSubscribe");
@@ -1596,7 +1596,7 @@ async function onRequestGet7({ env, request }) {
 }
 __name(onRequestGet7, "onRequestGet");
 
-// ../.wrangler/tmp/pages-EO17Sd/functionsRoutes-0.006501132079092087.mjs
+// ../.wrangler/tmp/pages-Up4urp/functionsRoutes-0.4134909321786905.mjs
 var routes = [
   {
     routePath: "/en/product/:slug",
@@ -2133,4 +2133,4 @@ export {
   pages_template_worker_default as default
 };
 
-------formdata-undici-088200627293--
+------formdata-undici-086193774225--

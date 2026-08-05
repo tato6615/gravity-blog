@@ -89,7 +89,7 @@ async function handleSubscribe(request, env) {
     }
   } catch (error) {
     console.error('Subscribe error:', error);
-    return jsonResponse({ error: 'Server error' }, 500);
+    return jsonResponse({ error: 'Server error', debug: error.message, stack: error.stack }, 500);
   }
 }
 
