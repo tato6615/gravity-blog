@@ -9,7 +9,7 @@
 
 const CONFIG = {
   D1_BINDING: "DB",
-  AF_WORKER_URL: "https://af.pakpiromjajaj.workers.dev",
+  AF_WORKER_URL: "https://af.pakpiromjajaja.workers.dev",
   GITHUB_REPO: "tato6615/gravity-blog",
   GITHUB_WORKFLOWS: [
     "check-product-links.yml",
