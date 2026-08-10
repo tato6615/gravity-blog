@@ -176,34 +176,54 @@ async function checkEmailEndpoint(env) {
   return c;
 }
 
-async function checkPostOnlyRoute(env, id, label, path) {
-  // These routes only implement onRequestPost. In Cloudflare Pages Functions,
-  // a GET request "falls through" to the next matching route instead of
-  // returning 405 — so GET can legitimately land on a 404 even when the
-  // route is deployed and working fine for real POST traffic. We deliberately
-  // do NOT send a real POST here (would trigger real video generation /
-  // Grist writes), so this check can only confirm deployment, not full
-  // functional correctness — it's marked "unknown" rather than pass/fail.
-  const c = check(id, label, "automation");
+async function checkProductWebhook(env) {
+  // Sends a real POST, but with a record missing product_name/image_url —
+  // the route's own validation skips it BEFORE calling Shotstack (see
+  // product-webhook.js lines 35-38), so this confirms the route actually
+  // works end-to-end without ever triggering a real render or Grist write.
+  const c = check("product_webhook", "/api/product-webhook", "automation");
   try {
-    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}${path}`, { method: "GET", signal: s }), 6000);
-    if (res.status >= 500) {
-      c.status = "error";
-      c.detail = `HTTP ${res.status} — server error even on GET, worth checking`;
+    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/product-webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ id: "health-check", fields: {} }] }),
+      signal: s,
+    }), 8000);
+    const data = await res.json().catch(() => null);
+    const skippedOk = data && data.success === true && Array.isArray(data.results) && data.results[0]?.skipped === true;
+    if (res.ok && skippedOk) {
+      c.status = "ok";
+      c.detail = "HTTP 200 — POST accepted, correctly skipped incomplete test record (no real render triggered)";
     } else {
-      c.status = "unknown";
-      c.detail = `HTTP ${res.status} on GET (expected — this route is POST-only). Can't verify full logic without sending a real webhook payload, so this is informational only, not a pass/fail.`;
+      c.status = "warn";
+      c.detail = `HTTP ${res.status} — unexpected response: ${JSON.stringify(data)}`;
     }
   } catch (e) { c.status = "error"; c.detail = e.message; }
   return c;
 }
 
-async function checkProductWebhook(env) {
-  return checkPostOnlyRoute(env, "product_webhook", "/api/product-webhook", "/api/product-webhook");
-}
-
 async function checkShotstackCallback(env) {
-  return checkPostOnlyRoute(env, "shotstack_callback", "/api/shotstack-callback", "/api/shotstack-callback");
+  // Sends a real POST, but with status "queued" instead of "done" — the
+  // route returns early BEFORE touching Grist (see shotstack-callback.js
+  // lines 16-19), so this confirms the route works without writing anything.
+  const c = check("shotstack_callback", "/api/shotstack-callback", "automation");
+  try {
+    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/shotstack-callback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "health-check", status: "queued", url: null }),
+      signal: s,
+    }), 8000);
+    const data = await res.json().catch(() => null);
+    if (res.ok && data && data.received === true) {
+      c.status = "ok";
+      c.detail = "HTTP 200 — POST accepted, correctly acknowledged non-done status (no Grist write triggered)";
+    } else {
+      c.status = "warn";
+      c.detail = `HTTP ${res.status} — unexpected response: ${JSON.stringify(data)}`;
+    }
+  } catch (e) { c.status = "error"; c.detail = e.message; }
+  return c;
 }
 
 async function checkArticlePage(env) {
