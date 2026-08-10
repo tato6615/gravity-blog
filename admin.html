@@ -1084,7 +1084,8 @@ function renderPrePublishPreview(){
     '</div>'
   ).join('');
 
-  const cardsHtml = previewable.map(ch => {
+  // ═══ FIX: โชว์ preview เต็มแค่ช่องทางแรก ช่องที่เหลือโชว์แค่สถานะบรรทัดเดียว ═══
+  function buildFullCard(ch){
     const field = CHANNEL_POST_FIELD[ch];
     const original = field ? (social[field] || '') : '';
     const caption = window._captionOverrides[ch] || original;
@@ -1118,9 +1119,38 @@ function renderPrePublishPreview(){
         linkBlock +
         clRow +
       '</div>';
-  }).join('');
+  }
 
-  wrap.innerHTML = cardsHtml + '<div class="pv-checks">' + checksHtml + '</div>';
+  function buildCompactRow(ch){
+    const field = CHANNEL_POST_FIELD[ch];
+    const original = field ? (social[field] || '') : '';
+    const caption = window._captionOverrides[ch] || original;
+    const label = (CHANNEL_LABELS[ch] || ch).toUpperCase();
+    const limitInfo = PLATFORM_LIMITS[ch];
+    let ok = true, statusText = 'พร้อมโพสต์', trimBtn = '';
+    if (limitInfo && original) {
+      const len = caption.length;
+      const overLimit = len > limitInfo.hardCap;
+      const trimmed = !!window._captionOverrides[ch];
+      ok = !overLimit;
+      statusText = len + ' / ' + limitInfo.hardCap + ' ตัวอักษร' + (trimmed ? ' (ตัดแล้ว)' : '');
+      if (overLimit) trimBtn = '<button class="cl-trim-btn" onclick="applyTrim(\'' + ch + '\')">ตัดให้พอดี</button>';
+    }
+    return '<div class="pv-check-row ' + (ok ? 'ok' : 'warn') + '">' +
+      '<span class="ico">' + (ok ? '✓' : '!') + '</span>' +
+      '<span>' + label + ' — ' + statusText + '</span>' + trimBtn +
+      '</div>';
+  }
+
+  const mainCh = previewable[0];
+  const restCh = previewable.slice(1);
+  const mainCardHtml = buildFullCard(mainCh);
+  const compactHtml = restCh.length
+    ? '<div class="pv-title-row">ช่องทางอื่นที่จะโพสต์ด้วย (' + restCh.length + ')</div>' +
+      restCh.map(buildCompactRow).join('')
+    : '';
+
+  wrap.innerHTML = mainCardHtml + compactHtml + '<div class="pv-checks">' + checksHtml + '</div>';
   wrap.classList.remove('hidden');
 }
 
