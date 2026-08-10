@@ -583,6 +583,7 @@ function switchTab(tab){
   .sh-phase-title{ color:var(--amber); font-size:12.5px; text-transform:uppercase; letter-spacing:1px; margin:22px 0 10px; display:flex; align-items:center; gap:8px; }
   .sh-phase-title::after{ content:""; flex:1; height:1px; background:var(--line); }
   .sh-card-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; align-items:stretch; }
+  .sh-card-grid > *:last-child:nth-child(odd){ grid-column:1 / -1; }
   @media (max-width:640px){ .sh-card-grid{ grid-template-columns:1fr; } }
   .sh-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 44px 14px 16px; display:flex; flex-direction:column; gap:6px; position:relative; min-height:96px; }
   .sh-card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:12px 0 0 12px; }
