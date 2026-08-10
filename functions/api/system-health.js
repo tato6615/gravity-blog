@@ -13,7 +13,8 @@ const CONFIG = {
   GITHUB_REPO: "tato6615/gravity-blog",
   GITHUB_WORKFLOWS: [
     "check-product-links.yml",
-    "sync-analytics-to-grist.yml",
+    "sync-analytics.yml",
+    "sync-ga4-views.yml",
   ],
 };
 
@@ -63,7 +64,7 @@ async function checkD1Tables(env) {
 async function checkGoRedirect(env) {
   const c = check("go_redirect", "/go/[id] redirect route", "tracking");
   try {
-    const url = new URL("/go/1", "https://gravity-blog.pages.dev");
+    const url = new URL("/go/104", "https://gravity-blog.pages.dev");
     const res = await withTimeout(
       (signal) => fetch(url.toString(), { method: "GET", redirect: "manual", signal }),
       6000
