@@ -116,10 +116,8 @@ async function checkGitHubActions(env) {
   const c = check("github_actions", "GitHub Actions", "automation");
   try {
     const headers = { "User-Agent": "gravity-os-health-check" };
-    const tokenPresent = !!env.GITHUB_TOKEN;
-    const tokenLen = env.GITHUB_TOKEN ? env.GITHUB_TOKEN.length : 0;
     if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
-    const results = { _debug_tokenPresent: tokenPresent, _debug_tokenLength: tokenLen };
+    const results = {};
     for (const wf of CONFIG.GITHUB_WORKFLOWS) {
       const res = await withTimeout((s) => fetch(`https://api.github.com/repos/${CONFIG.GITHUB_REPO}/actions/workflows/${wf}/runs?per_page=1`, { headers, signal: s }), 6000);
       if (res.ok) {
