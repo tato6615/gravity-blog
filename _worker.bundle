@@ -1,9 +1,9 @@
-------formdata-undici-098174532527
+------formdata-undici-021012012519
 Content-Disposition: form-data; name="metadata"
 
-{"main_module":"functionsWorker-0.42669230833578453.js"}
-------formdata-undici-098174532527
-Content-Disposition: form-data; name="functionsWorker-0.42669230833578453.js"; filename="functionsWorker-0.42669230833578453.js"
+{"main_module":"functionsWorker-0.20904226357535016.js"}
+------formdata-undici-021012012519
+Content-Disposition: form-data; name="functionsWorker-0.20904226357535016.js"; filename="functionsWorker-0.20904226357535016.js"
 Content-Type: application/javascript+module
 
 var __defProp = Object.defineProperty;
@@ -1590,13 +1590,53 @@ async function onRequestGet6({ env }) {
 }
 __name(onRequestGet6, "onRequestGet");
 
-// index.js
-async function onRequestGet7({ env, request }) {
-  return renderHomePage(env, "th", request);
+// sitemap.xml.js
+var SITE_URL2 = "https://gravity-blog.pages.dev";
+function escapeXml(str) {
+  return String(str).replace(/[<>&'"]/g, (c) => ({
+    "<": "&lt;",
+    ">": "&gt;",
+    "&": "&amp;",
+    "'": "&apos;",
+    '"': "&quot;"
+  })[c]);
+}
+__name(escapeXml, "escapeXml");
+async function onRequestGet7({ env }) {
+  try {
+    const [thArticles, enArticles] = await Promise.all([
+      getLiveArticles(env, "th"),
+      getLiveArticles(env, "en")
+    ]);
+    const urls = [
+      `${SITE_URL2}/`,
+      `${SITE_URL2}/en/`,
+      ...thArticles.map((a) => `${SITE_URL2}/product/${a.slug}`),
+      ...enArticles.map((a) => `${SITE_URL2}/en/product/${a.slug}`)
+    ];
+    const body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${escapeXml(u)}</loc></url>`).join("\n")}
+</urlset>`;
+    return new Response(body, {
+      headers: { "content-type": "application/xml; charset=UTF-8" }
+    });
+  } catch (e) {
+    return new Response(`Sitemap error: ${e.message}`, {
+      status: 500,
+      headers: { "content-type": "text/plain; charset=UTF-8" }
+    });
+  }
 }
 __name(onRequestGet7, "onRequestGet");
 
-// ../.wrangler/tmp/pages-Yz5f4y/functionsRoutes-0.28379343408316404.mjs
+// index.js
+async function onRequestGet8({ env, request }) {
+  return renderHomePage(env, "th", request);
+}
+__name(onRequestGet8, "onRequestGet");
+
+// ../.wrangler/tmp/pages-xpbisJ/functionsRoutes-0.38990507297931676.mjs
 var routes = [
   {
     routePath: "/en/product/:slug",
@@ -1676,11 +1716,18 @@ var routes = [
     modules: [onRequestGet6]
   },
   {
-    routePath: "/",
+    routePath: "/sitemap.xml",
     mountPath: "/",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet7]
+  },
+  {
+    routePath: "/",
+    mountPath: "/",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet8]
   }
 ];
 
@@ -2133,4 +2180,4 @@ export {
   pages_template_worker_default as default
 };
 
-------formdata-undici-098174532527--
+------formdata-undici-021012012519--
