@@ -1,4 +1,3 @@
-// functions/api/email.js
 // Phase 5: Email automation (Mailchimp integration)
 
 import { getProductNamesByIds } from '../../_lib/grist.js';
@@ -43,53 +42,45 @@ async function handleSubscribe(request, env) {
     const { email, name } = await request.json();
 
     if (!email || !email.includes('@')) {
-      return jsonResponse({ error: 'Invalid email' }, 400);
+      return jsonResponse({ error: 'Invalid email address' }, 400);
     }
 
     const config = getMailchimpConfig(env);
     if (config.error) {
       return jsonResponse({ error: config.error }, 500);
     }
+
     const { MAILCHIMP_API_KEY, MAILCHIMP_SERVER, MAILCHIMP_LIST_ID } = config;
+    const authHeader = { 'Authorization': `Basic ${btoa(`anystring:${MAILCHIMP_API_KEY}`)}` };
+    const mcBase = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0`;
 
-    const response = await fetch(
-      `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/lists/${MAILCHIMP_LIST_ID}/members`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa(`anystring:${MAILCHIMP_API_KEY}`)}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email_address: email,
-          status: 'subscribed',
-          merge_fields: {
-            FNAME: name || 'Subscriber',
-          },
-        }),
-      }
-    );
+    const subRes = await fetch(`${mcBase}/lists/${MAILCHIMP_LIST_ID}/members`, {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email_address: email,
+        status: 'subscribed',
+        merge_fields: { FNAME: name || 'Subscriber' },
+      }),
+    });
 
-    const data = await response.json();
-    const isSuccess = response.ok || (data.status === 400 && data.title === 'Member Exists');
-
-    if (isSuccess) {
-      try {
-        await env.DB.prepare(`
-          INSERT INTO email_subscribers (email, name, subscribed_at)
-          VALUES (?, ?, ?)
-        `).bind(email, name || 'Unknown', new Date().toISOString()).run();
-      } catch (dbError) {
-        console.error('DB insert error (Mailchimp subscribe already succeeded):', dbError.message);
-      }
-
-      return jsonResponse({ success: true, message: 'Subscribed!' }, 200);
-    } else {
-      return jsonResponse({ error: data.detail || 'Subscription failed' }, 400);
+    if (!subRes.ok) {
+      const subErr = await subRes.json();
+      console.error('Mailchimp subscribe error:', subErr);
+      return jsonResponse(
+        { error: `Mailchimp error: ${subErr.title || subErr.detail || 'Unknown error'}` },
+        subRes.status
+      );
     }
+
+    await env.DB.prepare(
+      'INSERT INTO email_subscribers (email, name, subscribed_at) VALUES (?, ?, ?)'
+    ).bind(email, name || null, new Date().toISOString()).run();
+
+    return jsonResponse({ success: true, message: 'Subscribed successfully', email }, 200);
   } catch (error) {
-    console.error('Subscribe error:', error);
-    return jsonResponse({ error: 'Server error' }, 500);
+    console.error('Newsletter error:', error);
+    return jsonResponse({ error: error.message || 'Failed to subscribe' }, 500);
   }
 }
 
@@ -99,6 +90,7 @@ async function handleSendNewsletter(env) {
     if (config.error) {
       return jsonResponse({ error: config.error }, 500);
     }
+
     const { MAILCHIMP_API_KEY, MAILCHIMP_SERVER, MAILCHIMP_LIST_ID } = config;
 
     const topProducts = await env.DB.prepare(`
@@ -136,24 +128,33 @@ async function handleSendNewsletter(env) {
     const authHeader = { 'Authorization': `Basic ${btoa(`anystring:${MAILCHIMP_API_KEY}`)}` };
     const mcBase = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0`;
 
+    const campaignPayload = {
+      type: 'regular',
+      recipients: {
+        list_id: MAILCHIMP_LIST_ID
+      },
+      settings: {
+        subject_line: 'Weekly Top Products 📊',
+        title: `Weekly Newsletter - ${new Date().toISOString().slice(0, 10)}`,
+        from_name: 'Gravity Blog',
+        reply_to: env.NEWSLETTER_REPLY_TO || 'noreply@example.com'
+      }
+    };
+
+    console.log('Mailchimp campaign payload:', JSON.stringify(campaignPayload, null, 2));
+
     const createRes = await fetch(`${mcBase}/campaigns`, {
       method: 'POST',
       headers: { ...authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'regular',
-        recipients: { list_id: MAILCHIMP_LIST_ID },
-        settings: {
-          subject_line: 'Weekly Top Products 📊',
-          title: `Weekly Newsletter - ${new Date().toISOString().slice(0, 10)}`,
-          from_name: 'Gravity Blog',
-          reply_to: env.NEWSLETTER_REPLY_TO || 'noreply@example.com',
-        },
-      }),
+      body: JSON.stringify(campaignPayload),
     });
+
     const campaign = await createRes.json();
+
     if (!createRes.ok) {
-      console.error('Mailchimp error response:', JSON.stringify(campaign, null, 2));
-      console.error("FULL RESPONSE:", JSON.stringify(campaign, null, 2)); throw new Error(`Mailchimp create campaign failed: ${campaign.detail || campaign.errors?.map(e => `${e.field}: ${e.message}`).join(', ') || createRes.status}`);
+      console.error('Mailchimp create campaign error - Full response:', JSON.stringify(campaign, null, 2));
+      const errorMsg = campaign.detail || (campaign.errors && campaign.errors.map(e => `${e.field}: ${e.message}`).join('; ')) || campaign.status || createRes.status;
+      throw new Error(`Mailchimp create campaign failed: ${errorMsg}`);
     }
 
     const contentRes = await fetch(`${mcBase}/campaigns/${campaign.id}/content`, {
@@ -161,6 +162,7 @@ async function handleSendNewsletter(env) {
       headers: { ...authHeader, 'Content-Type': 'application/json' },
       body: JSON.stringify({ html: emailContent }),
     });
+
     if (!contentRes.ok) {
       const contentErr = await contentRes.json();
       throw new Error(`Mailchimp set content failed: ${contentErr.detail || contentRes.status}`);
@@ -170,6 +172,7 @@ async function handleSendNewsletter(env) {
       method: 'POST',
       headers: authHeader,
     });
+
     if (!sendRes.ok) {
       const sendErr = await sendRes.json().catch(() => ({}));
       throw new Error(`Mailchimp send failed: ${sendErr.detail || sendRes.status}`);
@@ -181,7 +184,7 @@ async function handleSendNewsletter(env) {
       success: true,
       message: 'Newsletter sent',
       campaignId: campaign.id,
-      subscribers: subscriberCount,
+      subscribers: subscriberCount?.count || 0,
     }, 200);
   } catch (error) {
     console.error('Newsletter error:', error);
