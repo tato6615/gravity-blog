@@ -27,7 +27,6 @@ async function handleSendNewsletter(env) {
       return jsonResponse({ error: 'Resend not configured (missing RESEND_API_KEY)' }, 500);
     }
 
-    // 1. Get top 5 clicked products in the last 7 days
     const topProducts = await env.DB.prepare(`
       SELECT c.product_id as id, COUNT(DISTINCT c.id) as clicks
       FROM clicks c
@@ -44,7 +43,6 @@ async function handleSendNewsletter(env) {
       .map(p => `<li>${nameMap.get(String(p.id)) || `Product ${p.id}`}: ${p.clicks} clicks</li>`)
       .join('');
 
-    // 2. Get subscriber list from D1
     const subscribers = await env.DB.prepare(`
       SELECT email FROM email_subscribers WHERE unsubscribed IS NULL OR unsubscribed = 0
     `).all();
@@ -65,7 +63,6 @@ async function handleSendNewsletter(env) {
       </p>
     `;
 
-    // 3. Send via Resend batch endpoint (up to 100 emails per call)
     const batch = subscribers.results.map(s => ({
       from: fromEmail,
       to: s.email,
