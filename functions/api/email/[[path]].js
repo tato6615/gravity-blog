@@ -44,7 +44,7 @@ async function handleSendNewsletter(env) {
       .join('');
 
     const subscribers = await env.DB.prepare(`
-      SELECT email FROM email_subscribers WHERE unsubscribed IS NULL OR unsubscribed = 0
+      SELECT email FROM email_subscribers
     `).all();
 
     if (!subscribers.results.length) {
