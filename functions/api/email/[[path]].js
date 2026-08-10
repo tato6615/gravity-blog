@@ -152,7 +152,8 @@ async function handleSendNewsletter(env) {
     });
     const campaign = await createRes.json();
     if (!createRes.ok) {
-      throw new Error(`Mailchimp create campaign failed: ${campaign.detail || createRes.status}`);
+      console.error('Mailchimp error response:', JSON.stringify(campaign, null, 2));
+      throw new Error(`Mailchimp create campaign failed: ${campaign.detail || campaign.errors?.map(e => e.message).join(', ') || createRes.status}`);
     }
 
     const contentRes = await fetch(`${mcBase}/campaigns/${campaign.id}/content`, {
