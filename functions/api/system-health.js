@@ -176,25 +176,34 @@ async function checkEmailEndpoint(env) {
   return c;
 }
 
-async function checkProductWebhook(env) {
-  const c = check("product_webhook", "/api/product-webhook (Shotstack video trigger)", "automation");
+async function checkPostOnlyRoute(env, id, label, path) {
+  // These routes only implement onRequestPost. In Cloudflare Pages Functions,
+  // a GET request "falls through" to the next matching route instead of
+  // returning 405 — so GET can legitimately land on a 404 even when the
+  // route is deployed and working fine for real POST traffic. We deliberately
+  // do NOT send a real POST here (would trigger real video generation /
+  // Grist writes), so this check can only confirm deployment, not full
+  // functional correctness — it's marked "unknown" rather than pass/fail.
+  const c = check(id, label, "automation");
   try {
-    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/product-webhook`, { method: "GET", signal: s }), 6000);
-    // POST-only endpoint — 404 means route missing, anything else means it exists
-    c.status = res.status === 404 ? "error" : (res.status >= 500 ? "warn" : "ok");
-    c.detail = `HTTP ${res.status}`;
+    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}${path}`, { method: "GET", signal: s }), 6000);
+    if (res.status >= 500) {
+      c.status = "error";
+      c.detail = `HTTP ${res.status} — server error even on GET, worth checking`;
+    } else {
+      c.status = "unknown";
+      c.detail = `HTTP ${res.status} on GET (expected — this route is POST-only). Can't verify full logic without sending a real webhook payload, so this is informational only, not a pass/fail.`;
+    }
   } catch (e) { c.status = "error"; c.detail = e.message; }
   return c;
 }
 
+async function checkProductWebhook(env) {
+  return checkPostOnlyRoute(env, "product_webhook", "/api/product-webhook (Shotstack video trigger, POST-only)", "/api/product-webhook");
+}
+
 async function checkShotstackCallback(env) {
-  const c = check("shotstack_callback", "/api/shotstack-callback", "automation");
-  try {
-    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/shotstack-callback`, { method: "GET", signal: s }), 6000);
-    c.status = res.status === 404 ? "error" : (res.status >= 500 ? "warn" : "ok");
-    c.detail = `HTTP ${res.status}`;
-  } catch (e) { c.status = "error"; c.detail = e.message; }
-  return c;
+  return checkPostOnlyRoute(env, "shotstack_callback", "/api/shotstack-callback (POST-only)", "/api/shotstack-callback");
 }
 
 async function checkArticlePage(env) {
