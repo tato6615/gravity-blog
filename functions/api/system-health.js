@@ -35,7 +35,7 @@ async function withTimeout(promise, ms = 8000) {
 // ---------- Core pipeline checks (unchanged from v2) ----------
 
 async function checkD1Tables(env) {
-  const c = check("d1_tables", "D1 Database (clicks / conversions / email_subscribers)", "tracking");
+  const c = check("d1_tables", "D1 Database", "tracking");
   try {
     const db = env[CONFIG.D1_BINDING];
     if (!db) { c.status = "error"; c.detail = `D1 binding "${CONFIG.D1_BINDING}" not found.`; return c; }
@@ -55,7 +55,7 @@ async function checkD1Tables(env) {
 }
 
 async function checkGoRedirect(env) {
-  const c = check("go_redirect", "/go/[id] redirect route", "tracking");
+  const c = check("go_redirect", "/go/[id] Redirect", "tracking");
   try {
     const url = new URL(`/go/${CONFIG.TEST_PRODUCT_ID}`, CONFIG.SITE_URL);
     const res = await withTimeout((s) => fetch(url.toString(), { method: "GET", redirect: "manual", signal: s }), 6000);
@@ -66,7 +66,7 @@ async function checkGoRedirect(env) {
 }
 
 async function checkGrist(env) {
-  const c = check("grist_api", "Grist API connection", "conversion");
+  const c = check("grist_api", "Grist API", "conversion");
   if (!env.GRIST_API_KEY || !env.GRIST_DOC_ID) { c.status = "error"; c.detail = "GRIST_API_KEY/GRIST_DOC_ID not set."; return c; }
   try {
     const res = await withTimeout((s) => fetch(`https://docs.getgrist.com/api/docs/${env.GRIST_DOC_ID}/tables`, { headers: { Authorization: `Bearer ${env.GRIST_API_KEY}` }, signal: s }), 6000);
@@ -77,7 +77,7 @@ async function checkGrist(env) {
 }
 
 async function checkGA4Config(env) {
-  const c = check("ga4_config", "GA4 Measurement Protocol config", "analytics");
+  const c = check("ga4_config", "GA4 Config", "analytics");
   if (!env.GA4_MEASUREMENT_ID || !env.GA4_API_SECRET) { c.status = "error"; c.detail = "GA4_MEASUREMENT_ID/GA4_API_SECRET not set."; return c; }
   try {
     const res = await withTimeout((s) => fetch(`https://www.google-analytics.com/debug/mp/collect?measurement_id=${env.GA4_MEASUREMENT_ID}&api_secret=${env.GA4_API_SECRET}`, { method: "POST", signal: s, body: JSON.stringify({ client_id: "healthcheck.system", events: [{ name: "system_health_check", params: {} }] }) }), 6000);
@@ -90,7 +90,7 @@ async function checkGA4Config(env) {
 }
 
 async function checkMailchimpConfig(env) {
-  const c = check("mailchimp_config", "Mailchimp (Growth / email)", "growth");
+  const c = check("mailchimp_config", "Mailchimp", "growth");
   if (!env.MAILCHIMP_API_KEY || !env.MAILCHIMP_SERVER || !env.MAILCHIMP_LIST_ID) { c.status = "error"; c.detail = "Mailchimp secrets not fully set."; return c; }
   try {
     const res = await withTimeout((s) => fetch(`https://${env.MAILCHIMP_SERVER}.api.mailchimp.com/3.0/lists/${env.MAILCHIMP_LIST_ID}`, { headers: { Authorization: `Basic ${btoa("anystring:" + env.MAILCHIMP_API_KEY)}` }, signal: s }), 6000);
@@ -101,7 +101,7 @@ async function checkMailchimpConfig(env) {
 }
 
 async function checkAfWorker(env) {
-  const c = check("af_worker", 'Separate "af" Worker (AI Product Engine)', "automation");
+  const c = check("af_worker", '"af" Worker', "automation");
   try {
     const res = await withTimeout((s) => fetch(CONFIG.AF_WORKER_URL, { signal: s }), 6000);
     const text = await res.text();
@@ -113,7 +113,7 @@ async function checkAfWorker(env) {
 }
 
 async function checkGitHubActions(env) {
-  const c = check("github_actions", "GitHub Actions (automation workflows)", "automation");
+  const c = check("github_actions", "GitHub Actions", "automation");
   try {
     const headers = { "User-Agent": "gravity-os-health-check" };
     if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
@@ -134,7 +134,7 @@ async function checkGitHubActions(env) {
 }
 
 async function checkStatsEndpoint(env) {
-  const c = check("stats_endpoint", "/api/stats (dashboard data source)", "analytics");
+  const c = check("stats_endpoint", "/api/stats", "analytics");
   try {
     const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/stats`, { signal: s }), 6000);
     c.status = res.ok ? "ok" : "warn";
@@ -146,7 +146,7 @@ async function checkStatsEndpoint(env) {
 // ---------- NEW: remaining endpoints ----------
 
 async function checkClickEndpoint(env) {
-  const c = check("click_endpoint", "/api/click (GET, expects 400 without params)", "tracking");
+  const c = check("click_endpoint", "/api/click", "tracking");
   try {
     const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/click`, { signal: s }), 6000);
     // Known design: GET without product_id+redirect params returns 400 — that IS correct behavior
@@ -167,7 +167,7 @@ async function checkTrackEndpoint(env) {
 }
 
 async function checkEmailEndpoint(env) {
-  const c = check("email_endpoint", "/api/email/* (subscribe/newsletter route)", "growth");
+  const c = check("email_endpoint", "/api/email/*", "growth");
   try {
     const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/email/subscribe`, { method: "GET", signal: s }), 6000);
     c.status = res.status >= 500 ? "error" : "ok";
@@ -199,15 +199,15 @@ async function checkPostOnlyRoute(env, id, label, path) {
 }
 
 async function checkProductWebhook(env) {
-  return checkPostOnlyRoute(env, "product_webhook", "/api/product-webhook (Shotstack video trigger, POST-only)", "/api/product-webhook");
+  return checkPostOnlyRoute(env, "product_webhook", "/api/product-webhook", "/api/product-webhook");
 }
 
 async function checkShotstackCallback(env) {
-  return checkPostOnlyRoute(env, "shotstack_callback", "/api/shotstack-callback (POST-only)", "/api/shotstack-callback");
+  return checkPostOnlyRoute(env, "shotstack_callback", "/api/shotstack-callback", "/api/shotstack-callback");
 }
 
 async function checkArticlePage(env) {
-  const c = check("article_page", "Real article page + affiliate link", "tracking");
+  const c = check("article_page", "Article Page + Affiliate Link", "tracking");
   try {
     const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/product/${CONFIG.TEST_PRODUCT_SLUG}`, { signal: s }), 6000);
     if (!res.ok) { c.status = "error"; c.detail = `Page HTTP ${res.status}`; return c; }
