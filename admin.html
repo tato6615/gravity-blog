@@ -298,6 +298,14 @@
   endInput.value = today.toISOString().slice(0, 10);
   startInput.value = monthAgo.toISOString().slice(0, 10);
 
+  function sortProducts(products) {
+    return [...products].sort((a, b) => {
+      const commDiff = (Number(b.total_commission) || 0) - (Number(a.total_commission) || 0);
+      if (commDiff !== 0) return commDiff;
+      return (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
+    });
+  }
+
   async function loadStats() {
     statusEl.textContent = 'กำลังโหลด...';
     const start = new Date(startInput.value).toISOString();
@@ -308,9 +316,10 @@
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'unknown error');
 
-      renderTable(data.products);
-      renderChart(data.products);
-      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
+      const sorted = sortProducts(data.products);
+      renderTable(sorted);
+      renderChart(sorted.slice(0, 15));
+      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม Commission มาก→น้อย`;
     } catch (err) {
       statusEl.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
     }
