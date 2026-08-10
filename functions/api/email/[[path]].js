@@ -152,6 +152,7 @@ async function handleSendNewsletter(env) {
     const campaign = await createRes.json();
 
     if (!createRes.ok) {
+      console.log("MAILCHIMP_RESPONSE_DEBUG:", JSON.stringify(campaign, null, 2));
       console.error('Mailchimp create campaign error - Full response:', JSON.stringify(campaign, null, 2));
       const errorMsg = campaign.detail || (campaign.errors && campaign.errors.map(e => `${e.field}: ${e.message}`).join('; ')) || campaign.status || createRes.status;
       throw new Error(`Mailchimp create campaign failed: ${errorMsg}`);
