@@ -518,6 +518,10 @@
           <div class="sys-section-title"><span class="ov-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
           <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
         </div>
+        <div class="sys-section">
+          <div class="sys-section-title">📜 ประวัติการเผยแพร่ (ล่าสุด 20 รายการ)</div>
+          <div id="publishHistoryBody"><div class="note">กำลังโหลด...</div></div>
+        </div>
       </div>
     </section>
 
@@ -1116,11 +1120,37 @@ async function doPublish(){
   }
 }
 
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+const PUBLISH_HISTORY_KEY = 'gravity_publish_history';
+const PUBLISH_HISTORY_MAX = 200;
+const CHANNEL_STAGGER_MS = 8000; // เว้นช่วงระหว่างช่องทาง กันบัญชีโดน flag จากการยิงโพสต์รัวๆ
+
+function loadPublishHistory(){
+  try{ return JSON.parse(localStorage.getItem(PUBLISH_HISTORY_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function savePublishHistoryEntry(entry){
+  const history = loadPublishHistory();
+  history.unshift(entry);
+  if (history.length > PUBLISH_HISTORY_MAX) history.length = PUBLISH_HISTORY_MAX;
+  try{ localStorage.setItem(PUBLISH_HISTORY_KEY, JSON.stringify(history)); }
+  catch(e){ /* storage เต็ม/ปิดใช้งาน — ข้าม ไม่บล็อกการโพสต์ */ }
+  renderPublishHistoryTable();
+}
+
 async function distributeToChannels(channels){
   const results = [];
-  for (const ch of channels) {
+  for (let i = 0; i < channels.length; i++) {
+    const ch = channels[i];
+    if (i > 0) {
+      logEvent('pending', 'รอ ' + (CHANNEL_STAGGER_MS / 1000) + ' วิ ก่อนโพสต์ช่องถัดไป (กันบัญชีโดน flag)...');
+      await sleep(CHANNEL_STAGGER_MS);
+    }
     if (!DISTRIBUTABLE_CHANNELS.has(ch)) {
-      results.push({ channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องรอ TikTok Developer App ผ่าน review ก่อน)' });
+      const entry = { channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องรอ TikTok Developer App ผ่าน review ก่อน)', time: new Date().toISOString(), productId };
+      results.push(entry);
+      savePublishHistoryEntry(entry);
       logEvent('pending', 'ข้าม ' + (CHANNEL_LABELS[ch] || ch) + ' — ยังไม่รองรับ');
       renderDistributeResults(results);
       continue;
@@ -1131,9 +1161,13 @@ async function distributeToChannels(channels){
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ productId, platform: ch, lang: 'th', captionOverride: override || undefined })
       }, 'POST /api/distribute (' + (CHANNEL_LABELS[ch] || ch) + ')');
-      results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
+      const entry = { channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId, time: new Date().toISOString(), productId };
+      results.push(entry);
+      savePublishHistoryEntry(entry);
     }catch(e){
-      results.push({ channel: ch, error: e.message });
+      const entry = { channel: ch, error: e.message, time: new Date().toISOString(), productId };
+      results.push(entry);
+      savePublishHistoryEntry(entry);
     }
     renderDistributeResults(results);
   }
@@ -1144,14 +1178,14 @@ async function distributeToChannels(channels){
 function renderDistributeResults(results){
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
+    const timeStr = r.time ? fmtTime(new Date(r.time)) : '';
     let val;
     if (r.skipped) val = 'ข้าม — ' + r.reason;
     else if (r.error) val = '❌ ' + r.error;
     else val = '✓ โพสต์สำเร็จ' + (r.link ? ' — <a href="' + r.link + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '');
-    return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
+    return '<div class="rt-row"><div class="rt-label">' + label + (timeStr ? ' <span style="color:var(--text-faint); font-weight:400;">· ' + timeStr + '</span>' : '') + '</div><div class="rt-val">' + val + '</div></div>';
   }).join('');
 
-  // target: panel-results (ไม่ใช่ panel-publish แล้ว)
   const el = document.getElementById('distributeResults');
   el.innerHTML =
     '<div class="distribute-section">' +
@@ -1160,6 +1194,23 @@ function renderDistributeResults(results){
     '</div>';
 
   renderStepper();
+}
+
+function renderPublishHistoryTable(){
+  const el = document.getElementById('publishHistoryBody');
+  if (!el) return;
+  const history = loadPublishHistory();
+  if (!history.length) { el.innerHTML = '<div class="note">ยังไม่มีประวัติการเผยแพร่ในเบราว์เซอร์นี้</div>'; return; }
+  const rows = history.slice(0, 20).map(h => {
+    const label = CHANNEL_LABELS[h.channel] || h.channel;
+    const timeStr = h.time ? new Date(h.time).toLocaleString('th-TH', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+    let statusVal;
+    if (h.skipped) statusVal = 'ข้าม';
+    else if (h.error) statusVal = '❌ ล้มเหลว';
+    else statusVal = '✓ สำเร็จ';
+    return '<div class="rt-row"><div class="rt-label">' + timeStr + ' · #' + (h.productId ?? '—') + ' · ' + label + '</div><div class="rt-val">' + statusVal + (h.error ? (' — ' + escapeHtml(h.error)) : '') + '</div></div>';
+  }).join('');
+  el.innerHTML = rows + '<div class="note" style="margin-top:10px;">แสดงล่าสุด ' + Math.min(20, history.length) + ' จากทั้งหมด ' + history.length + ' รายการ · เก็บเฉพาะในเบราว์เซอร์นี้เท่านั้น</div>';
 }
 
 const FIELD_SCHEMA = [
@@ -1343,6 +1394,7 @@ renderTableGrid({});
 renderFieldChecklist({});
 renderStepper();
 loadAiStatus();
+renderPublishHistoryTable();
 
 document.getElementById('in').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doImport();
