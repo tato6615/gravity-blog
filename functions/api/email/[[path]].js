@@ -44,13 +44,13 @@ async function handleSendNewsletter(env) {
     const authHeader = { 'Authorization': `Basic ${btoa(`anystring:${env.MAILCHIMP_API_KEY}`)}` };
     const mcBase = `https://${env.MAILCHIMP_SERVER}.api.mailchimp.com/3.0`;
 
-    // ✅ Minimal campaign object - only required fields
     const campaign = {
       type: 'regular',
       recipients: { list_id: env.MAILCHIMP_LIST_ID },
       settings: {
         subject_line: 'Weekly Top Products',
-        from_name: 'Gravity'
+        from_name: 'Gravity',
+        title: 'Newsletter'
       }
     };
 
@@ -81,8 +81,10 @@ async function handleSendNewsletter(env) {
       headers: authHeader,
     });
 
+    const sendData = await sendRes.json().catch(() => ({}));
+
     if (!sendRes.ok) {
-      return jsonResponse({ error: 'Failed to send' }, sendRes.status);
+      return jsonResponse({ error: `Send failed: ${JSON.stringify(sendData)}` }, sendRes.status);
     }
 
     return jsonResponse({ success: true, campaignId: data.id }, 200);
