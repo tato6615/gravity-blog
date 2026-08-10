@@ -50,6 +50,7 @@ async function handleSendNewsletter(env) {
       settings: {
         subject_line: 'Weekly Top Products',
         from_name: 'Gravity',
+        reply_to: 'noreply@example.com',
         title: 'Newsletter'
       }
     };
