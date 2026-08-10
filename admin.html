@@ -556,6 +556,124 @@ function switchTab(tab){
 }
 </script>
 
+<section id="system-health-panel" class="tab-panel hidden" data-tab="system-health" style="max-width:960px; margin:0 auto; padding:0 20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 16px; flex-wrap:wrap; gap:10px;">
+    <div>
+      <h2 style="margin:0 0 4px; color:var(--text);">🩺 System Health</h2>
+      <div id="sh-updated" style="color:var(--text-faint); font-size:13px;"></div>
+    </div>
+    <button id="sh-refresh-btn" onclick="loadSystemHealth()"
+      style="background:var(--amber); color:#1a1a1a; border:none; border-radius:8px; padding:10px 20px; font-weight:700; cursor:pointer;">
+      ↻ รีเฟรชทั้งหมด
+    </button>
+  </div>
+
+  <div id="sh-summary-cards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:22px;"></div>
+  <div id="sh-groups"></div>
+</section>
+
+<style>
+  .sh-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px; }
+  .sh-stat-num{ font-size:26px; font-weight:800; line-height:1; }
+  .sh-stat-label{ color:var(--text-faint); font-size:12px; }
+  .sh-stat-card.ok .sh-stat-num{ color:var(--teal); }
+  .sh-stat-card.warn .sh-stat-num{ color:var(--amber); }
+  .sh-stat-card.error .sh-stat-num{ color:#e74c3c; }
+  .sh-stat-card.total .sh-stat-num{ color:var(--text); }
+  .sh-phase-title{ color:var(--amber); font-size:12.5px; text-transform:uppercase; letter-spacing:1px; margin:22px 0 10px; display:flex; align-items:center; gap:8px; }
+  .sh-phase-title::after{ content:""; flex:1; height:1px; background:var(--line); }
+  .sh-card-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; }
+  .sh-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px; position:relative; }
+  .sh-card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:12px 0 0 12px; }
+  .sh-card.ok::before{ background:var(--teal); }
+  .sh-card.warn::before{ background:var(--amber); }
+  .sh-card.error::before{ background:#e74c3c; }
+  .sh-card.unknown::before{ background:var(--text-faint); }
+  .sh-card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sh-badge{ font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px; text-transform:uppercase; white-space:nowrap; }
+  .sh-badge.ok{ background:rgba(79,209,197,0.15); color:var(--teal); }
+  .sh-badge.warn{ background:rgba(245,166,35,0.15); color:var(--amber); }
+  .sh-badge.error{ background:rgba(231,76,60,0.15); color:#e74c3c; }
+  .sh-badge.unknown{ background:var(--panel-2); color:var(--text-faint); }
+  .sh-card-label{ font-weight:600; font-size:14.5px; color:var(--text); }
+  .sh-card-detail{ color:var(--text-dim); font-size:12px; line-height:1.5; word-break:break-word; max-height:70px; overflow-y:auto; }
+</style>
+
+<script>
+async function loadSystemHealth() {
+  const cardsWrap = document.getElementById('sh-summary-cards');
+  const groupsEl = document.getElementById('sh-groups');
+  const updatedEl = document.getElementById('sh-updated');
+  const btn = document.getElementById('sh-refresh-btn');
+  if (!cardsWrap) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังเช็ค...';
+  groupsEl.innerHTML = '<div style="color:var(--text-faint); padding:20px 0;">กำลังเช็คทุกระบบ...</div>';
+
+  try {
+    const res = await fetch('/api/system-health');
+    const data = await res.json();
+    updatedEl.textContent = `เช็คล่าสุด ${new Date(data.generatedAt).toLocaleString('th-TH')}`;
+
+    const counts = { ok:0, warn:0, error:0, unknown:0 };
+    data.checks.forEach(c => counts[c.status] = (counts[c.status]||0)+1);
+
+    cardsWrap.innerHTML = `
+      <div class="sh-stat-card total"><div class="sh-stat-num">${data.checks.length}</div><div class="sh-stat-label">จุดที่เช็คทั้งหมด</div></div>
+      <div class="sh-stat-card ok"><div class="sh-stat-num">${counts.ok||0}</div><div class="sh-stat-label">✅ ปกติ</div></div>
+      <div class="sh-stat-card warn"><div class="sh-stat-num">${(counts.warn||0)+(counts.unknown||0)}</div><div class="sh-stat-label">🟡 ต้องดู</div></div>
+      <div class="sh-stat-card error"><div class="sh-stat-num">${counts.error||0}</div><div class="sh-stat-label">🔴 มีปัญหา</div></div>
+    `;
+
+    const PHASE_LABELS = {
+      tracking: '📊 Tracking — คลิก → D1',
+      conversion: '💳 Conversion — Grist',
+      analytics: '📈 Analytics — GA4 / stats',
+      growth: '🌱 Growth — Email',
+      automation: '⚙️ Automation — Actions / af Worker',
+    };
+    const byPhase = {};
+    data.checks.forEach(c => (byPhase[c.phase] ??= []).push(c));
+
+    groupsEl.innerHTML = '';
+    Object.entries(byPhase).forEach(([phase, checks]) => {
+      const title = document.createElement('div');
+      title.className = 'sh-phase-title';
+      title.textContent = PHASE_LABELS[phase] || phase;
+      groupsEl.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'sh-card-grid';
+      checks.forEach(c => {
+        const card = document.createElement('div');
+        card.className = `sh-card ${c.status}`;
+        card.innerHTML = `
+          <div class="sh-card-top">
+            <div class="sh-card-label">${c.label}</div>
+            <span class="sh-badge ${c.status}">${({ok:'ปกติ',warn:'เตือน',error:'ผิดพลาด',unknown:'ไม่ทราบ'})[c.status] || c.status}</span>
+          </div>
+          <div class="sh-card-detail">${c.detail || '-'}</div>
+        `;
+        grid.appendChild(card);
+      });
+      groupsEl.appendChild(grid);
+    });
+  } catch (e) {
+    groupsEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">❌ โหลดสถานะระบบไม่สำเร็จ: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ รีเฟรชทั้งหมด';
+  }
+}
+
+const _origSwitchTab = switchTab;
+switchTab = function(tab) {
+  _origSwitchTab(tab);
+  if (tab === 'system-health') loadSystemHealth();
+};
+</script>
+
 <script>
 const API = 'https://af.pakpiromjajaja.workers.dev';
 let productId = null;
