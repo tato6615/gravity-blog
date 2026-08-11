@@ -49,35 +49,17 @@ function homePath(lang) {
   return lang === 'en' ? '/en/' : '/';
 }
 
-/**
- * Hybrid ranking score: real clicks + a decaying "new product" bonus.
- * New products start with a bonus roughly equal to a strong click count so
- * they surface near the top, then the bonus linearly fades to 0 over
- * NEW_PRODUCT_DECAY_DAYS. This avoids both problems of a pure click sort
- * (new items buried at 0 clicks forever) and a hard "pin for N days" rule
- * (products falling off a cliff the moment the pin expires).
- *
- * Tune NEW_PRODUCT_BONUS relative to typical top click counts on the site.
- */
-const NEW_PRODUCT_BONUS = 50;
-const NEW_PRODUCT_DECAY_DAYS = 14;
-
-// How many items appear in the top "hybrid score" section before the
+// How many items appear in the top "most clicked" section before the
 // "Newest arrivals" section starts. Matches the original first row of 3.
+//
+// NOTE: the top section is sorted by real click count ONLY — no new-product
+// bonus. A brand-new product (0 clicks) never jumps ahead of an established
+// one here; it shows up in the "Newest arrivals" section instead, and only
+// earns a Top-section spot once it accumulates enough real clicks on its
+// own. This intentionally replaces the earlier "hybrid score" approach
+// (clicks + decaying bonus), which let brand-new products briefly outrank
+// products with real engagement whenever click counts were low overall.
 const TOP_SECTION_COUNT = 3;
-
-function getAgeInDaysFromTimestamp(dateStr) {
-  if (!dateStr) return Infinity; // unknown age -> treat as old, no bonus
-  const ageMs = Date.now() - new Date(dateStr).getTime();
-  if (Number.isNaN(ageMs)) return Infinity;
-  return ageMs / (1000 * 60 * 60 * 24);
-}
-
-function computeScore(clicks, firstSeenAt) {
-  const ageInDays = getAgeInDaysFromTimestamp(firstSeenAt);
-  const bonus = Math.max(0, NEW_PRODUCT_BONUS * (1 - ageInDays / NEW_PRODUCT_DECAY_DAYS));
-  return clicks + bonus;
-}
 
 /**
  * Self-tracked "first seen" timestamps, stored in our own D1 table instead
@@ -206,13 +188,14 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
 
-  // Top section: hybrid score (clicks + decaying new-product bonus), so
-  // genuinely popular products stay on top while brand-new ones still get
-  // a temporary lift instead of being buried at 0 clicks forever.
+  // Top section: pure click count, high to low. New products (0 clicks)
+  // never outrank established ones here — they surface in the "Newest
+  // arrivals" section below instead, and only earn a spot up here once
+  // they've actually accumulated clicks.
   const scoredArticles = [...articles].sort((a, b) => {
-    const scoreA = computeScore(clickCounts[String(a.id)] || 0, firstSeenMap[String(a.id)]);
-    const scoreB = computeScore(clickCounts[String(b.id)] || 0, firstSeenMap[String(b.id)]);
-    return scoreB - scoreA;
+    const clicksA = clickCounts[String(a.id)] || 0;
+    const clicksB = clickCounts[String(b.id)] || 0;
+    return clicksB - clicksA;
   });
 
   // Relative "hot" threshold: 1.5x the average clicks among products that
