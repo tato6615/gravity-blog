@@ -86,6 +86,15 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   }
   articles.sort((a, b) => (clickCounts[String(b.id)] || 0) - (clickCounts[String(a.id)] || 0));
 
+  // Relative "hot" threshold: 1.5x the average clicks among products that
+  // have at least one click, with a floor of 3 so it still means something
+  // when overall traffic is very low.
+  const clickedValues = Object.values(clickCounts).filter(v => v > 0);
+  const avgClicks = clickedValues.length
+    ? clickedValues.reduce((sum, v) => sum + v, 0) / clickedValues.length
+    : 0;
+  const hotThreshold = Math.max(3, Math.round(avgClicks * 1.5));
+
   const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
 
   // นับจำนวนสินค้าต่อหมวด แล้วโชว์เฉพาะหมวดที่มีสินค้า >= 2 ชิ้น (กันแถบ pills รกเวลาสินค้าเยอะขึ้น)
@@ -124,7 +133,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
-          ${i < 3 && (clickCounts[String(a.id)] || 0) >= 5 ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
+          ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>
