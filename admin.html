@@ -992,10 +992,11 @@ function renderSteps(steps){
 }
 
 const CHANNEL_OPTIONS = [
+  ['telegram','Telegram'], ['discord','Discord'], ['mastodon','Mastodon'],
   ['facebook','Facebook'], ['threads','Threads'],
    ['website','Website/Blog']
 ];
-const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'website', 'youtube']);
+const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'threads', 'website', 'telegram', 'discord', 'mastodon']);
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
 let chPickerRendered = false;
