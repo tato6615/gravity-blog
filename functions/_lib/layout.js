@@ -222,7 +222,7 @@ const BASE_CSS = `
     padding:4px; box-sizing:border-box;
   }
   .gallery-thumb.is-active{ border-color:var(--accent); border-width:2px; }
-  .card-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .card-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
   .rank-badge{
     background:var(--ink); color:#fff; font-size:12px; font-weight:600;
     padding:3px 10px; border-radius:5px; white-space:nowrap;
