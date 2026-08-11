@@ -16,7 +16,8 @@ const STRINGS = {
     loadErrorPrefix: 'โหลดบทความไม่สำเร็จ:',
     retry: 'ลองใหม่อีกครั้ง',
     empty: 'ยังไม่มีบทความ',
-    emptySub: 'พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ'
+    emptySub: 'พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ',
+    newBadge: '🆕 ใหม่'
   },
   en: {
     pageTitle: 'GRAVITY OS — Curated product reviews',
@@ -32,7 +33,8 @@ const STRINGS = {
     loadErrorPrefix: 'Failed to load articles:',
     retry: 'Try again',
     empty: 'No articles yet',
-    emptySub: "Once a product finishes running through Generate Everything, it'll show up here automatically."
+    emptySub: "Once a product finishes running through Generate Everything, it'll show up here automatically.",
+    newBadge: '🆕 New'
   }
 };
 
@@ -41,6 +43,35 @@ const STRINGS = {
  */
 function homePath(lang) {
   return lang === 'en' ? '/en/' : '/';
+}
+
+/**
+ * Hybrid ranking score: real clicks + a decaying "new product" bonus.
+ * New products start with a bonus roughly equal to a strong click count so
+ * they surface near the top, then the bonus linearly fades to 0 over
+ * NEW_PRODUCT_DECAY_DAYS. This avoids both problems of a pure click sort
+ * (new items buried at 0 clicks forever) and a hard "pin for N days" rule
+ * (products falling off a cliff the moment the pin expires).
+ *
+ * Tune NEW_PRODUCT_BONUS relative to typical top click counts on the site.
+ */
+const NEW_PRODUCT_BONUS = 50;
+const NEW_PRODUCT_DECAY_DAYS = 14;
+// Products newer than this get the "🆕 ใหม่ / New" badge.
+const NEW_PRODUCT_BADGE_DAYS = 7;
+
+function getAgeInDays(article) {
+  const dateStr = article.createdAt || article.publishedAt || article.updatedAt;
+  if (!dateStr) return Infinity; // unknown age -> treat as old, no bonus
+  const ageMs = Date.now() - new Date(dateStr).getTime();
+  if (Number.isNaN(ageMs)) return Infinity;
+  return ageMs / (1000 * 60 * 60 * 24);
+}
+
+function computeScore(article, clicks) {
+  const ageInDays = getAgeInDays(article);
+  const bonus = Math.max(0, NEW_PRODUCT_BONUS * (1 - ageInDays / NEW_PRODUCT_DECAY_DAYS));
+  return clicks + bonus;
 }
 
 /**
@@ -60,8 +91,10 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     errorMsg = e.message;
   }
 
-  // Sort by click count (most clicked first). Products with no clicks yet
-  // fall to the bottom.
+  // Sort by a hybrid score (clicks + decaying new-product bonus), so brand
+  // new products (0 clicks) still get visibility instead of being buried
+  // at the bottom forever, while genuinely popular older products keep
+  // outranking them once their bonus fades.
   // Cache the clicks aggregation for 5 minutes so repeated homepage loads
   // don\'t hit D1 on every request.
   let clickCounts = {};
@@ -84,7 +117,11 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   } catch (e) {
     // D1/Cache unavailable — fall back to original article order
   }
-  articles.sort((a, b) => (clickCounts[String(b.id)] || 0) - (clickCounts[String(a.id)] || 0));
+  articles.sort((a, b) => {
+    const scoreA = computeScore(a, clickCounts[String(a.id)] || 0);
+    const scoreB = computeScore(b, clickCounts[String(b.id)] || 0);
+    return scoreB - scoreA;
+  });
 
   // Relative "hot" threshold: 1.5x the average clicks among products that
   // have at least one click, with a floor of 3 so it still means something
@@ -126,6 +163,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
     const stars = renderStars(a.product.rating);
     const href = `${lang === 'en' ? '/en' : ''}/product/${encodeURIComponent(a.slug)}`;
+    const isNew = getAgeInDays(a) < NEW_PRODUCT_BADGE_DAYS;
 
     return `
     <a class="card" href="${href}">
@@ -133,7 +171,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
-          ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
+          ${isNew ? `<span class="badge-new">${escapeHtml(t.newBadge)}</span>` : (i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? '<span class="badge-hot">🔥 มาแรง</span>' : '')}
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>

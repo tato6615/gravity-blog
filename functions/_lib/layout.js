@@ -232,6 +232,10 @@ const BASE_CSS = `
     background:#F59E0B; color:#fff; font-size:12px; font-weight:600;
     padding:3px 10px; border-radius:5px; white-space:nowrap; margin-left:4px;
   }
+  .badge-new{
+    background:var(--accent); color:#fff; font-size:12px; font-weight:600;
+    padding:3px 10px; border-radius:5px; white-space:nowrap; margin-left:4px;
+  }
   .click-count{ font-size:13px; color:var(--ink-muted); margin-top:-4px; margin-bottom:10px; }
   .card-top .eyebrow{ margin-bottom:0; }
   .pro-highlight{
