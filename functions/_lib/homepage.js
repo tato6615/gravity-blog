@@ -121,7 +121,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         ${(clickCounts[String(a.id)] || 0) > 0 ? `<div class="click-count">${clickCounts[String(a.id)]} คลิก</div>` : ''}
         ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
         <div class="cta-btn">${escapeHtml(t.ctaBtn)}</div>
-        ${updatedLabel ? `<div class="updated-line">${escapeHtml(t.updatedPrefix)} ${updatedLabel}</div>` : ''}
       </div>
     </a>
   `;
