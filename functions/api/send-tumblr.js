@@ -108,7 +108,7 @@ export async function onRequestPost(context) {
   }
 
   const blogId = env.TUMBLR_BLOG_ID;
-  const apiUrl = `https://api.tumblr.com/v2/blog/${blogId}/posts`;
+  const apiUrl = `https://api.tumblr.com/v2/blog/${blogId}/post`;
 
   // NPF-lite via legacy create_post-style params (type=text or type=link)
   const postParams = linkUrl
