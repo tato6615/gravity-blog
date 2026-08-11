@@ -178,7 +178,7 @@ const BASE_CSS = `
     border-bottom:1px solid var(--hairline); box-sizing:border-box;
   }
   .card-body{ padding:16px; display:flex; flex-direction:column; flex:1; }
-  @media (min-width:900px){
+  @media (min-width:820px){
     .card-thumb, .card-thumb-placeholder{ height:180px; padding:14px 18px; }
     .card-body{ padding:14px; }
   }
@@ -255,7 +255,7 @@ const BASE_CSS = `
   @media (min-width:680px){
     .card-grid{ grid-template-columns:repeat(2, 1fr); }
   }
-  @media (min-width:900px){
+  @media (min-width:820px){
     .card-grid{ grid-template-columns:repeat(3, 1fr); gap:18px; }
   }
   @media (min-width:1080px){
