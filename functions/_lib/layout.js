@@ -228,6 +228,11 @@ const BASE_CSS = `
     padding:3px 10px; border-radius:5px; white-space:nowrap;
   }
   .rank-badge.is-top{ background:var(--accent2); }
+  .badge-hot{
+    background:#F59E0B; color:#fff; font-size:12px; font-weight:600;
+    padding:3px 10px; border-radius:5px; white-space:nowrap;
+  }
+  .click-count{ font-size:13px; color:var(--ink-muted); margin-top:-4px; margin-bottom:10px; }
   .card-top .eyebrow{ margin-bottom:0; }
   .pro-highlight{
     display:flex; align-items:flex-start; gap:8px; margin:0 0 12px;

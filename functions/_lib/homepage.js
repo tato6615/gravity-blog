@@ -111,12 +111,14 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
+          ${i < 3 && (clickCounts[String(a.id)] || 0) > 0 ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>
         <h2>${escapeHtml(a.seoTitle)}</h2>
         ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
         <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
+        ${(clickCounts[String(a.id)] || 0) > 0 ? `<div class="click-count">${clickCounts[String(a.id)]} คลิก</div>` : ''}
         ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
         <div class="cta-btn">${escapeHtml(t.ctaBtn)}</div>
         ${updatedLabel ? `<div class="updated-line">${escapeHtml(t.updatedPrefix)} ${updatedLabel}</div>` : ''}
