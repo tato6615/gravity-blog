@@ -57,21 +57,66 @@ function homePath(lang) {
  */
 const NEW_PRODUCT_BONUS = 50;
 const NEW_PRODUCT_DECAY_DAYS = 14;
-// Products newer than this get the "🆕 ใหม่ / New" badge.
-const NEW_PRODUCT_BADGE_DAYS = 7;
 
-function getAgeInDays(article) {
-  const dateStr = article.createdAt || article.publishedAt || article.updatedAt;
+function getAgeInDaysFromTimestamp(dateStr) {
   if (!dateStr) return Infinity; // unknown age -> treat as old, no bonus
   const ageMs = Date.now() - new Date(dateStr).getTime();
   if (Number.isNaN(ageMs)) return Infinity;
   return ageMs / (1000 * 60 * 60 * 24);
 }
 
-function computeScore(article, clicks) {
-  const ageInDays = getAgeInDays(article);
+function computeScore(clicks, firstSeenAt) {
+  const ageInDays = getAgeInDaysFromTimestamp(firstSeenAt);
   const bonus = Math.max(0, NEW_PRODUCT_BONUS * (1 - ageInDays / NEW_PRODUCT_DECAY_DAYS));
   return clicks + bonus;
+}
+
+/**
+ * Self-tracked "first seen" timestamps, stored in our own D1 table instead
+ * of trusting any timestamp field from Grist (which gets overwritten by
+ * hourly/30-min sync jobs and can't be used to tell new products from old
+ * ones). The first time a product shows up here, we record "now" as its
+ * first-seen date; every time after that we just read the stored value
+ * back, so it never resets no matter how often the product row itself gets
+ * touched elsewhere.
+ *
+ * Requires a table created once via:
+ *   CREATE TABLE IF NOT EXISTS product_first_seen (
+ *     product_id TEXT PRIMARY KEY,
+ *     first_seen_at TEXT NOT NULL
+ *   );
+ */
+async function getOrCreateFirstSeenMap(env, productIds) {
+  const firstSeenMap = {};
+  const ids = [...new Set(productIds.map(String))].filter(Boolean);
+  if (!env.DB || !ids.length) return firstSeenMap;
+
+  try {
+    const placeholders = ids.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+      `SELECT product_id, first_seen_at FROM product_first_seen WHERE product_id IN (${placeholders})`
+    ).bind(...ids).all();
+    results.forEach(r => { firstSeenMap[String(r.product_id)] = r.first_seen_at; });
+
+    const missingIds = ids.filter(id => !(id in firstSeenMap));
+    if (missingIds.length) {
+      const now = new Date().toISOString();
+      const stmts = missingIds.map(id =>
+        env.DB.prepare(
+          `INSERT INTO product_first_seen (product_id, first_seen_at) VALUES (?, ?)
+           ON CONFLICT(product_id) DO NOTHING`
+        ).bind(id, now)
+      );
+      await env.DB.batch(stmts);
+      missingIds.forEach(id => { firstSeenMap[id] = now; });
+    }
+  } catch (e) {
+    // Table missing or D1 unavailable — every product falls back to
+    // Infinity age (no bonus), so ranking degrades to pure click-count
+    // sort rather than breaking the page.
+  }
+
+  return firstSeenMap;
 }
 
 /**
@@ -117,9 +162,10 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   } catch (e) {
     // D1/Cache unavailable — fall back to original article order
   }
+  const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
   articles.sort((a, b) => {
-    const scoreA = computeScore(a, clickCounts[String(a.id)] || 0);
-    const scoreB = computeScore(b, clickCounts[String(b.id)] || 0);
+    const scoreA = computeScore(clickCounts[String(a.id)] || 0, firstSeenMap[String(a.id)]);
+    const scoreB = computeScore(clickCounts[String(b.id)] || 0, firstSeenMap[String(b.id)]);
     return scoreB - scoreA;
   });
 
@@ -163,7 +209,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
     const stars = renderStars(a.product.rating);
     const href = `${lang === 'en' ? '/en' : ''}/product/${encodeURIComponent(a.slug)}`;
-    const isNew = getAgeInDays(a) < NEW_PRODUCT_BADGE_DAYS;
 
     return `
     <a class="card" href="${href}">
