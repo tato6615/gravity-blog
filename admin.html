@@ -1325,22 +1325,50 @@ async function distributeToChannels(channels){
 }
 
 // ═══ FIX: render ผลการเผยแพร่ใน panel-results แทน panel-publish ═══
+function retryChannel(channel){
+  const results = window._lastDistributeResults || [];
+  const existing = results.filter(r => r.channel !== channel);
+  window._lastDistributeResults = existing;
+  distributeToChannels([channel]).then(newResults => {
+    window._lastDistributeResults = [...existing, ...newResults];
+    renderDistributeResults(window._lastDistributeResults);
+  });
+}
+
+function retryChannel(channel) {
+  const all = window._lastDistributeResults || [];
+  const others = all.filter(r => r.channel !== channel);
+  window._lastDistributeResults = others;
+  renderDistributeResults(others);
+  distributeToChannels([channel]).then(newRes => {
+    window._lastDistributeResults = [...others, ...newRes];
+    renderDistributeResults(window._lastDistributeResults);
+  });
+}
+
 function renderDistributeResults(results){
+  window._lastDistributeResults = results;
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
     const timeStr = r.time ? fmtTime(new Date(r.time)) : '';
     let val;
     if (r.skipped) val = 'ข้าม — ' + r.reason;
-    else if (r.error) val = '❌ ' + r.error;
+    else if (r.error) val = '❌ ' + r.error + ' <button class="btn-ghost" onclick="retryChannel('' + r.channel + '')" style="padding:4px 10px;font-size:12px;margin-left:8px;">↺ ส่งซ้ำ</button>';
     else val = '✓ โพสต์สำเร็จ' + (r.link ? ' — <a href="' + r.link + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '');
     return '<div class="rt-row"><div class="rt-label">' + label + (timeStr ? ' <span style="color:var(--text-faint); font-weight:400;">· ' + timeStr + '</span>' : '') + '</div><div class="rt-val">' + val + '</div></div>';
   }).join('');
+
+  const failedChannels = results.filter(r => r.error).map(r => r.channel);
+  const retryAllBtn = failedChannels.length > 1
+    ? '<button class="btn-teal" onclick="retryChannel('' + failedChannels.join(',') + '')" style="width:100%;margin-top:12px;">↺ ส่งซ้ำทุกที่ที่ล้มเหลว (' + failedChannels.length + ')</button>'
+    : '';
 
   const el = document.getElementById('distributeResults');
   el.innerHTML =
     '<div class="distribute-section">' +
       '<div class="distribute-section-title">📡 ผลการเผยแพร่แต่ละช่องทาง</div>' +
       rows +
+      retryAllBtn +
     '</div>';
 
   renderStepper();
