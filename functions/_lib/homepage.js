@@ -17,7 +17,9 @@ const STRINGS = {
     retry: 'ลองใหม่อีกครั้ง',
     empty: 'ยังไม่มีบทความ',
     emptySub: 'พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ',
-    newBadge: '🆕 ใหม่'
+    newBadge: '🆕 ใหม่',
+    newArrivalsHeading: 'สินค้าใหม่ล่าสุด',
+    newArrivalsSub: 'สินค้าที่เพิ่งเข้าระบบล่าสุด เรียงตามวันที่เจอครั้งแรก ไม่ปนกับยอดคลิก'
   },
   en: {
     pageTitle: 'GRAVITY OS — Curated product reviews',
@@ -34,7 +36,9 @@ const STRINGS = {
     retry: 'Try again',
     empty: 'No articles yet',
     emptySub: "Once a product finishes running through Generate Everything, it'll show up here automatically.",
-    newBadge: '🆕 New'
+    newBadge: '🆕 New',
+    newArrivalsHeading: 'Newest arrivals',
+    newArrivalsSub: 'Recently added products, sorted purely by first-seen date — not mixed with click count.'
   }
 };
 
@@ -57,6 +61,10 @@ function homePath(lang) {
  */
 const NEW_PRODUCT_BONUS = 50;
 const NEW_PRODUCT_DECAY_DAYS = 14;
+
+// How many items appear in the top "hybrid score" section before the
+// "Newest arrivals" section starts. Matches the original first row of 3.
+const TOP_SECTION_COUNT = 3;
 
 function getAgeInDaysFromTimestamp(dateStr) {
   if (!dateStr) return Infinity; // unknown age -> treat as old, no bonus
@@ -120,90 +128,14 @@ async function getOrCreateFirstSeenMap(env, productIds) {
 }
 
 /**
- * Renders the home/listing page for the given language.
- * @param {object} env
- * @param {'th'|'en'} lang
- * @returns {Promise<Response>}
+ * Renders one grid of article cards. `startRank` lets the "new arrivals"
+ * section continue the rank numbering after the top section instead of
+ * restarting at 1, so badges stay visually consistent across both grids.
  */
-export async function renderHomePage(env, lang = 'th', request = null) {
-  const t = STRINGS[lang] || STRINGS.th;
-
-  let articles = [];
-  let errorMsg = null;
-  try {
-    articles = await getLiveArticles(env, lang);
-  } catch (e) {
-    errorMsg = e.message;
-  }
-
-  // Sort by a hybrid score (clicks + decaying new-product bonus), so brand
-  // new products (0 clicks) still get visibility instead of being buried
-  // at the bottom forever, while genuinely popular older products keep
-  // outranking them once their bonus fades.
-  // Cache the clicks aggregation for 5 minutes so repeated homepage loads
-  // don\'t hit D1 on every request.
-  let clickCounts = {};
-  try {
-    const cache = caches.default;
-    const cacheKey = new Request('https://cache.internal/click-counts');
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      clickCounts = await cached.json();
-    } else {
-      const { results } = await env.DB.prepare(
-        `SELECT product_id, COUNT(*) as clicks FROM clicks GROUP BY product_id`
-      ).all();
-      results.forEach(r => { clickCounts[String(r.product_id)] = r.clicks; });
-      const cacheResp = new Response(JSON.stringify(clickCounts), {
-        headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
-      });
-      await cache.put(cacheKey, cacheResp);
-    }
-  } catch (e) {
-    // D1/Cache unavailable — fall back to original article order
-  }
-  const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
-  articles.sort((a, b) => {
-    const scoreA = computeScore(clickCounts[String(a.id)] || 0, firstSeenMap[String(a.id)]);
-    const scoreB = computeScore(clickCounts[String(b.id)] || 0, firstSeenMap[String(b.id)]);
-    return scoreB - scoreA;
-  });
-
-  // Relative "hot" threshold: 1.5x the average clicks among products that
-  // have at least one click, with a floor of 3 so it still means something
-  // when overall traffic is very low.
-  const clickedValues = Object.values(clickCounts).filter(v => v > 0);
-  const avgClicks = clickedValues.length
-    ? clickedValues.reduce((sum, v) => sum + v, 0) / clickedValues.length
-    : 0;
-  const hotThreshold = Math.max(3, Math.round(avgClicks * 1.5));
-
-  const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
-
-  // นับจำนวนสินค้าต่อหมวด แล้วโชว์เฉพาะหมวดที่มีสินค้า >= 2 ชิ้น (กันแถบ pills รกเวลาสินค้าเยอะขึ้น)
-  const MIN_PRODUCTS_PER_CATEGORY = 2;
-  const categoryCounts = {};
-  articles.forEach(a => {
-    if (a.category) categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
-  });
-  const categories = Object.keys(categoryCounts)
-    .filter(cat => categoryCounts[cat] >= MIN_PRODUCTS_PER_CATEGORY)
-    .sort((a, b) => categoryCounts[b] - categoryCounts[a]);
-
-  const displayArticles = selectedCategory
-    ? articles.filter(a => a.category === selectedCategory)
-    : articles;
-
-  const filterHtml = categories.length > 0 ? `<div class="category-filter">
-    <a href="${homePath(lang)}" class="filter-pill${!selectedCategory ? ' is-active' : ''}">${lang === 'en' ? 'All' : 'ทั้งหมด'}</a>
-    ${categories.map(cat => `<a href="${homePath(lang)}?category=${encodeURIComponent(cat)}" class="filter-pill${selectedCategory === cat ? ' is-active' : ''}">${escapeHtml(cat)}</a>`).join('')}
-  </div>` : '';
-
-  const cards = displayArticles.map((a, i) => {
+function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0 }) {
+  return articles.map((a, idx) => {
+    const i = startRank + idx;
     const topPro = a.analysis ? toListItems(a.analysis.pros)[0] : null;
-    const updatedLabel = a.updatedAt
-      ? new Date(a.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })
-      : null;
     const thumb = a.product.image
       ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
       : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
@@ -230,6 +162,113 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     </a>
   `;
   }).join('');
+}
+
+/**
+ * Renders the home/listing page for the given language.
+ * @param {object} env
+ * @param {'th'|'en'} lang
+ * @returns {Promise<Response>}
+ */
+export async function renderHomePage(env, lang = 'th', request = null) {
+  const t = STRINGS[lang] || STRINGS.th;
+
+  let articles = [];
+  let errorMsg = null;
+  try {
+    articles = await getLiveArticles(env, lang);
+  } catch (e) {
+    errorMsg = e.message;
+  }
+
+  // Cache the clicks aggregation for 5 minutes so repeated homepage loads
+  // don't hit D1 on every request.
+  let clickCounts = {};
+  try {
+    const cache = caches.default;
+    const cacheKey = new Request('https://cache.internal/click-counts');
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      clickCounts = await cached.json();
+    } else {
+      const { results } = await env.DB.prepare(
+        `SELECT product_id, COUNT(*) as clicks FROM clicks GROUP BY product_id`
+      ).all();
+      results.forEach(r => { clickCounts[String(r.product_id)] = r.clicks; });
+      const cacheResp = new Response(JSON.stringify(clickCounts), {
+        headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
+      });
+      await cache.put(cacheKey, cacheResp);
+    }
+  } catch (e) {
+    // D1/Cache unavailable — fall back to original article order
+  }
+
+  const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
+
+  // Top section: hybrid score (clicks + decaying new-product bonus), so
+  // genuinely popular products stay on top while brand-new ones still get
+  // a temporary lift instead of being buried at 0 clicks forever.
+  const scoredArticles = [...articles].sort((a, b) => {
+    const scoreA = computeScore(clickCounts[String(a.id)] || 0, firstSeenMap[String(a.id)]);
+    const scoreB = computeScore(clickCounts[String(b.id)] || 0, firstSeenMap[String(b.id)]);
+    return scoreB - scoreA;
+  });
+
+  // Relative "hot" threshold: 1.5x the average clicks among products that
+  // have at least one click, with a floor of 3 so it still means something
+  // when overall traffic is very low.
+  const clickedValues = Object.values(clickCounts).filter(v => v > 0);
+  const avgClicks = clickedValues.length
+    ? clickedValues.reduce((sum, v) => sum + v, 0) / clickedValues.length
+    : 0;
+  const hotThreshold = Math.max(3, Math.round(avgClicks * 1.5));
+
+  const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
+
+  // นับจำนวนสินค้าต่อหมวด แล้วโชว์เฉพาะหมวดที่มีสินค้า >= 2 ชิ้น (กันแถบ pills รกเวลาสินค้าเยอะขึ้น)
+  const MIN_PRODUCTS_PER_CATEGORY = 2;
+  const categoryCounts = {};
+  articles.forEach(a => {
+    if (a.category) categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
+  });
+  const categories = Object.keys(categoryCounts)
+    .filter(cat => categoryCounts[cat] >= MIN_PRODUCTS_PER_CATEGORY)
+    .sort((a, b) => categoryCounts[b] - categoryCounts[a]);
+
+  const displayScoredArticles = selectedCategory
+    ? scoredArticles.filter(a => a.category === selectedCategory)
+    : scoredArticles;
+
+  const filterHtml = categories.length > 0 ? `<div class="category-filter">
+    <a href="${homePath(lang)}" class="filter-pill${!selectedCategory ? ' is-active' : ''}">${lang === 'en' ? 'All' : 'ทั้งหมด'}</a>
+    ${categories.map(cat => `<a href="${homePath(lang)}?category=${encodeURIComponent(cat)}" class="filter-pill${selectedCategory === cat ? ' is-active' : ''}">${escapeHtml(cat)}</a>`).join('')}
+  </div>` : '';
+
+  // Split into two independent groups instead of one long hybrid-sorted
+  // list: a top section by hybrid score, and a "newest arrivals" section
+  // sorted purely by first_seen_at (most recent first) with no click
+  // weighting at all. Items already shown in the top section are excluded
+  // from the arrivals section so nothing appears twice.
+  const topArticles = displayScoredArticles.slice(0, TOP_SECTION_COUNT);
+  const topIds = new Set(topArticles.map(a => String(a.id)));
+
+  const newArrivalArticles = displayScoredArticles
+    .filter(a => !topIds.has(String(a.id)))
+    .sort((a, b) => {
+      const dateA = firstSeenMap[String(a.id)] ? new Date(firstSeenMap[String(a.id)]).getTime() : -Infinity;
+      const dateB = firstSeenMap[String(b.id)] ? new Date(firstSeenMap[String(b.id)]).getTime() : -Infinity;
+      return dateB - dateA; // newest first_seen_at first
+    });
+
+  const topCardsHtml = renderCardGrid(topArticles, { t, lang, clickCounts, hotThreshold, startRank: 0 });
+  const newArrivalsCardsHtml = renderCardGrid(newArrivalArticles, { t, lang, clickCounts, hotThreshold, startRank: TOP_SECTION_COUNT });
+
+  const newArrivalsSectionHtml = newArrivalArticles.length ? `
+    <h2 style="font-size:20px;margin:36px 0 4px;">${escapeHtml(t.newArrivalsHeading)}</h2>
+    <p class="meta" style="margin-bottom:20px;">${escapeHtml(t.newArrivalsSub)}</p>
+    <div class="card-grid">${newArrivalsCardsHtml}</div>
+  ` : '';
 
   const body = errorMsg
     ? `<div class="error-page">
@@ -237,8 +276,8 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p>${escapeHtml(t.loadErrorPrefix)} ${escapeHtml(errorMsg)}</p>
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
-    : (displayArticles.length
-      ? `${filterHtml}<div class="card-grid">${cards}</div>`
+    : (displayScoredArticles.length
+      ? `${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
