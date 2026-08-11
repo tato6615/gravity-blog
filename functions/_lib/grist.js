@@ -195,6 +195,7 @@ export async function getLiveArticles(env, lang = 'th') {
       faq: c.faq || '',
       buyingGuide: c.buying_guide || '',
       tags: (c.tags || '').split(',').map(s => s.trim()).filter(Boolean),
+      createdAt: c.generated_at || null,
       updatedAt: p.fields.updated_at || c.generated_at || null,
       authorId: c.reviewer_id || c.author_id || null,
       category: p.fields.category || null,
