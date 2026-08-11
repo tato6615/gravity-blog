@@ -681,8 +681,9 @@ function renderSteps(steps){
 }
 
 const CHANNEL_OPTIONS = [
-  ['facebook','Facebook'], ['instagram','Instagram'], ['threads','Threads'], ['x','X'], ['pinterest','Pinterest'],
-  ['youtube','YouTube'], ['shorts','Shorts/TikTok'], ['website','Website/Blog']
+  ['telegram','Telegram'], ['discord','Discord'], ['mastodon','Mastodon'],
+  ['facebook','Facebook'], ['threads','Threads'], ['x','X'], ['pinterest','Pinterest'],
+  ['website','Website/Blog']
 ];
 const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest', 'website', 'youtube']);
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
@@ -955,7 +956,20 @@ async function distributeToChannels(channels){
 }
 
 // ═══ FIX: render ผลการเผยแพร่ใน panel-results แทน panel-publish ═══
+function retryChannel(channel) {
+  const channels = channel.includes(',') ? channel.split(',') : [channel];
+  const all = window._lastDistributeResults || [];
+  const others = all.filter(r => !channels.includes(r.channel));
+  window._lastDistributeResults = others;
+  renderDistributeResults(others);
+  distributeToChannels(channels).then(newRes => {
+    window._lastDistributeResults = [...others, ...newRes];
+    renderDistributeResults(window._lastDistributeResults);
+  });
+}
+
 function renderDistributeResults(results){
+  window._lastDistributeResults = results;
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
     let val;
@@ -966,11 +980,15 @@ function renderDistributeResults(results){
   }).join('');
 
   // target: panel-results (ไม่ใช่ panel-publish แล้ว)
+  const failedChs = results.filter(r => r.error || r.skipped).map(r => r.channel);
+  const retryAllBtn = failedChs.length > 1
+    ? '<button class="btn-teal" onclick="retryChannel(\'' + failedChs.join(',') + '\')" style="width:100%;margin-top:12px;">↺ ส่งซ้ำทุกที่ที่ล้มเหลว (' + failedChs.length + ')</button>'
+    : '';
   const el = document.getElementById('distributeResults');
   el.innerHTML =
     '<div class="distribute-section">' +
       '<div class="distribute-section-title">📡 ผลการเผยแพร่แต่ละช่องทาง</div>' +
-      rows +
+      rows + retryAllBtn +
     '</div>';
 
   renderStepper();
