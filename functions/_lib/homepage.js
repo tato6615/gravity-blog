@@ -60,6 +60,19 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     errorMsg = e.message;
   }
 
+  // Sort by click count (most clicked first). Products with no clicks yet
+  // fall to the bottom.
+  let clickCounts = {};
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT product_id, COUNT(*) as clicks FROM clicks GROUP BY product_id`
+    ).all();
+    results.forEach(r => { clickCounts[String(r.product_id)] = r.clicks; });
+  } catch (e) {
+    // D1 unavailable — fall back to original article order
+  }
+  articles.sort((a, b) => (clickCounts[String(b.id)] || 0) - (clickCounts[String(a.id)] || 0));
+
   const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
 
   // นับจำนวนสินค้าต่อหมวด แล้วโชว์เฉพาะหมวดที่มีสินค้า >= 2 ชิ้น (กันแถบ pills รกเวลาสินค้าเยอะขึ้น)
