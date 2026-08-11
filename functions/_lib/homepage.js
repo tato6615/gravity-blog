@@ -62,14 +62,27 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   // Sort by click count (most clicked first). Products with no clicks yet
   // fall to the bottom.
+  // Cache the clicks aggregation for 5 minutes so repeated homepage loads
+  // don\'t hit D1 on every request.
   let clickCounts = {};
   try {
-    const { results } = await env.DB.prepare(
-      `SELECT product_id, COUNT(*) as clicks FROM clicks GROUP BY product_id`
-    ).all();
-    results.forEach(r => { clickCounts[String(r.product_id)] = r.clicks; });
+    const cache = caches.default;
+    const cacheKey = new Request('https://cache.internal/click-counts');
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      clickCounts = await cached.json();
+    } else {
+      const { results } = await env.DB.prepare(
+        `SELECT product_id, COUNT(*) as clicks FROM clicks GROUP BY product_id`
+      ).all();
+      results.forEach(r => { clickCounts[String(r.product_id)] = r.clicks; });
+      const cacheResp = new Response(JSON.stringify(clickCounts), {
+        headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
+      });
+      await cache.put(cacheKey, cacheResp);
+    }
   } catch (e) {
-    // D1 unavailable — fall back to original article order
+    // D1/Cache unavailable — fall back to original article order
   }
   articles.sort((a, b) => (clickCounts[String(b.id)] || 0) - (clickCounts[String(a.id)] || 0));
 
