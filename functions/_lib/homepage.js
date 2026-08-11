@@ -111,7 +111,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
-          ${i < 3 && (clickCounts[String(a.id)] || 0) > 0 ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
+          ${(clickCounts[String(a.id)] || 0) >= 15 ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>

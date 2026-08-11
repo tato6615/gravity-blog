@@ -230,7 +230,7 @@ const BASE_CSS = `
   .rank-badge.is-top{ background:var(--accent2); }
   .badge-hot{
     background:#F59E0B; color:#fff; font-size:12px; font-weight:600;
-    padding:3px 10px; border-radius:5px; white-space:nowrap;
+    padding:3px 10px; border-radius:5px; white-space:nowrap; margin-left:4px;
   }
   .click-count{ font-size:13px; color:var(--ink-muted); margin-top:-4px; margin-bottom:10px; }
   .card-top .eyebrow{ margin-bottom:0; }
