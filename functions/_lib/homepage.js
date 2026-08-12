@@ -19,7 +19,9 @@ const STRINGS = {
     emptySub: 'พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ',
     newBadge: '🆕 ใหม่',
     newArrivalsHeading: 'สินค้าใหม่ล่าสุด',
-    newArrivalsSub: 'สินค้าที่เพิ่งเข้าระบบล่าสุด เรียงตามวันที่เจอครั้งแรก ไม่ปนกับยอดคลิก'
+    newArrivalsSub: 'สินค้าที่เพิ่งเข้าระบบล่าสุด เรียงตามวันที่เจอครั้งแรก ไม่ปนกับยอดคลิก',
+    searchPlaceholder: 'ค้นหาสินค้า...',
+    searchNoResults: 'ไม่พบสินค้าที่ตรงกับคำค้นหา'
   },
   en: {
     pageTitle: 'GRAVITY OS — Curated product reviews',
@@ -38,7 +40,9 @@ const STRINGS = {
     emptySub: "Once a product finishes running through Generate Everything, it'll show up here automatically.",
     newBadge: '🆕 New',
     newArrivalsHeading: 'Newest arrivals',
-    newArrivalsSub: 'Recently added products, sorted purely by first-seen date — not mixed with click count.'
+    newArrivalsSub: 'Recently added products, sorted purely by first-seen date — not mixed with click count.',
+    searchPlaceholder: 'Search products...',
+    searchNoResults: 'No products match your search.'
   }
 };
 
@@ -123,9 +127,10 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
       : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
     const stars = renderStars(a.product.rating);
     const href = `${lang === 'en' ? '/en' : ''}/product/${encodeURIComponent(a.slug)}`;
+    const searchText = `${a.seoTitle || ''} ${(a.product && a.product.brand) || ''}`.toLowerCase().replace(/"/g, '');
 
     return `
-    <a class="card" href="${href}">
+    <a class="card" href="${href}" data-search="${escapeHtml(searchText)}">
       ${thumb}
       <div class="card-body">
         <div class="card-top">
@@ -270,6 +275,39 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     <div class="card-grid">${newArrivalsCardsHtml}</div>
   ` : '';
 
+  const searchBoxHtml = articles.length ? `
+  <style>
+    .search-box{ margin-bottom:20px; }
+    .search-input{
+      width:100%; box-sizing:border-box; padding:12px 16px; font-size:15px;
+      border:1px solid var(--hairline); border-radius:10px; background:var(--surface);
+      color:var(--ink); font-family:inherit;
+    }
+    .search-input:focus{ outline:none; border-color:var(--accent); }
+    .search-no-results{ display:none; color:var(--ink-muted); padding:20px 0; }
+  </style>
+  <div class="search-box">
+    <input type="text" id="productSearchInput" class="search-input" placeholder="${escapeHtml(t.searchPlaceholder)}" autocomplete="off" oninput="filterProductCards(this.value)">
+  </div>
+  <p id="searchNoResults" class="search-no-results">${escapeHtml(t.searchNoResults)}</p>
+  <script>
+    function filterProductCards(query) {
+      const q = query.trim().toLowerCase();
+      const cards = document.querySelectorAll('.card[data-search]');
+      let visibleCount = 0;
+      cards.forEach(function(card) {
+        const match = !q || card.getAttribute('data-search').indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+      });
+      const noResultsEl = document.getElementById('searchNoResults');
+      if (noResultsEl) {
+        noResultsEl.style.display = (q && visibleCount === 0) ? 'block' : 'none';
+      }
+    }
+  </script>
+` : '';
+
   const body = errorMsg
     ? `<div class="error-page">
         <h1>⚠️</h1>
@@ -277,7 +315,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${searchBoxHtml}${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
