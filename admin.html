@@ -467,6 +467,7 @@
       </div>
       <div class="panel-body">
         <div class="sub" style="margin-bottom:14px;">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่ต้องการเผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
+        <div id="categoryCheck"></div>
         <div class="ch-picker" id="chPicker"></div>
         <div class="pv-wrap hidden" id="pvWrap"></div>
         <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
@@ -830,6 +831,8 @@ function startNewProduct(){
   if (dr) dr.innerHTML = '';
   const plc = document.getElementById('publishLocationCard');
   if (plc) plc.innerHTML = '';
+  const cc = document.getElementById('categoryCheck');
+  if (cc) cc.innerHTML = '';
   renderFieldChecklist({});
   lastAutoKey = null;
   renderStepper();
@@ -1050,6 +1053,21 @@ function applyTrim(ch){
   renderPrePublishPreview();
 }
 
+function renderCategoryCheck(){
+  const el = document.getElementById('categoryCheck');
+  if (!el) return;
+  const analysis = latestStages.AI_ANALYSIS || {};
+  const category = analysis.category || '';
+  const rowHtml = category
+    ? '<div class="pv-check-row ok"><span class="ico">✓</span><span>หมวดหมู่ที่ AI จัดให้: <strong>' + escapeHtml(category) + '</strong></span></div>'
+    : '<div class="pv-check-row warn"><span class="ico">!</span><span>ยังไม่มีหมวดหมู่ — กลับไปเช็ค step Generate ว่า AI Analysis เสร็จหรือยัง</span></div>';
+  el.innerHTML =
+    '<div class="distribute-section" style="border-top:none; padding-top:0; margin-top:0; margin-bottom:16px;">' +
+      '<div class="distribute-section-title">📂 หมวดหมู่ (เช็คก่อน Publish)</div>' +
+      rowHtml +
+    '</div>';
+}
+
 function renderPrePublishPreview(){
   const wrap = document.getElementById('pvWrap');
   if (!wrap) return;
@@ -1200,6 +1218,7 @@ async function refreshStatus(){
   if (data.pipeline.status === 'enriched' || data.pipeline.status === 'published') {
     if (!chPickerRendered) renderChannelPicker();
     renderPrePublishPreview();
+    renderCategoryCheck();
   }
   if (data.pipeline.status === 'published') {
     renderResults(data.stages);
