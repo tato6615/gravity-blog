@@ -1,0 +1,29 @@
+name: Sync Reddit Publish Queue
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Process Reddit queue
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
+          GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
+          GRIST_PRODUCTS_TABLE: ${{ secrets.GRIST_PRODUCTS_TABLE }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_REFRESH_TOKEN: ${{ secrets.REDDIT_REFRESH_TOKEN }}
+          REDDIT_USER_AGENT: "cloudflare:gravity-blog:v1.0 (by /u/YOUR_REDDIT_USERNAME)"
+          REDDIT_SUBREDDIT: "YOUR_TARGET_SUBREDDIT"
+          SITE_URL: "https://gravity-blog.pages.dev"
+        run: node scripts/reddit-publish-queue.js

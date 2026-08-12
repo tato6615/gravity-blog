@@ -488,6 +488,8 @@
         <div class="sub" style="margin-bottom:14px;">สรุปข้อมูลที่บันทึกแล้ว และผลการโพสต์แต่ละช่องทาง</div>
         <!-- ข้อมูลที่บันทึกลง Grist -->
         <div class="result-table" id="resultTable"></div>
+        <!-- หาสินค้านี้เจอที่ไหน — deep link ตรงไปหน้าสินค้าจริง + หมวดหมู่ -->
+        <div id="publishLocationCard"></div>
         <!-- ผลการเผยแพร่แต่ละช่องทาง — แสดงที่นี่ (ย้ายจาก panel-publish) -->
         <div id="distributeResults"></div>
         <button class="btn-ghost" id="newProductBtn" onclick="startNewProduct()" style="width:100%; margin-top:16px;">+ Import สินค้าใหม่</button>
@@ -826,6 +828,8 @@ function startNewProduct(){
   // ล้าง distributeResults ใน panel-results
   const dr = document.getElementById('distributeResults');
   if (dr) dr.innerHTML = '';
+  const plc = document.getElementById('publishLocationCard');
+  if (plc) plc.innerHTML = '';
   renderFieldChecklist({});
   lastAutoKey = null;
   renderStepper();
@@ -1148,6 +1152,42 @@ async function retryRehostImage(){
   }
 }
 
+/**
+ * GRAVITY ENHANCEMENT (2026-08-12): "หาสินค้านี้เจอที่ไหน" card
+ * Renders right in panel-results, right where "Published ✓" already
+ * lives — so the deep link to the real product page + its AI-assigned
+ * category are visible the moment publish finishes, instead of the user
+ * having to guess where a just-published product landed on the site.
+ * Purely additive: only reads existing latestStages/latestProduct data
+ * that's already being fetched, doesn't touch any API call or other panel.
+ */
+function renderPublishLocation(){
+  const wrap = document.getElementById('publishLocationCard');
+  if (!wrap) return;
+
+  const content = (latestStages.CONTENT && latestStages.CONTENT.th) || {};
+  const analysis = latestStages.AI_ANALYSIS || {};
+  const category = analysis.category || '';
+  const GRAVITY_BLOG_BASE_URL = 'https://gravity-blog.pages.dev';
+  const blogLink = content.slug ? (GRAVITY_BLOG_BASE_URL + '/product/' + encodeURIComponent(content.slug)) : '';
+
+  const linkRow = blogLink
+    ? '<div class="rt-row"><div class="rt-label">ลิงก์หน้าสินค้าจริง</div><div class="rt-val"><a href="' + escapeHtml(blogLink) + '" target="_blank" rel="noopener" style="color:var(--teal);">' + escapeHtml(blogLink) + '</a></div></div>'
+    : '<div class="rt-row"><div class="rt-label">ลิงก์หน้าสินค้าจริง</div><div class="rt-val">ยังไม่มี — ต้องมี slug จาก step Content (TH) ก่อน</div></div>';
+
+  const categoryRow = category
+    ? '<div class="rt-row"><div class="rt-label">หมวดหมู่ที่ AI จัดให้</div><div class="rt-val">' + escapeHtml(category) + '</div></div>'
+    : '';
+
+  const whereRow = '<div class="rt-row"><div class="rt-label">จะไปโผล่ตรงไหนของหน้าเว็บ</div><div class="rt-val">หน้าแรก → ส่วน "Newest arrivals" (เรียงตามวันที่ import ล่าสุดอยู่บนสุด) — ถ้ายังไม่เห็น ลอง refresh หน้าเว็บอีกครั้ง</div></div>';
+
+  wrap.innerHTML =
+    '<div class="distribute-section">' +
+      '<div class="distribute-section-title">📍 หาสินค้านี้เจอที่ไหน</div>' +
+      linkRow + categoryRow + whereRow +
+    '</div>';
+}
+
 async function refreshStatus(){
   const data = await apiCall('/api/status?productId=' + productId, undefined, 'GET /api/status');
   latestPipelineStatus = data.pipeline.status;
@@ -1163,6 +1203,7 @@ async function refreshStatus(){
   }
   if (data.pipeline.status === 'published') {
     renderResults(data.stages);
+    renderPublishLocation();
   }
   renderStepper();
   return data;
@@ -1219,6 +1260,7 @@ async function doPublish(){
       if (lastSync) renderSyncSummary(lastSync);
     }
     await refreshStatus();
+    renderPublishLocation();
 
     btn.textContent = 'กำลังโพสต์ไปแต่ละช่องทาง...';
     await distributeToChannels(channels);
