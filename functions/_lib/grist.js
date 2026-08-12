@@ -142,6 +142,16 @@ function normalizeProduct(fields) {
  * @param {'th'|'en'} [lang]
  */
 export async function getLiveArticles(env, lang = 'th') {
+  // Cache the full Grist join (4 API calls: /tables + PRODUCTS + CONTENT +
+  // AI_ANALYSIS) for 5 min, shared across every caller — homepage.js AND
+  // getArticleBySlug() below both hit this same function. Grist free plan
+  // caps at 5,000 calls/doc/day + 5 req/sec; without a cache here, every
+  // single product-page view alone burns 4 calls with zero reuse.
+  const cache = caches.default;
+  const cacheKey = new Request(`https://cache.internal/live-articles-${lang}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) return await cached.json();
+
   const productsTableId = await findProductsTableId(env);
   const [products, content, analysis] = await Promise.all([
     fetchTableRecords(env, productsTableId),
@@ -204,6 +214,12 @@ export async function getLiveArticles(env, lang = 'th') {
   }
 
   articles.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+  const cacheResp = new Response(JSON.stringify(articles), {
+    headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
+  });
+  await cache.put(cacheKey, cacheResp);
+
   return articles;
 }
 
