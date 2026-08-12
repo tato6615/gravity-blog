@@ -54,6 +54,14 @@
   .hidden{ display:none !important; }
   .sub{ color:var(--text-dim); font-size:13px; line-height:1.55; }
 
+  /* ═══ Tabs ═══ */
+  .tab-nav{ display:flex; gap:8px; max-width:680px; margin:0 auto 20px; }
+  .tab-btn{ flex:1; background:var(--panel); border:1px solid var(--line); color:var(--text-dim);
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; padding:13px 16px;
+    border-radius:10px; cursor:pointer; transition:all .15s; }
+  .tab-btn:hover{ border-color:var(--text-faint); color:var(--text); }
+  .tab-btn.active{ background:var(--panel-2); border-color:var(--amber); color:var(--text); }
+
   .overview{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
     border-radius:var(--radius); padding:16px 18px; margin-bottom:22px; }
   .ov-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
@@ -211,10 +219,177 @@
   .log-text{ color:var(--text-dim); word-break:break-word; }
   .log-entry.ok .log-text{ color:var(--text); }
   .log-entry.error .log-text{ color:#f0b3a8; }
+
+  /* ═══ Analytics tab — re-themed to match design tokens above ═══ */
+  #analytics-dashboard{ max-width:680px; margin:0 auto; }
+  .an-card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; }
+  .an-title{ font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; margin:0 0 18px; color:var(--text); }
+  .an-controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+  .an-controls label{ color:var(--text-dim); font-size:13px; display:flex; align-items:center; gap:6px; }
+  .an-controls input[type=date]{ background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:7px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13.5px; }
+  .an-load-btn{ padding:9px 18px; font-size:13.5px; }
+  .an-status{ color:var(--text-faint); font-size:12.5px; }
+  .an-chart-wrap{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:18px; }
+  .an-table-wrap{ overflow-x:auto; }
+  #stat-table{ width:100%; border-collapse:collapse; }
+  #stat-table th{ padding:10px 12px; color:var(--text-faint); font-size:12px; font-weight:600; text-align:left;
+    font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid var(--line); }
+  #stat-table td{ padding:10px 12px; color:var(--text); font-size:13.5px; border-bottom:1px solid var(--line); }
+  #stat-table td.an-commission{ color:var(--amber); font-weight:600; }
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
+  <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')">🚀 Product Engine</button>
+  <button class="tab-btn" data-tab="system-health" onclick="switchTab('system-health')">🩺 System Health</button>
+</div>
+
+<!-- ===== Phase 3: Analytics Dashboard ===== -->
+<section id="analytics-dashboard" class="tab-panel" data-tab="analytics">
+  <div class="an-card">
+    <h2 class="an-title">Product Performance</h2>
+
+    <div class="an-controls">
+      <label>จาก:
+        <input type="date" id="stat-start">
+      </label>
+      <label>ถึง:
+        <input type="date" id="stat-end">
+      </label>
+      <button id="stat-load" class="btn-primary an-load-btn" style="width:auto;">ดูข้อมูล</button>
+      <span id="stat-status" class="an-status"></span>
+    </div>
+
+    <div class="an-chart-wrap">
+      <canvas id="stat-chart" height="90"></canvas>
+    </div>
+
+    <div class="an-table-wrap">
+      <table id="stat-table">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Clicks</th>
+            <th>Conversions</th>
+            <th>CVR %</th>
+            <th>Commission</th>
+            <th>Comm/Click</th>
+          </tr>
+        </thead>
+        <tbody id="stat-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function () {
+  const startInput = document.getElementById('stat-start');
+  const endInput = document.getElementById('stat-end');
+  const statusEl = document.getElementById('stat-status');
+  const tbody = document.getElementById('stat-tbody');
+  let chart = null;
+
+  const today = new Date();
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+  endInput.value = today.toISOString().slice(0, 10);
+  startInput.value = monthAgo.toISOString().slice(0, 10);
+
+  function sortProducts(products) {
+    return [...products].sort((a, b) => {
+      const commDiff = (Number(b.total_commission) || 0) - (Number(a.total_commission) || 0);
+      if (commDiff !== 0) return commDiff;
+      return (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
+    });
+  }
+
+  async function loadStats() {
+    statusEl.textContent = 'กำลังโหลด...';
+    const start = new Date(startInput.value).toISOString();
+    const end = new Date(endInput.value + 'T23:59:59').toISOString();
+
+    try {
+      const res = await fetch(`/api/stats?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'unknown error');
+
+      const sorted = sortProducts(data.products);
+      renderTable(sorted);
+      renderChart(sorted.slice(0, 15));
+      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม Commission มาก→น้อย`;
+    } catch (err) {
+      statusEl.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
+    }
+  }
+
+  function renderTable(products) {
+    tbody.innerHTML = '';
+    if (!products.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-faint);">ไม่มีข้อมูลในช่วงนี้</td></tr>';
+      return;
+    }
+    for (const p of products) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.product_id}</td>
+        <td>${p.total_clicks}</td>
+        <td>${p.conversions}</td>
+        <td>${p.conversion_rate ?? 0}%</td>
+        <td class="an-commission">$${p.total_commission ?? 0}</td>
+        <td>$${p.commission_per_click ?? 0}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderChart(products) {
+    const canvas = document.getElementById('stat-chart');
+    const ctx = canvas.getContext('2d');
+    const labels = products.map(p => `Product ${p.product_id}`);
+    const values = products.map(p => p.total_commission || 0);
+
+    // ป้องกัน "Canvas is already in use" — เผื่อมี Chart instance ค้างอยู่บน canvas นี้
+    // จากการ re-render ใด ๆ ที่ตัวแปร chart local ไม่รู้จัก
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Total Commission ($)',
+          data: values,
+          borderColor: '#e8a33d',
+          backgroundColor: 'rgba(232, 163, 61, 0.15)',
+          fill: true,
+          tension: 0.3,
+          pointBackgroundColor: '#e8a33d',
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { color: '#8a90a0' }, grid: { color: '#2a2f3b' } },
+          x: { ticks: { color: '#8a90a0' }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  document.getElementById('stat-load').addEventListener('click', loadStats);
+  loadStats();
+})();
+</script>
+
+<div class="wrap tab-panel hidden" data-tab="engine">
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
   <div class="page-title">Dashboard</div>
 
@@ -344,6 +519,10 @@
           <div class="sys-section-title"><span class="ov-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
           <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
         </div>
+        <div class="sys-section">
+          <div class="sys-section-title">📜 ประวัติการเผยแพร่ (ล่าสุด 20 รายการ)</div>
+          <div id="publishHistoryBody"><div class="note">กำลังโหลด...</div></div>
+        </div>
       </div>
     </section>
 
@@ -364,6 +543,138 @@
     </section>
   </div>
 </div>
+
+<script>
+/* ═══ Tab switching ═══ */
+function switchTab(tab){
+  document.querySelectorAll('.tab-panel').forEach(el => {
+    el.classList.toggle('hidden', el.dataset.tab !== tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+</script>
+
+<section id="system-health-panel" class="tab-panel hidden" data-tab="system-health" style="max-width:960px; margin:0 auto; padding:0 20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 16px; flex-wrap:wrap; gap:10px;">
+    <div>
+      <h2 style="margin:0 0 4px; color:var(--text);">🩺 System Health</h2>
+      <div id="sh-updated" style="color:var(--text-faint); font-size:13px;"></div>
+    </div>
+    <button id="sh-refresh-btn" onclick="loadSystemHealth()"
+      style="background:var(--amber); color:#1a1a1a; border:none; border-radius:8px; padding:10px 20px; font-weight:700; cursor:pointer;">
+      ↻ รีเฟรชทั้งหมด
+    </button>
+  </div>
+
+  <div id="sh-summary-cards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:6px; margin-bottom:12px;"></div>
+  <div id="sh-groups"></div>
+</section>
+
+<style>
+  .sh-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; }
+  .sh-stat-num{ font-size:18px; font-weight:800; line-height:1; }
+  .sh-stat-label{ color:var(--text-faint); font-size:10px; }
+  .sh-stat-card.ok .sh-stat-num{ color:var(--teal); }
+  .sh-stat-card.warn .sh-stat-num{ color:var(--amber); }
+  .sh-stat-card.error .sh-stat-num{ color:#e74c3c; }
+  .sh-stat-card.total .sh-stat-num{ color:var(--text); }
+  .sh-phase-title{ color:var(--amber); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px; display:flex; align-items:center; gap:8px; }
+  .sh-phase-title::after{ content:""; flex:1; height:1px; background:var(--line); }
+  .sh-card-grid{ display:flex; flex-direction:column; gap:4px; }
+  .sh-card{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 10px 7px 14px; display:flex; flex-direction:column; gap:4px; position:relative; cursor:pointer; }
+  .sh-card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:8px 0 0 8px; }
+  .sh-card.ok::before{ background:var(--teal); }
+  .sh-card.warn::before{ background:var(--amber); }
+  .sh-card.error::before{ background:#e74c3c; }
+  .sh-card.unknown::before{ background:var(--text-faint); }
+  .sh-card-top{ display:flex; align-items:center; gap:8px; }
+  .sh-badge{ position:static; flex-shrink:0; font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; white-space:nowrap; letter-spacing:0.3px; }
+  .sh-badge.ok{ background:rgba(79,209,197,0.15); color:var(--teal); }
+  .sh-badge.warn{ background:rgba(245,166,35,0.15); color:var(--amber); }
+  .sh-badge.error{ background:rgba(231,76,60,0.15); color:#e74c3c; }
+  .sh-badge.unknown{ background:var(--panel-2); color:var(--text-faint); }
+  .sh-card-label{ flex:1; min-width:0; font-weight:600; font-size:12.5px; color:var(--text); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sh-card-detail{ display:none; color:var(--text-dim); font-size:11px; line-height:1.5; word-break:break-word; }
+  .sh-card.expanded .sh-card-detail{ display:block; }
+</style>
+
+<script>
+async function loadSystemHealth() {
+  const cardsWrap = document.getElementById('sh-summary-cards');
+  const groupsEl = document.getElementById('sh-groups');
+  const updatedEl = document.getElementById('sh-updated');
+  const btn = document.getElementById('sh-refresh-btn');
+  if (!cardsWrap) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังเช็ค...';
+  groupsEl.innerHTML = '<div style="color:var(--text-faint); padding:20px 0;">กำลังเช็คทุกระบบ...</div>';
+
+  try {
+    const res = await fetch('/api/system-health');
+    const data = await res.json();
+    updatedEl.textContent = `เช็คล่าสุด ${new Date(data.generatedAt).toLocaleString('th-TH')}`;
+
+    const counts = { ok:0, warn:0, error:0, unknown:0 };
+    data.checks.forEach(c => counts[c.status] = (counts[c.status]||0)+1);
+
+    cardsWrap.innerHTML = `
+      <div class="sh-stat-card total"><div class="sh-stat-num">${data.checks.length}</div><div class="sh-stat-label">จุดที่เช็คทั้งหมด</div></div>
+      <div class="sh-stat-card ok"><div class="sh-stat-num">${counts.ok||0}</div><div class="sh-stat-label">✅ ปกติ</div></div>
+      <div class="sh-stat-card warn"><div class="sh-stat-num">${(counts.warn||0)+(counts.unknown||0)}</div><div class="sh-stat-label">🟡 ต้องดู</div></div>
+      <div class="sh-stat-card error"><div class="sh-stat-num">${counts.error||0}</div><div class="sh-stat-label">🔴 มีปัญหา</div></div>
+    `;
+
+    const PHASE_LABELS = {
+      tracking: '📊 Tracking — คลิก → D1',
+      conversion: '💳 Conversion — Grist',
+      analytics: '📈 Analytics — GA4 / stats',
+      growth: '🌱 Growth — Email',
+      automation: '⚙️ Automation — Actions / af Worker',
+    };
+    const byPhase = {};
+    data.checks.forEach(c => (byPhase[c.phase] ??= []).push(c));
+
+    groupsEl.innerHTML = '';
+    Object.entries(byPhase).forEach(([phase, checks]) => {
+      const title = document.createElement('div');
+      title.className = 'sh-phase-title';
+      title.textContent = PHASE_LABELS[phase] || phase;
+      groupsEl.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'sh-card-grid';
+      checks.forEach(c => {
+        const card = document.createElement('div');
+        card.className = `sh-card ${c.status}`;
+        card.innerHTML = `
+          <div class="sh-card-top">
+            <div class="sh-card-label">${c.label}</div>
+            <span class="sh-badge ${c.status}">${({ok:'ปกติ',warn:'เตือน',error:'ผิดพลาด',unknown:'ไม่ทราบ'})[c.status] || c.status}</span>
+          </div>
+          <div class="sh-card-detail">${c.detail || '-'}</div>
+        `;
+        card.addEventListener('click', () => card.classList.toggle('expanded'));
+        grid.appendChild(card);
+      });
+      groupsEl.appendChild(grid);
+    });
+  } catch (e) {
+    groupsEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">❌ โหลดสถานะระบบไม่สำเร็จ: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ รีเฟรชทั้งหมด';
+  }
+}
+
+const _origSwitchTab = switchTab;
+switchTab = function(tab) {
+  _origSwitchTab(tab);
+  if (tab === 'system-health') loadSystemHealth();
+};
+</script>
 
 <script>
 const API = 'https://af.pakpiromjajaja.workers.dev';
@@ -682,10 +993,10 @@ function renderSteps(steps){
 
 const CHANNEL_OPTIONS = [
   ['telegram','Telegram'], ['discord','Discord'], ['mastodon','Mastodon'],
-  ['facebook','Facebook'], ['threads','Threads'], ['x','X'], ['pinterest','Pinterest'],
-  ['website','Website/Blog']
+  ['facebook','Facebook'], ['threads','Threads'],
+   ['website','Website/Blog']
 ];
-const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest', 'website', 'youtube']);
+const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'threads', 'website', 'telegram', 'discord', 'mastodon']);
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
 let chPickerRendered = false;
@@ -709,16 +1020,14 @@ function toggleChannel(key){
 
 const CHANNEL_POST_FIELD = {
   facebook: 'facebook_post', instagram: 'facebook_post',
-  threads: 'threads_post', x: 'x_post', pinterest: 'pinterest_post'
+  threads: 'threads_post'
 };
-const PREVIEWABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads', 'x', 'pinterest']);
+const PREVIEWABLE_CHANNELS = new Set(['facebook', 'instagram', 'threads']);
 
 const PLATFORM_LIMITS = {
   facebook:  { hardCap: 63206 },
   instagram: { hardCap: 2200 },
   threads:   { hardCap: 500 },
-  x:         { hardCap: 280 },
-  pinterest: { hardCap: 500 }
 };
 window._captionOverrides = window._captionOverrides || {};
 
@@ -774,7 +1083,8 @@ function renderPrePublishPreview(){
     '</div>'
   ).join('');
 
-  const cardsHtml = previewable.map(ch => {
+  // ═══ FIX: โชว์ preview เต็มแค่ช่องทางแรก ช่องที่เหลือโชว์แค่สถานะบรรทัดเดียว ═══
+  function buildFullCard(ch){
     const field = CHANNEL_POST_FIELD[ch];
     const original = field ? (social[field] || '') : '';
     const caption = window._captionOverrides[ch] || original;
@@ -808,9 +1118,38 @@ function renderPrePublishPreview(){
         linkBlock +
         clRow +
       '</div>';
-  }).join('');
+  }
 
-  wrap.innerHTML = cardsHtml + '<div class="pv-checks">' + checksHtml + '</div>';
+  function buildCompactRow(ch){
+    const field = CHANNEL_POST_FIELD[ch];
+    const original = field ? (social[field] || '') : '';
+    const caption = window._captionOverrides[ch] || original;
+    const label = (CHANNEL_LABELS[ch] || ch).toUpperCase();
+    const limitInfo = PLATFORM_LIMITS[ch];
+    let ok = true, statusText = 'พร้อมโพสต์', trimBtn = '';
+    if (limitInfo && original) {
+      const len = caption.length;
+      const overLimit = len > limitInfo.hardCap;
+      const trimmed = !!window._captionOverrides[ch];
+      ok = !overLimit;
+      statusText = len + ' / ' + limitInfo.hardCap + ' ตัวอักษร' + (trimmed ? ' (ตัดแล้ว)' : '');
+      if (overLimit) trimBtn = '<button class="cl-trim-btn" onclick="applyTrim(\'' + ch + '\')">ตัดให้พอดี</button>';
+    }
+    return '<div class="pv-check-row ' + (ok ? 'ok' : 'warn') + '">' +
+      '<span class="ico">' + (ok ? '✓' : '!') + '</span>' +
+      '<span>' + label + ' — ' + statusText + '</span>' + trimBtn +
+      '</div>';
+  }
+
+  const mainCh = previewable[0];
+  const restCh = previewable.slice(1);
+  const mainCardHtml = buildFullCard(mainCh);
+  const compactHtml = restCh.length
+    ? '<div class="pv-title-row">ช่องทางอื่นที่จะโพสต์ด้วย (' + restCh.length + ')</div>' +
+      restCh.map(buildCompactRow).join('')
+    : '';
+
+  wrap.innerHTML = mainCardHtml + compactHtml + '<div class="pv-checks">' + checksHtml + '</div>';
   wrap.classList.remove('hidden');
 }
 
@@ -931,11 +1270,37 @@ async function doPublish(){
   }
 }
 
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+const PUBLISH_HISTORY_KEY = 'gravity_publish_history';
+const PUBLISH_HISTORY_MAX = 200;
+const CHANNEL_STAGGER_MS = 8000; // เว้นช่วงระหว่างช่องทาง กันบัญชีโดน flag จากการยิงโพสต์รัวๆ
+
+function loadPublishHistory(){
+  try{ return JSON.parse(localStorage.getItem(PUBLISH_HISTORY_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function savePublishHistoryEntry(entry){
+  const history = loadPublishHistory();
+  history.unshift(entry);
+  if (history.length > PUBLISH_HISTORY_MAX) history.length = PUBLISH_HISTORY_MAX;
+  try{ localStorage.setItem(PUBLISH_HISTORY_KEY, JSON.stringify(history)); }
+  catch(e){ /* storage เต็ม/ปิดใช้งาน — ข้าม ไม่บล็อกการโพสต์ */ }
+  renderPublishHistoryTable();
+}
+
 async function distributeToChannels(channels){
   const results = [];
-  for (const ch of channels) {
+  for (let i = 0; i < channels.length; i++) {
+    const ch = channels[i];
+    if (i > 0) {
+      logEvent('pending', 'รอ ' + (CHANNEL_STAGGER_MS / 1000) + ' วิ ก่อนโพสต์ช่องถัดไป (กันบัญชีโดน flag)...');
+      await sleep(CHANNEL_STAGGER_MS);
+    }
     if (!DISTRIBUTABLE_CHANNELS.has(ch)) {
-      results.push({ channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องรอ TikTok Developer App ผ่าน review ก่อน)' });
+      const entry = { channel: ch, skipped: true, reason: 'ยังไม่รองรับการโพสต์อัตโนมัติ (ต้องรอ TikTok Developer App ผ่าน review ก่อน)', time: new Date().toISOString(), productId };
+      results.push(entry);
+      savePublishHistoryEntry(entry);
       logEvent('pending', 'ข้าม ' + (CHANNEL_LABELS[ch] || ch) + ' — ยังไม่รองรับ');
       renderDistributeResults(results);
       continue;
@@ -946,9 +1311,13 @@ async function distributeToChannels(channels){
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ productId, platform: ch, lang: 'th', captionOverride: override || undefined })
       }, 'POST /api/distribute (' + (CHANNEL_LABELS[ch] || ch) + ')');
-      results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
+      const entry = { channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId, time: new Date().toISOString(), productId };
+      results.push(entry);
+      savePublishHistoryEntry(entry);
     }catch(e){
-      results.push({ channel: ch, error: e.message });
+      const entry = { channel: ch, error: e.message, time: new Date().toISOString(), productId };
+      results.push(entry);
+      savePublishHistoryEntry(entry);
     }
     renderDistributeResults(results);
   }
@@ -956,13 +1325,22 @@ async function distributeToChannels(channels){
 }
 
 // ═══ FIX: render ผลการเผยแพร่ใน panel-results แทน panel-publish ═══
+function retryChannel(channel){
+  const results = window._lastDistributeResults || [];
+  const existing = results.filter(r => r.channel !== channel);
+  window._lastDistributeResults = existing;
+  distributeToChannels([channel]).then(newResults => {
+    window._lastDistributeResults = [...existing, ...newResults];
+    renderDistributeResults(window._lastDistributeResults);
+  });
+}
+
 function retryChannel(channel) {
-  const channels = channel.includes(',') ? channel.split(',') : [channel];
   const all = window._lastDistributeResults || [];
-  const others = all.filter(r => !channels.includes(r.channel));
+  const others = all.filter(r => r.channel !== channel);
   window._lastDistributeResults = others;
   renderDistributeResults(others);
-  distributeToChannels(channels).then(newRes => {
+  distributeToChannels([channel]).then(newRes => {
     window._lastDistributeResults = [...others, ...newRes];
     renderDistributeResults(window._lastDistributeResults);
   });
@@ -972,26 +1350,45 @@ function renderDistributeResults(results){
   window._lastDistributeResults = results;
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
+    const timeStr = r.time ? fmtTime(new Date(r.time)) : '';
     let val;
     if (r.skipped) val = 'ข้าม — ' + r.reason;
-    else if (r.error) val = '❌ ' + r.error;
+    else if (r.error) val = '❌ ' + r.error + ' <button class="btn-ghost" onclick="retryChannel('' + r.channel + '')" style="padding:4px 10px;font-size:12px;margin-left:8px;">↺ ส่งซ้ำ</button>';
     else val = '✓ โพสต์สำเร็จ' + (r.link ? ' — <a href="' + r.link + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '');
-    return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
+    return '<div class="rt-row"><div class="rt-label">' + label + (timeStr ? ' <span style="color:var(--text-faint); font-weight:400;">· ' + timeStr + '</span>' : '') + '</div><div class="rt-val">' + val + '</div></div>';
   }).join('');
 
-  // target: panel-results (ไม่ใช่ panel-publish แล้ว)
-  const failedChs = results.filter(r => r.error || r.skipped).map(r => r.channel);
-  const retryAllBtn = failedChs.length > 1
-    ? '<button class="btn-teal" onclick="retryChannel(\'' + failedChs.join(',') + '\')" style="width:100%;margin-top:12px;">↺ ส่งซ้ำทุกที่ที่ล้มเหลว (' + failedChs.length + ')</button>'
+  const failedChannels = results.filter(r => r.error).map(r => r.channel);
+  const retryAllBtn = failedChannels.length > 1
+    ? '<button class="btn-teal" onclick="retryChannel('' + failedChannels.join(',') + '')" style="width:100%;margin-top:12px;">↺ ส่งซ้ำทุกที่ที่ล้มเหลว (' + failedChannels.length + ')</button>'
     : '';
+
   const el = document.getElementById('distributeResults');
   el.innerHTML =
     '<div class="distribute-section">' +
       '<div class="distribute-section-title">📡 ผลการเผยแพร่แต่ละช่องทาง</div>' +
-      rows + retryAllBtn +
+      rows +
+      retryAllBtn +
     '</div>';
 
   renderStepper();
+}
+
+function renderPublishHistoryTable(){
+  const el = document.getElementById('publishHistoryBody');
+  if (!el) return;
+  const history = loadPublishHistory();
+  if (!history.length) { el.innerHTML = '<div class="note">ยังไม่มีประวัติการเผยแพร่ในเบราว์เซอร์นี้</div>'; return; }
+  const rows = history.slice(0, 20).map(h => {
+    const label = CHANNEL_LABELS[h.channel] || h.channel;
+    const timeStr = h.time ? new Date(h.time).toLocaleString('th-TH', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+    let statusVal;
+    if (h.skipped) statusVal = 'ข้าม';
+    else if (h.error) statusVal = '❌ ล้มเหลว';
+    else statusVal = '✓ สำเร็จ';
+    return '<div class="rt-row"><div class="rt-label">' + timeStr + ' · #' + (h.productId ?? '—') + ' · ' + label + '</div><div class="rt-val">' + statusVal + (h.error ? (' — ' + escapeHtml(h.error)) : '') + '</div></div>';
+  }).join('');
+  el.innerHTML = rows + '<div class="note" style="margin-top:10px;">แสดงล่าสุด ' + Math.min(20, history.length) + ' จากทั้งหมด ' + history.length + ' รายการ · เก็บเฉพาะในเบราว์เซอร์นี้เท่านั้น</div>';
 }
 
 const FIELD_SCHEMA = [
@@ -1175,10 +1572,12 @@ renderTableGrid({});
 renderFieldChecklist({});
 renderStepper();
 loadAiStatus();
+renderPublishHistoryTable();
 
 document.getElementById('in').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doImport();
 });
 </script>
+
 </body>
 </html>
