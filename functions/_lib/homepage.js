@@ -164,7 +164,21 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   let articles = [];
   let errorMsg = null;
   try {
-    articles = await getLiveArticles(env, lang);
+    // Cache the Grist article fetch for 5 min (same pattern as clickCounts
+    // below) — Grist free plan caps at 5,000 calls/doc/day + 5 req/sec.
+    // Without this, every single page load/refresh hits Grist directly.
+    const cache = caches.default;
+    const articlesCacheKey = new Request(`https://cache.internal/live-articles-${lang}`);
+    const cachedArticlesResp = await cache.match(articlesCacheKey);
+    if (cachedArticlesResp) {
+      articles = await cachedArticlesResp.json();
+    } else {
+      articles = await getLiveArticles(env, lang);
+      const articlesCacheResp = new Response(JSON.stringify(articles), {
+        headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
+      });
+      await cache.put(articlesCacheKey, articlesCacheResp);
+    }
   } catch (e) {
     errorMsg = e.message;
   }
