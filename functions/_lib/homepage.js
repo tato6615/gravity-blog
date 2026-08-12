@@ -114,7 +114,7 @@ async function getOrCreateFirstSeenMap(env, productIds) {
  * section continue the rank numbering after the top section instead of
  * restarting at 1, so badges stay visually consistent across both grids.
  */
-function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0 }) {
+function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0, newProductIds = new Set() }) {
   return articles.map((a, idx) => {
     const i = startRank + idx;
     const topPro = a.analysis ? toListItems(a.analysis.pros)[0] : null;
@@ -131,6 +131,7 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
           ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
+          ${newProductIds.has(String(a.id)) ? `<span class="badge-new">${escapeHtml(t.newBadge)}</span>` : ''}
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>
@@ -188,6 +189,22 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
 
+  // สินค้าที่ first_seen_at อยู่ภายใน N วันล่าสุด ถือว่า "ใหม่" — โชว์ badge
+  // ได้ทุกที่ที่การ์ดไปโผล่ ไม่ว่าจะอยู่ top section (เพราะคลิกเยอะ) หรือ
+  // newest arrivals section ก็ตาม
+  const NEW_BADGE_DAYS = 3;
+  const nowMs = Date.now();
+  const newProductIds = new Set(
+    articles
+      .filter(a => {
+        const firstSeen = firstSeenMap[String(a.id)];
+        if (!firstSeen) return false;
+        const ageDays = (nowMs - new Date(firstSeen).getTime()) / (1000 * 60 * 60 * 24);
+        return ageDays <= NEW_BADGE_DAYS;
+      })
+      .map(a => String(a.id))
+  );
+
   // Top section: pure click count, high to low. New products (0 clicks)
   // never outrank established ones here — they surface in the "Newest
   // arrivals" section below instead, and only earn a spot up here once
@@ -244,8 +261,8 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       return dateB - dateA; // newest first_seen_at first
     });
 
-  const topCardsHtml = renderCardGrid(topArticles, { t, lang, clickCounts, hotThreshold, startRank: 0 });
-  const newArrivalsCardsHtml = renderCardGrid(newArrivalArticles, { t, lang, clickCounts, hotThreshold, startRank: TOP_SECTION_COUNT });
+  const topCardsHtml = renderCardGrid(topArticles, { t, lang, clickCounts, hotThreshold, startRank: 0, newProductIds });
+  const newArrivalsCardsHtml = renderCardGrid(newArrivalArticles, { t, lang, clickCounts, hotThreshold, startRank: TOP_SECTION_COUNT, newProductIds });
 
   const newArrivalsSectionHtml = newArrivalArticles.length ? `
     <h2 style="font-size:20px;margin:36px 0 4px;">${escapeHtml(t.newArrivalsHeading)}</h2>
