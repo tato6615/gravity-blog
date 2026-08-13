@@ -81,28 +81,44 @@ function homePath(lang) {
 
 const TOP_SECTION_COUNT = 3;
 
+// D1 จำกัด bound parameters ต่อ query ไว้ที่ 100 ตัว — แบ่งเป็น chunk ละ 90
+// เผื่อไว้ (กันชนเพดานพอดีถ้าจำนวนสินค้าโตขึ้นอีกในอนาคต)
+const D1_CHUNK_SIZE = 90;
+
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 async function getOrCreateFirstSeenMap(env, productIds) {
   const firstSeenMap = {};
   const ids = [...new Set(productIds.map(String))].filter(Boolean);
   if (!env.DB || !ids.length) return firstSeenMap;
 
   try {
-    const placeholders = ids.map(() => '?').join(',');
-    const { results } = await env.DB.prepare(
-      `SELECT product_id, first_seen_at FROM product_first_seen WHERE product_id IN (${placeholders})`
-    ).bind(...ids).all();
-    results.forEach(r => { firstSeenMap[String(r.product_id)] = r.first_seen_at; });
+    for (const chunk of chunkArray(ids, D1_CHUNK_SIZE)) {
+      const placeholders = chunk.map(() => '?').join(',');
+      const { results } = await env.DB.prepare(
+        `SELECT product_id, first_seen_at FROM product_first_seen WHERE product_id IN (${placeholders})`
+      ).bind(...chunk).all();
+      results.forEach(r => { firstSeenMap[String(r.product_id)] = r.first_seen_at; });
+    }
 
     const missingIds = ids.filter(id => !(id in firstSeenMap));
     if (missingIds.length) {
       const now = new Date().toISOString();
-      const stmts = missingIds.map(id =>
-        env.DB.prepare(
-          `INSERT INTO product_first_seen (product_id, first_seen_at) VALUES (?, ?)
-           ON CONFLICT(product_id) DO NOTHING`
-        ).bind(id, now)
-      );
-      await env.DB.batch(stmts);
+      for (const chunk of chunkArray(missingIds, D1_CHUNK_SIZE)) {
+        const stmts = chunk.map(id =>
+          env.DB.prepare(
+            `INSERT INTO product_first_seen (product_id, first_seen_at) VALUES (?, ?)
+             ON CONFLICT(product_id) DO NOTHING`
+          ).bind(id, now)
+        );
+        await env.DB.batch(stmts);
+      }
       missingIds.forEach(id => { firstSeenMap[id] = now; });
     }
   } catch (e) {
