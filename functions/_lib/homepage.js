@@ -217,8 +217,15 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   font-size:13px; color:var(--ink);
   text-decoration:none; white-space:nowrap;
   transition:background .15s, border-color .15s;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
-.cf-pill:hover{ background:var(--surface); border-color:var(--accent); }
+/* จำกัด :hover ให้ใช้เฉพาะอุปกรณ์ที่มีเมาส์จริง —
+   บน iOS/mobile Safari การมี :hover บน <a> ทำให้แตะครั้งแรก
+   ถูกตีความเป็น hover-state แทน click จริง (ต้องแตะ 2 ครั้ง) */
+@media (hover: hover) and (pointer: fine) {
+  .cf-pill:hover{ background:var(--surface); border-color:var(--accent); }
+}
 .cf-pill.is-active{
   background:var(--ink); color:var(--surface);
   border-color:var(--ink);
@@ -231,8 +238,12 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   font-size:13px; color:var(--ink);
   background:var(--bg,#fff); cursor:pointer;
   white-space:nowrap; transition:border-color .15s;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
-.cf-dd-btn:hover{ border-color:var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .cf-dd-btn:hover{ border-color:var(--accent); }
+}
 .cf-dd-btn.has-active{
   border-color:var(--accent); color:var(--accent);
 }
@@ -249,8 +260,9 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   border-radius:12px; padding:6px;
   box-shadow:0 4px 16px rgba(0,0,0,.10);
   z-index:99; display:none; flex-direction:column; gap:2px;
+  pointer-events:none;
 }
-.cf-dd-panel.open{ display:flex; }
+.cf-dd-panel.open{ display:flex; pointer-events:auto; }
 /* link ภายใน dropdown */
 .cf-dd-item{
   display:block; padding:8px 12px; border-radius:8px;
