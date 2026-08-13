@@ -245,6 +245,7 @@
   <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
   <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')">🚀 Product Engine</button>
   <button class="tab-btn" data-tab="system-health" onclick="switchTab('system-health')">🩺 System Health</button>
+  <button class="tab-btn" data-tab="community" onclick="switchTab('community')">🎪 Community Hub</button>
 </div>
 
 <!-- ===== Phase 3: Analytics Dashboard ===== -->
@@ -570,6 +571,74 @@ function switchTab(tab){
   <div id="sh-summary-cards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:6px; margin-bottom:12px;"></div>
   <div id="sh-groups"></div>
 </section>
+
+<section id="community-hub-panel" class="tab-panel hidden" data-tab="community" style="max-width:700px; margin:0 auto; padding:0 20px;">
+  <h2 style="margin:20px 0 4px; color:var(--text);">🎪 Community Hub</h2>
+  <p style="color:var(--text-faint); font-size:13px; margin:0 0 20px;">เปิด/ปิดการแสดง Community Hub บนหน้าแรกของเว็บจริง</p>
+
+  <div style="background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+    <div>
+      <div style="font-weight:600; color:var(--text); margin-bottom:4px;" id="ch-status-label">กำลังโหลด...</div>
+      <div style="font-size:12px; color:var(--text-faint);">เมื่อเปิด จะโชว์ section บนหน้าแรกทันที (ก่อน search bar)</div>
+    </div>
+    <label style="position:relative; display:inline-block; width:52px; height:28px; flex-shrink:0;">
+      <input type="checkbox" id="ch-toggle" onchange="toggleCommunityHub(this.checked)" style="opacity:0; width:0; height:0;">
+      <span id="ch-toggle-track" style="position:absolute; cursor:pointer; inset:0; background:var(--line); border-radius:28px; transition:0.2s;"></span>
+      <span id="ch-toggle-knob" style="position:absolute; height:22px; width:22px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.2s;"></span>
+    </label>
+  </div>
+
+  <div style="margin-top:16px; display:flex; gap:10px;">
+    <a href="/community" target="_blank" style="font-size:13px; color:var(--amber); text-decoration:none;">↗ เปิดหน้า /community เพื่อดูตัวอย่าง</a>
+  </div>
+
+  <p id="ch-error" style="display:none; color:#e74c3c; font-size:13px; margin-top:12px;"></p>
+</section>
+
+<script>
+async function loadCommunityHubStatus() {
+  const label = document.getElementById('ch-status-label');
+  const toggle = document.getElementById('ch-toggle');
+  const track = document.getElementById('ch-toggle-track');
+  const knob = document.getElementById('ch-toggle-knob');
+  if (!label || !toggle) return;
+  try {
+    const res = await fetch('/api/community-toggle');
+    const data = await res.json();
+    toggle.checked = !!data.visible;
+    label.textContent = data.visible ? '✅ เปิดอยู่ — โชว์บนหน้าเว็บจริง' : '⭕ ปิดอยู่ — ไม่โชว์บนหน้าเว็บ';
+    track.style.background = data.visible ? 'var(--teal, #4fd1c5)' : 'var(--line)';
+    knob.style.transform = data.visible ? 'translateX(24px)' : 'translateX(0)';
+  } catch (err) {
+    label.textContent = '⚠️ โหลดสถานะไม่สำเร็จ';
+  }
+}
+
+async function toggleCommunityHub(visible) {
+  const errEl = document.getElementById('ch-error');
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/community-toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visible }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+    await loadCommunityHubStatus();
+  } catch (err) {
+    errEl.textContent = '⚠️ ' + err.message;
+    errEl.style.display = 'block';
+    await loadCommunityHubStatus(); // sync กลับสถานะจริง
+  }
+}
+
+const _origSwitchTabCH = switchTab;
+switchTab = function(tab) {
+  _origSwitchTabCH(tab);
+  if (tab === 'community') loadCommunityHubStatus();
+};
+</script>
 
 <style>
   .sh-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; }

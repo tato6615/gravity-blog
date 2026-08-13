@@ -1,5 +1,27 @@
 import { getLiveArticles } from './grist.js';
 import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo } from './layout.js';
+import { renderCommunityHub } from './community-hub.js';
+
+// Cache ค่า toggle 60 วิ (pattern เดียวกับ live-articles cache ด้านล่าง)
+// ถ้า D1 error หรือยังไม่เคยตั้งค่า -> ซ่อนไว้ก่อนเพื่อความปลอดภัย (fail-safe)
+async function isCommunityHubVisible(env) {
+  try {
+    const cache = caches.default;
+    const cacheKey = new Request('https://cache.internal/community-hub-visible');
+    const cached = await cache.match(cacheKey);
+    if (cached) return (await cached.text()) === 'true';
+
+    const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?')
+      .bind('community_hub_visible').first();
+    const visible = row ? row.value === 'true' : false;
+
+    const resp = new Response(String(visible), { headers: { 'Cache-Control': 'max-age=60' } });
+    await cache.put(cacheKey, resp.clone());
+    return visible;
+  } catch {
+    return false;
+  }
+}
 
 const STRINGS = {
   th: {
@@ -322,6 +344,9 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   </script>
 ` : '';
 
+  const communityHubVisible = await isCommunityHubVisible(env);
+  const communityHubHtml = communityHubVisible ? renderCommunityHub({ mode: 'compact' }) : '';
+
   const body = errorMsg
     ? `<div class="error-page">
         <h1>⚠️</h1>
@@ -329,7 +354,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${searchBoxHtml}${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${communityHubHtml}${searchBoxHtml}${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
