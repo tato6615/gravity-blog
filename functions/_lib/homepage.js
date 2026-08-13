@@ -487,13 +487,28 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     <div class="card-grid">${newArrivalsCardsHtml}</div>
   ` : '';
 
-  const searchBoxHtml = articles.length ? `
+  // ── Search UI ───────────────────────────────────────────────────────────
+  // NOTE: split into two pieces on purpose.
+  //   1) searchButtonHtml — just the round 🔍 button + expandable input.
+  //      This gets handed to renderCommunityHub() so it renders INLINE,
+  //      as the leftmost item in the Telegram/Discord/... chip row.
+  //   2) searchStylesAndScript — CSS + JS + the "no results" message.
+  //      Rendered on the page regardless of where the button ends up.
+  const searchButtonHtml = articles.length ? `
+    <div class="sb-wrap">
+      <button class="sb-btn" id="sbBtn" aria-label="ค้นหาสินค้า" onclick="toggleSearch()">🔍</button>
+      <input type="text" id="sbInput" class="sb-input"
+        placeholder="${escapeHtml(t.searchPlaceholder)}"
+        autocomplete="off" oninput="filterProductCards(this.value)">
+    </div>
+  ` : '';
+
+  const searchStylesAndScript = articles.length ? `
   <style>
-    /* ── Search icon + expand ── */
-    .sb-wrap{
-      position:relative; display:flex; align-items:center;
-      justify-content:flex-end; margin-bottom:16px;
-    }
+    /* Fallback styles — only apply when the Community Hub is hidden and the
+       search button renders standalone above the category filter instead of
+       inside the chip row (which has its own copy of these rules). */
+    .sb-wrap{ position:relative; display:inline-flex; align-items:center; }
     .sb-btn{
       width:38px; height:38px; border-radius:50%;
       border:1px solid var(--hairline); background:var(--surface);
@@ -503,13 +518,14 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     }
     .sb-btn:hover{ border-color:var(--accent); }
     .sb-input{
-      position:absolute; right:46px; top:0;
+      position:absolute; left:46px; top:50%; transform:translateY(-50%);
       width:0; opacity:0; pointer-events:none;
       box-sizing:border-box; height:38px; padding:0;
       border:1px solid var(--hairline); border-radius:10px;
       background:var(--surface); color:var(--ink);
       font-size:15px; font-family:inherit;
       transition:width .25s ease, opacity .2s ease, padding .2s ease;
+      z-index:5;
     }
     .sb-input.open{
       width:220px; opacity:1; pointer-events:auto;
@@ -518,12 +534,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     @media(max-width:400px){ .sb-input.open{ width:calc(100vw - 80px); } }
     .sb-no-results{ display:none; color:var(--ink-muted); padding:12px 0 4px; font-size:14px; }
   </style>
-  <div class="sb-wrap">
-    <input type="text" id="sbInput" class="sb-input"
-      placeholder="${escapeHtml(t.searchPlaceholder)}"
-      autocomplete="off" oninput="filterProductCards(this.value)">
-    <button class="sb-btn" id="sbBtn" aria-label="ค้นหาสินค้า" onclick="toggleSearch()">🔍</button>
-  </div>
   <p id="searchNoResults" class="sb-no-results">${escapeHtml(t.searchNoResults)}</p>
   <script>
     function toggleSearch() {
@@ -557,7 +567,16 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 ` : '';
 
   const communityHubVisible = await isCommunityHubVisible(env);
-  const communityHubHtml = communityHubVisible ? await renderCommunityHub({ mode: 'compact', env }) : '';
+
+  // When the hub is visible, the search button is rendered INSIDE it
+  // (leftmost chip, next to Telegram/Discord/...). When it's hidden,
+  // fall back to a standalone right-aligned search bar above the filters.
+  const communityHubHtml = communityHubVisible
+    ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: searchButtonHtml })
+    : '';
+  const standaloneSearchHtml = (!communityHubVisible && articles.length)
+    ? `<div style="display:flex; justify-content:flex-end; margin-bottom:16px;">${searchButtonHtml}</div>`
+    : '';
 
   const body = errorMsg
     ? `<div class="error-page">
@@ -566,7 +585,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${communityHubHtml}${filterHtml}${searchBoxHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${communityHubHtml}${filterHtml}${standaloneSearchHtml}${searchStylesAndScript}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
