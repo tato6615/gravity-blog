@@ -430,24 +430,26 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
 
   // ── Category filter ────────────────────────────────────────────────────
-  //
-  // นับจำนวนสินค้าต่อ top-level category (ไม่ใช่ full path)
-  // เพื่อตัดสินว่าหมวดหลักไหนควรโชว์ pill
-  //
-  // MIN_PRODUCTS_PER_CATEGORY ยังนับจาก full category เหมือนเดิม
-  // (ป้องกัน sub category มีแค่ 1 สินค้าโผล่ใน dropdown)
+  // นับจาก articles ทั้งหมด (ไม่ filter ก่อน) เพื่อให้ pills โชว์ครบทุกหมวด
   const MIN_PRODUCTS_PER_CATEGORY = 2;
   const categoryCounts = {};
   articles.forEach(a => {
-    if (a.category) categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
+    if (a.category) {
+      // นับทั้ง full path และ top-level
+      categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
+      const { top } = splitCategory(a.category);
+      if (top !== a.category) {
+        categoryCounts[top] = (categoryCounts[top] || 0) + 1;
+      }
+    }
   });
   const categories = Object.keys(categoryCounts)
     .filter(cat => categoryCounts[cat] >= MIN_PRODUCTS_PER_CATEGORY)
     .sort((a, b) => categoryCounts[b] - categoryCounts[a]);
 
   // filter articles ตาม selectedCategory
-  // ถ้า selectedCategory = top-level (ไม่มี " > ") → filter ทุก sub ด้วย startsWith
-  // ถ้า selectedCategory = full path → exact match
+  // - ไม่มี " > " = top-level → match ทุก article ที่ category ขึ้นต้นด้วย top นั้น
+  // - มี " > " = full path → exact match
   let displayScoredArticles;
   if (!selectedCategory) {
     displayScoredArticles = scoredArticles;
@@ -456,8 +458,8 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     displayScoredArticles = scoredArticles.filter(a => {
       if (!a.category) return false;
       if (hasSub) return a.category === selectedCategory;
-      // top-level: match ถ้า category ขึ้นต้นด้วย top หรือเท่ากันพอดี
-      return a.category === selectedCategory || a.category.startsWith(selectedCategory + ' > ');
+      return a.category === selectedCategory ||
+             a.category.startsWith(selectedCategory + ' > ');
     });
   }
 
@@ -487,33 +489,69 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const searchBoxHtml = articles.length ? `
   <style>
-    .search-box{ margin-bottom:20px; }
-    .search-input{
-      width:100%; box-sizing:border-box; padding:12px 16px; font-size:15px;
-      border:1px solid var(--hairline); border-radius:10px; background:var(--surface);
-      color:var(--ink); font-family:inherit;
+    /* ── Search icon + expand ── */
+    .sb-wrap{
+      position:relative; display:flex; align-items:center;
+      justify-content:flex-end; margin-bottom:16px;
     }
-    .search-input:focus{ outline:none; border-color:var(--accent); }
-    .search-no-results{ display:none; color:var(--ink-muted); padding:20px 0; }
+    .sb-btn{
+      width:38px; height:38px; border-radius:50%;
+      border:1px solid var(--hairline); background:var(--surface);
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      font-size:17px; flex-shrink:0; transition:border-color .15s;
+      color:var(--ink);
+    }
+    .sb-btn:hover{ border-color:var(--accent); }
+    .sb-input{
+      position:absolute; right:46px; top:0;
+      width:0; opacity:0; pointer-events:none;
+      box-sizing:border-box; height:38px; padding:0;
+      border:1px solid var(--hairline); border-radius:10px;
+      background:var(--surface); color:var(--ink);
+      font-size:15px; font-family:inherit;
+      transition:width .25s ease, opacity .2s ease, padding .2s ease;
+    }
+    .sb-input.open{
+      width:220px; opacity:1; pointer-events:auto;
+      padding:0 14px;
+    }
+    @media(max-width:400px){ .sb-input.open{ width:calc(100vw - 80px); } }
+    .sb-no-results{ display:none; color:var(--ink-muted); padding:12px 0 4px; font-size:14px; }
   </style>
-  <div class="search-box">
-    <input type="text" id="productSearchInput" class="search-input" placeholder="${escapeHtml(t.searchPlaceholder)}" autocomplete="off" oninput="filterProductCards(this.value)">
+  <div class="sb-wrap">
+    <input type="text" id="sbInput" class="sb-input"
+      placeholder="${escapeHtml(t.searchPlaceholder)}"
+      autocomplete="off" oninput="filterProductCards(this.value)">
+    <button class="sb-btn" id="sbBtn" aria-label="ค้นหาสินค้า" onclick="toggleSearch()">🔍</button>
   </div>
-  <p id="searchNoResults" class="search-no-results">${escapeHtml(t.searchNoResults)}</p>
+  <p id="searchNoResults" class="sb-no-results">${escapeHtml(t.searchNoResults)}</p>
   <script>
-    function filterProductCards(query) {
-      const q = query.trim().toLowerCase();
-      const cards = document.querySelectorAll('.card[data-search]');
-      let visibleCount = 0;
-      cards.forEach(function(card) {
-        const match = !q || card.getAttribute('data-search').indexOf(q) !== -1;
-        card.style.display = match ? '' : 'none';
-        if (match) visibleCount++;
-      });
-      const noResultsEl = document.getElementById('searchNoResults');
-      if (noResultsEl) {
-        noResultsEl.style.display = (q && visibleCount === 0) ? 'block' : 'none';
+    function toggleSearch() {
+      var inp = document.getElementById('sbInput');
+      var open = inp.classList.toggle('open');
+      if (open) { inp.focus(); } else { inp.value=''; filterProductCards(''); }
+    }
+    document.addEventListener('click', function(e) {
+      var wrap = document.querySelector('.sb-wrap');
+      if (wrap && !wrap.contains(e.target)) {
+        var inp = document.getElementById('sbInput');
+        if (inp && inp.classList.contains('open') && !inp.value) {
+          inp.classList.remove('open');
+          filterProductCards('');
+        }
       }
+    });
+    function filterProductCards(query) {
+      var q = query.trim().toLowerCase();
+      var cards = document.querySelectorAll('.card[data-search]');
+      var visible = 0;
+      cards.forEach(function(card) {
+        var match = !q || card.getAttribute('data-search').indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      var noRes = document.getElementById('searchNoResults');
+      if (noRes) noRes.style.display = (q && visible === 0) ? 'block' : 'none';
     }
   </script>
 ` : '';
@@ -528,7 +566,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${communityHubHtml}${searchBoxHtml}${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${communityHubHtml}${filterHtml}${searchBoxHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
