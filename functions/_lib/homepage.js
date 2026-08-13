@@ -43,7 +43,9 @@ const STRINGS = {
     newArrivalsHeading: 'สินค้าใหม่ล่าสุด',
     newArrivalsSub: 'สินค้าที่เพิ่งเข้าระบบล่าสุด เรียงตามวันที่เจอครั้งแรก ไม่ปนกับยอดคลิก',
     searchPlaceholder: 'ค้นหาสินค้า...',
-    searchNoResults: 'ไม่พบสินค้าที่ตรงกับคำค้นหา'
+    searchNoResults: 'ไม่พบสินค้าที่ตรงกับคำค้นหา',
+    filterAll: 'ทั้งหมด',
+    filterSubcategory: 'หมวดย่อย',
   },
   en: {
     pageTitle: 'GRAVITY OS — Curated product reviews',
@@ -64,7 +66,9 @@ const STRINGS = {
     newArrivalsHeading: 'Newest arrivals',
     newArrivalsSub: 'Recently added products, sorted purely by first-seen date — not mixed with click count.',
     searchPlaceholder: 'Search products...',
-    searchNoResults: 'No products match your search.'
+    searchNoResults: 'No products match your search.',
+    filterAll: 'All',
+    filterSubcategory: 'Subcategory',
   }
 };
 
@@ -75,33 +79,8 @@ function homePath(lang) {
   return lang === 'en' ? '/en/' : '/';
 }
 
-// How many items appear in the top "most clicked" section before the
-// "Newest arrivals" section starts. Matches the original first row of 3.
-//
-// NOTE: the top section is sorted by real click count ONLY — no new-product
-// bonus. A brand-new product (0 clicks) never jumps ahead of an established
-// one here; it shows up in the "Newest arrivals" section instead, and only
-// earns a Top-section spot once it accumulates enough real clicks on its
-// own. This intentionally replaces the earlier "hybrid score" approach
-// (clicks + decaying bonus), which let brand-new products briefly outrank
-// products with real engagement whenever click counts were low overall.
 const TOP_SECTION_COUNT = 3;
 
-/**
- * Self-tracked "first seen" timestamps, stored in our own D1 table instead
- * of trusting any timestamp field from Grist (which gets overwritten by
- * hourly/30-min sync jobs and can't be used to tell new products from old
- * ones). The first time a product shows up here, we record "now" as its
- * first-seen date; every time after that we just read the stored value
- * back, so it never resets no matter how often the product row itself gets
- * touched elsewhere.
- *
- * Requires a table created once via:
- *   CREATE TABLE IF NOT EXISTS product_first_seen (
- *     product_id TEXT PRIMARY KEY,
- *     first_seen_at TEXT NOT NULL
- *   );
- */
 async function getOrCreateFirstSeenMap(env, productIds) {
   const firstSeenMap = {};
   const ids = [...new Set(productIds.map(String))].filter(Boolean);
@@ -127,19 +106,12 @@ async function getOrCreateFirstSeenMap(env, productIds) {
       missingIds.forEach(id => { firstSeenMap[id] = now; });
     }
   } catch (e) {
-    // Table missing or D1 unavailable — every product falls back to
-    // Infinity age (no bonus), so ranking degrades to pure click-count
-    // sort rather than breaking the page.
+    // Table missing or D1 unavailable — fall back to no bonus
   }
 
   return firstSeenMap;
 }
 
-/**
- * Renders one grid of article cards. `startRank` lets the "new arrivals"
- * section continue the rank numbering after the top section instead of
- * restarting at 1, so badges stay visually consistent across both grids.
- */
 function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0, newProductIds = new Set() }) {
   return articles.map((a, idx) => {
     const i = startRank + idx;
@@ -174,6 +146,211 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
   }).join('');
 }
 
+// ── Category filter helpers ────────────────────────────────────────────────
+
+/**
+ * แยก category string ออกเป็น top-level vs sub-level
+ *
+ * กฎ: ถ้า category มี " > " คั่น → ส่วนแรก = top, ส่วนที่เหลือ = sub
+ *      ถ้าไม่มี " > " → top = category นั้นเลย, sub = null
+ *
+ * ตัวอย่าง:
+ *   "Pet Supplies > Dogs > Health Supplies > Relaxants"
+ *     → top: "Pet Supplies", sub: "Dogs > Health Supplies > Relaxants"
+ *   "Electronics"
+ *     → top: "Electronics", sub: null
+ */
+function splitCategory(cat) {
+  const idx = cat.indexOf(' > ');
+  if (idx === -1) return { top: cat, sub: null };
+  return { top: cat.slice(0, idx), sub: cat.slice(idx + 3) };
+}
+
+/**
+ * สร้าง HTML ของ category filter แบบ C:
+ *   แถวเดียว = pills หมวดหลัก (top-level) + ปุ่ม dropdown "หมวดย่อย ▾"
+ *   dropdown แสดงเฉพาะ sub ของ top ที่ active อยู่
+ *
+ * URL param ยังคง ?category= เหมือนเดิม ไม่ต้องเปลี่ยน backend เลย
+ */
+function buildFilterHtml({ categories, selectedCategory, lang, t }) {
+  if (!categories.length) return '';
+
+  const base = homePath(lang);
+
+  // สร้าง map: topLevel → [ { sub, fullCat } ]
+  const topMap = {};   // top → count (เพื่อ sort)
+  const subMap = {};   // top → [ { sub, fullCat } ]
+
+  categories.forEach(cat => {
+    const { top, sub } = splitCategory(cat);
+    topMap[top] = (topMap[top] || 0) + 1;
+    if (sub) {
+      if (!subMap[top]) subMap[top] = [];
+      subMap[top].push({ sub, fullCat: cat });
+    }
+  });
+
+  // top-level pills เรียง descending ตามจำนวนสินค้า (ตัดให้สั้น ≤ 4 คำ)
+  const tops = Object.keys(topMap).sort((a, b) => topMap[b] - topMap[a]);
+
+  // active top = top ของ selectedCategory (หรือ null ถ้า All)
+  const activeTop = selectedCategory ? splitCategory(selectedCategory).top : null;
+
+  // sub dropdown สำหรับ top ที่ active
+  const activeSubs = activeTop ? (subMap[activeTop] || []) : [];
+
+  // ──────────────────────────────────────────────
+  // CSS (inject ครั้งเดียว)
+  // ──────────────────────────────────────────────
+  const css = `
+<style id="cf-style">
+.cf-wrap{
+  display:flex; align-items:center; flex-wrap:wrap;
+  gap:8px; margin-bottom:20px; position:relative;
+}
+/* pill หมวดหลัก */
+.cf-pill{
+  display:inline-flex; align-items:center;
+  padding:7px 16px; border-radius:99px;
+  border:1px solid var(--hairline);
+  font-size:13px; color:var(--ink);
+  text-decoration:none; white-space:nowrap;
+  transition:background .15s, border-color .15s;
+}
+.cf-pill:hover{ background:var(--surface); border-color:var(--accent); }
+.cf-pill.is-active{
+  background:var(--ink); color:var(--surface);
+  border-color:var(--ink);
+}
+/* ปุ่ม dropdown หมวดย่อย */
+.cf-dd-btn{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:7px 14px; border-radius:99px;
+  border:1px solid var(--hairline);
+  font-size:13px; color:var(--ink);
+  background:var(--bg,#fff); cursor:pointer;
+  white-space:nowrap; transition:border-color .15s;
+}
+.cf-dd-btn:hover{ border-color:var(--accent); }
+.cf-dd-btn.has-active{
+  border-color:var(--accent); color:var(--accent);
+}
+.cf-dd-btn .cf-chevron{
+  font-size:10px; transition:transform .2s; display:inline-block;
+}
+.cf-dd-btn.open .cf-chevron{ transform:rotate(180deg); }
+/* dropdown panel */
+.cf-dd-panel{
+  position:absolute; top:calc(100% + 6px); left:0;
+  min-width:220px; max-width:320px;
+  background:var(--surface,#fff);
+  border:1px solid var(--hairline);
+  border-radius:12px; padding:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.10);
+  z-index:99; display:none; flex-direction:column; gap:2px;
+}
+.cf-dd-panel.open{ display:flex; }
+/* link ภายใน dropdown */
+.cf-dd-item{
+  display:block; padding:8px 12px; border-radius:8px;
+  font-size:13px; color:var(--ink);
+  text-decoration:none; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+  transition:background .12s;
+}
+.cf-dd-item:hover{ background:var(--surface); }
+.cf-dd-item.is-active{
+  background:var(--ink); color:var(--surface);
+}
+/* ซ่อนปุ่มถ้าไม่มี sub */
+.cf-dd-btn[hidden]{ display:none; }
+</style>`;
+
+  // ──────────────────────────────────────────────
+  // Pills หมวดหลัก
+  // ──────────────────────────────────────────────
+  const pillsHtml = [
+    // "ทั้งหมด" / "All"
+    `<a href="${base}" class="cf-pill${!selectedCategory ? ' is-active' : ''}">${escapeHtml(t.filterAll)}</a>`,
+    // top-level categories
+    ...tops.map(top => {
+      // ถ้าคลิก pill top → link ไปที่ full category ที่มีคนเดียว หรือ top เอง
+      // ถ้า top มี sub → link = top เอง (filter เฉพาะ top, ไม่ใช่ fullCat)
+      const href = `${base}?category=${encodeURIComponent(top)}`;
+      const isActive = activeTop === top;
+      return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(top)}</a>`;
+    })
+  ].join('\n    ');
+
+  // ──────────────────────────────────────────────
+  // Dropdown หมวดย่อย (แสดงเฉพาะถ้า activeTop มี sub)
+  // ──────────────────────────────────────────────
+  const hasSubs = activeSubs.length > 0;
+
+  // label ของปุ่ม: ถ้า selectedCategory เป็น sub ให้โชว์ชื่อ sub ที่เลือกอยู่
+  const selectedSub = selectedCategory && activeTop && selectedCategory !== activeTop
+    ? splitCategory(selectedCategory).sub
+    : null;
+  const ddLabel = selectedSub
+    ? truncateLabel(selectedSub, 28)
+    : escapeHtml(t.filterSubcategory);
+  const ddHasActive = !!selectedSub;
+
+  const ddItemsHtml = activeSubs.map(({ sub, fullCat }) => {
+    const isActive = selectedCategory === fullCat;
+    const href = `${base}?category=${encodeURIComponent(fullCat)}`;
+    return `<a href="${href}" class="cf-dd-item${isActive ? ' is-active' : ''}" title="${escapeHtml(sub)}">${escapeHtml(truncateLabel(sub, 36))}</a>`;
+  }).join('\n      ');
+
+  const dropdownHtml = hasSubs ? `
+  <div style="position:relative;">
+    <button class="cf-dd-btn${ddHasActive ? ' has-active' : ''}" id="cf-dd-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+      ${ddLabel} <span class="cf-chevron">▾</span>
+    </button>
+    <div class="cf-dd-panel" id="cf-dd-panel" role="listbox">
+      ${ddItemsHtml}
+    </div>
+  </div>` : '';
+
+  // ──────────────────────────────────────────────
+  // JS toggle (minimal — ไม่ใช้ framework)
+  // ──────────────────────────────────────────────
+  const js = hasSubs ? `
+<script>
+(function(){
+  var btn = document.getElementById('cf-dd-btn');
+  var panel = document.getElementById('cf-dd-panel');
+  if(!btn||!panel) return;
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = panel.classList.toggle('open');
+    btn.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open);
+  });
+  document.addEventListener('click', function(){
+    panel.classList.remove('open');
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', false);
+  });
+})();
+</script>` : '';
+
+  return `${css}
+<div class="cf-wrap">
+  ${pillsHtml}
+  ${dropdownHtml}
+</div>${js}`;
+}
+
+/** ตัดชื่อยาวให้สั้น พร้อม ellipsis */
+function truncateLabel(str, max) {
+  if (!str) return '';
+  return str.length > max ? escapeHtml(str.slice(0, max - 1)) + '…' : escapeHtml(str);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
 /**
  * Renders the home/listing page for the given language.
  * @param {object} env
@@ -186,9 +363,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   let articles = [];
   let errorMsg = null;
   try {
-    // Cache the Grist article fetch for 5 min (same pattern as clickCounts
-    // below) — Grist free plan caps at 5,000 calls/doc/day + 5 req/sec.
-    // Without this, every single page load/refresh hits Grist directly.
     const cache = caches.default;
     const articlesCacheKey = new Request(`https://cache.internal/live-articles-${lang}`);
     const cachedArticlesResp = await cache.match(articlesCacheKey);
@@ -205,8 +379,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     errorMsg = e.message;
   }
 
-  // Cache the clicks aggregation for 5 minutes so repeated homepage loads
-  // don't hit D1 on every request.
   let clickCounts = {};
   try {
     const cache = caches.default;
@@ -230,9 +402,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
 
-  // สินค้าที่ first_seen_at อยู่ภายใน N วันล่าสุด ถือว่า "ใหม่" — โชว์ badge
-  // ได้ทุกที่ที่การ์ดไปโผล่ ไม่ว่าจะอยู่ top section (เพราะคลิกเยอะ) หรือ
-  // newest arrivals section ก็ตาม
   const NEW_BADGE_DAYS = 3;
   const nowMs = Date.now();
   const newProductIds = new Set(
@@ -246,19 +415,12 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       .map(a => String(a.id))
   );
 
-  // Top section: pure click count, high to low. New products (0 clicks)
-  // never outrank established ones here — they surface in the "Newest
-  // arrivals" section below instead, and only earn a spot up here once
-  // they've actually accumulated clicks.
   const scoredArticles = [...articles].sort((a, b) => {
     const clicksA = clickCounts[String(a.id)] || 0;
     const clicksB = clickCounts[String(b.id)] || 0;
     return clicksB - clicksA;
   });
 
-  // Relative "hot" threshold: 1.5x the average clicks among products that
-  // have at least one click, with a floor of 3 so it still means something
-  // when overall traffic is very low.
   const clickedValues = Object.values(clickCounts).filter(v => v > 0);
   const avgClicks = clickedValues.length
     ? clickedValues.reduce((sum, v) => sum + v, 0) / clickedValues.length
@@ -267,7 +429,13 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
 
-  // นับจำนวนสินค้าต่อหมวด แล้วโชว์เฉพาะหมวดที่มีสินค้า >= 2 ชิ้น (กันแถบ pills รกเวลาสินค้าเยอะขึ้น)
+  // ── Category filter ────────────────────────────────────────────────────
+  //
+  // นับจำนวนสินค้าต่อ top-level category (ไม่ใช่ full path)
+  // เพื่อตัดสินว่าหมวดหลักไหนควรโชว์ pill
+  //
+  // MIN_PRODUCTS_PER_CATEGORY ยังนับจาก full category เหมือนเดิม
+  // (ป้องกัน sub category มีแค่ 1 สินค้าโผล่ใน dropdown)
   const MIN_PRODUCTS_PER_CATEGORY = 2;
   const categoryCounts = {};
   articles.forEach(a => {
@@ -277,20 +445,26 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     .filter(cat => categoryCounts[cat] >= MIN_PRODUCTS_PER_CATEGORY)
     .sort((a, b) => categoryCounts[b] - categoryCounts[a]);
 
-  const displayScoredArticles = selectedCategory
-    ? scoredArticles.filter(a => a.category === selectedCategory)
-    : scoredArticles;
+  // filter articles ตาม selectedCategory
+  // ถ้า selectedCategory = top-level (ไม่มี " > ") → filter ทุก sub ด้วย startsWith
+  // ถ้า selectedCategory = full path → exact match
+  let displayScoredArticles;
+  if (!selectedCategory) {
+    displayScoredArticles = scoredArticles;
+  } else {
+    const hasSub = selectedCategory.includes(' > ');
+    displayScoredArticles = scoredArticles.filter(a => {
+      if (!a.category) return false;
+      if (hasSub) return a.category === selectedCategory;
+      // top-level: match ถ้า category ขึ้นต้นด้วย top หรือเท่ากันพอดี
+      return a.category === selectedCategory || a.category.startsWith(selectedCategory + ' > ');
+    });
+  }
 
-  const filterHtml = categories.length > 0 ? `<div class="category-filter">
-    <a href="${homePath(lang)}" class="filter-pill${!selectedCategory ? ' is-active' : ''}">${lang === 'en' ? 'All' : 'ทั้งหมด'}</a>
-    ${categories.map(cat => `<a href="${homePath(lang)}?category=${encodeURIComponent(cat)}" class="filter-pill${selectedCategory === cat ? ' is-active' : ''}">${escapeHtml(cat)}</a>`).join('')}
-  </div>` : '';
+  // ── สร้าง filterHtml แบบ C ─────────────────────────────────────────────
+  const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t });
 
-  // Split into two independent groups instead of one long hybrid-sorted
-  // list: a top section by hybrid score, and a "newest arrivals" section
-  // sorted purely by first_seen_at (most recent first) with no click
-  // weighting at all. Items already shown in the top section are excluded
-  // from the arrivals section so nothing appears twice.
+  // ── Split top / new arrivals ───────────────────────────────────────────
   const topArticles = displayScoredArticles.slice(0, TOP_SECTION_COUNT);
   const topIds = new Set(topArticles.map(a => String(a.id)));
 
@@ -299,7 +473,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     .sort((a, b) => {
       const dateA = firstSeenMap[String(a.id)] ? new Date(firstSeenMap[String(a.id)]).getTime() : -Infinity;
       const dateB = firstSeenMap[String(b.id)] ? new Date(firstSeenMap[String(b.id)]).getTime() : -Infinity;
-      return dateB - dateA; // newest first_seen_at first
+      return dateB - dateA;
     });
 
   const topCardsHtml = renderCardGrid(topArticles, { t, lang, clickCounts, hotThreshold, startRank: 0, newProductIds });
@@ -360,10 +534,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
           <p>${escapeHtml(t.emptySub)}</p>
         </div>`);
 
-  // No altLangPath for the home page yet — the equivalent listing in the
-  // other language always exists at a fixed URL ('/' <-> '/en/'), unlike
-  // article pages where the slug can differ per language. We still pass
-  // it explicitly so the switcher shows up in the header.
   const altLangPath = lang === 'en' ? '/' : '/en/';
 
   const html = renderPage({
