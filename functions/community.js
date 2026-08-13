@@ -4,12 +4,12 @@
 import { renderPage } from './_lib/layout.js';
 import { renderCommunityHub } from './_lib/community-hub.js';
 
-export async function onRequestGet() {
-  const bodyHtml = renderCommunityHub({ mode: 'full' });
+export async function onRequestGet({ env }) {
+  const bodyHtml = await renderCommunityHub({ mode: 'full', env });
 
   const html = renderPage({
     title: 'เข้าชุมชนเรา — GRAVITY OS',
-    description: 'เข้าร่วมชุมชน GRAVITY OS บน Telegram, Discord, Mastodon, Facebook, Threads และ Tumblr',
+    description: 'เข้าร่วมชุมชน GRAVITY OS บน Telegram, Discord, Mastodon, Facebook และ Threads',
     canonicalPath: '/community',
     lang: 'th',
     bodyHtml,

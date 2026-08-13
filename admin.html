@@ -593,6 +593,24 @@ function switchTab(tab){
   </div>
 
   <p id="ch-error" style="display:none; color:#e74c3c; font-size:13px; margin-top:12px;"></p>
+
+  <hr style="border:none; border-top:1px solid var(--line); margin:28px 0 20px;">
+
+  <h3 style="margin:0 0 4px; color:var(--text);">📋 จัดการ Platform</h3>
+  <p style="color:var(--text-faint); font-size:13px; margin:0 0 16px;">เพิ่ม / ลบ / แก้ไขลิงก์ชุมชนแต่ละแพลตฟอร์มได้เอง ไม่จำกัดจำนวน</p>
+
+  <div id="ch-platform-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+  <button onclick="addPlatformRow()" style="margin-top:12px; background:var(--panel); color:var(--text); border:1px dashed var(--line); border-radius:8px; padding:10px 16px; font-size:13px; cursor:pointer; width:100%;">
+    ➕ เพิ่ม Platform ใหม่
+  </button>
+
+  <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+    <button onclick="savePlatforms()" style="background:var(--amber); color:#1a1a1a; border:none; border-radius:8px; padding:10px 24px; font-weight:700; cursor:pointer;">
+      💾 บันทึกทั้งหมด
+    </button>
+    <span id="ch-platform-save-status" style="font-size:13px; color:var(--text-faint);"></span>
+  </div>
 </section>
 
 <script>
@@ -633,10 +651,81 @@ async function toggleCommunityHub(visible) {
   }
 }
 
+let chPlatforms = [];
+
+function renderPlatformRows() {
+  const wrap = document.getElementById('ch-platform-list');
+  if (!wrap) return;
+  wrap.innerHTML = chPlatforms.map((p, i) => `
+    <div style="background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; gap:8px;">
+        <input type="text" value="${(p.emoji||'').replace(/"/g,'&quot;')}" placeholder="🔗" maxlength="4"
+          oninput="chPlatforms[${i}].emoji=this.value" style="width:44px; text-align:center; background:var(--surface,var(--bg)); border:1px solid var(--line); border-radius:6px; padding:8px 4px; color:var(--text); font-size:16px;">
+        <input type="text" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ platform"
+          oninput="chPlatforms[${i}].name=this.value" style="flex:1; background:var(--surface,var(--bg)); border:1px solid var(--line); border-radius:6px; padding:8px 10px; color:var(--text); font-size:13px;">
+        <input type="text" value="${(p.cta||'').replace(/"/g,'&quot;')}" placeholder="ปุ่ม (Join/Follow)"
+          oninput="chPlatforms[${i}].cta=this.value" style="width:90px; background:var(--surface,var(--bg)); border:1px solid var(--line); border-radius:6px; padding:8px 10px; color:var(--text); font-size:13px;">
+      </div>
+      <input type="text" value="${(p.url||'').replace(/"/g,'&quot;')}" placeholder="https://..."
+        oninput="chPlatforms[${i}].url=this.value" style="background:var(--surface,var(--bg)); border:1px solid var(--line); border-radius:6px; padding:8px 10px; color:var(--text); font-size:13px; font-family:monospace;">
+      <div style="display:flex; justify-content:flex-end;">
+        <button onclick="removePlatformRow(${i})" style="background:none; border:none; color:#e74c3c; font-size:12px; cursor:pointer; padding:4px 8px;">🗑 ลบ platform นี้</button>
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--text-faint); font-size:13px;">ยังไม่มี platform — กด "เพิ่ม Platform ใหม่" ด้านล่าง</p>';
+}
+
+function addPlatformRow() {
+  chPlatforms.push({ key: '', emoji: '🔗', name: '', tagline: '', members: null, memberLabel: 'followers', cta: 'Follow', url: '' });
+  renderPlatformRows();
+}
+
+function removePlatformRow(i) {
+  chPlatforms.splice(i, 1);
+  renderPlatformRows();
+}
+
+async function loadPlatforms() {
+  try {
+    const res = await fetch('/api/community-platforms');
+    const data = await res.json();
+    chPlatforms = Array.isArray(data.platforms) ? data.platforms : [];
+    renderPlatformRows();
+  } catch (err) {
+    const wrap = document.getElementById('ch-platform-list');
+    if (wrap) wrap.innerHTML = '<p style="color:#e74c3c; font-size:13px;">⚠️ โหลดรายการไม่สำเร็จ</p>';
+  }
+}
+
+async function savePlatforms() {
+  const statusEl = document.getElementById('ch-platform-save-status');
+  statusEl.textContent = 'กำลังบันทึก...';
+  statusEl.style.color = 'var(--text-faint)';
+  try {
+    const res = await fetch('/api/community-platforms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platforms: chPlatforms }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+    chPlatforms = data.platforms;
+    renderPlatformRows();
+    statusEl.textContent = '✅ บันทึกแล้ว — เว็บจะอัปเดตภายในไม่กี่วินาที';
+    statusEl.style.color = 'var(--teal, #4fd1c5)';
+  } catch (err) {
+    statusEl.textContent = '⚠️ ' + err.message;
+    statusEl.style.color = '#e74c3c';
+  }
+}
+
 const _origSwitchTabCH = switchTab;
 switchTab = function(tab) {
   _origSwitchTabCH(tab);
-  if (tab === 'community') loadCommunityHubStatus();
+  if (tab === 'community') {
+    loadCommunityHubStatus();
+    loadPlatforms();
+  }
 };
 </script>
 

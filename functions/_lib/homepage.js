@@ -345,7 +345,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 ` : '';
 
   const communityHubVisible = await isCommunityHubVisible(env);
-  const communityHubHtml = communityHubVisible ? renderCommunityHub({ mode: 'compact' }) : '';
+  const communityHubHtml = communityHubVisible ? await renderCommunityHub({ mode: 'compact', env }) : '';
 
   const body = errorMsg
     ? `<div class="error-page">
