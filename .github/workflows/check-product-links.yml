@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'fix-content-product-links.js'
+      - 'scripts/fix-content-product-links.js'
   schedule:
     - cron: '0 * * * *'   # ทุกชั่วโมง
   workflow_dispatch:        # กดรันเองจากแท็บ Actions บน GitHub ได้ด้วย
