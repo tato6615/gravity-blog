@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'sync-ga4-views-to-grist.js'
+      - 'scripts/sync-ga4-views-to-grist.js'
   schedule:
     - cron: '0 * * * *'   # ทุกชั่วโมง (เหมือน check-product-links และ sync-analytics)
   workflow_dispatch:       # กดรันเองจากแท็บ Actions บน GitHub ได้ด้วย
@@ -22,4 +22,4 @@ jobs:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
           GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
           GA4_SERVICE_ACCOUNT_KEY: ${{ secrets.GA4_SERVICE_ACCOUNT_KEY }}
-        run: node sync-ga4-views-to-grist.js --sync
+        run: node scripts/sync-ga4-views-to-grist.js --sync
