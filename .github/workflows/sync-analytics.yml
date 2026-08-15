@@ -1,10 +1,8 @@
 name: Sync Analytics to Grist
-
 on:
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch: {}
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -18,4 +16,4 @@ jobs:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
           GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: node sync-analytics-to-grist.js --sync
+        run: node scripts/sync-analytics-to-grist.js --sync
