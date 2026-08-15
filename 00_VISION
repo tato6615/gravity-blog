@@ -1,0 +1,35 @@
+# VISION — GRAVITY OS
+
+## คืออะไร
+
+GRAVITY OS คือระบบ affiliate content platform อัตโนมัติ — นำสินค้าจาก Amazon/eBay มาสร้างบทความรีวิวภาษาไทย/อังกฤษ ส่งออกไป 6 platforms พร้อมกัน และ track conversion ครบวงจร
+
+## Business Model
+
+```
+นำเข้า URL สินค้า
+    ↓ Worker "af" pipeline
+สร้างบทความ (TH + EN)
+    ↓
+เผยแพร่บนเว็บ + 6 social platforms
+    ↓
+ผู้ใช้คลิก affiliate link → redirect ไป Amazon/eBay
+    ↓
+ได้ commission จาก Amazon Associates / eBay Partner
+```
+
+## 6 Platforms
+
+1. 🌐 Website (`gravity-blog.pages.dev`)
+2. 📱 Telegram
+3. 💬 Discord
+4. 🦣 Mastodon
+5. 📘 Facebook
+6. 💬 Threads
+7. 🎨 Tumblr (⏳ ยังไม่เสร็จ)
+
+## เป้าหมายระยะยาว
+
+- Fully automated pipeline: URL เข้า → content ออก → publish ทุก platform
+- Real-time analytics: click → conversion → revenue tracking
+- Community: 11,480+ members across 6 platforms
