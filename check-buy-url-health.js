@@ -77,7 +77,8 @@ async function main() {
   console.log('📥 กำลังดึงข้อมูลสินค้าจาก Grist...\n');
   const products = await gristGet('PRODUCTS');
   console.log(`✅ PRODUCTS: ${products.length} แถว\n`);
-  console.log(`🔎 กำลังเช็คลิงก์ทั้งหมด (พร้อมกันครั้งละ ${CONCURRENCY} ลิงก์ อาจใช้เวลาสักครู่)...\n`);
+  console.log('🔬 DEBUG ฟิลด์ของสินค้าตัวแรก:', JSON.stringify(products[0]?.fields, null, 2));
+  console.log(`🔎 กำลังเช็คลิงก์ทั้งหมด...`);
 
   const rows = products.map(p => ({
     id: p.id,
