@@ -1,0 +1,23 @@
+name: Check Buy URL Health
+
+# เช็คว่าลิงก์ Buy ของสินค้าแต่ละตัว (Amazon/eBay ฯลฯ) ยังเปิดได้จริงไหม
+# ต่างจาก check-product-links.yml ที่เช็คแค่ว่า ID ตรงกันไหม — ไฟล์นี้ยิง
+# request ไปเช็คของจริง แค่ "รายงาน" เท่านั้น ไม่แก้/ลบอะไรอัตโนมัติ
+on:
+  schedule:
+    - cron: '0 6 * * *'   # รันวันละครั้ง ตอนตี 6 (เวลา UTC — ประมาณ 13:00 เมืองไทย)
+  workflow_dispatch:        # กดรันเองจากแท็บ Actions ได้ทุกเมื่อ
+
+jobs:
+  check-buy-urls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check buy_url health (report only, no auto-fix)
+        env:
+          GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
+          GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
+        run: node check-buy-url-health.js
