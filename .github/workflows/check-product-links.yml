@@ -21,4 +21,4 @@ jobs:
         env:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
           GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
-        run: node fix-content-product-links.js --fix
+        run: node scripts/fix-content-product-links.js --fix
