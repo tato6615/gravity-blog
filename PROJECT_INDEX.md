@@ -1,101 +1,89 @@
-[Uploading PROJECT_INDEX.md…]()
-# GRAVITY OS — PROJECT INDEX
-**Single Source of Truth. Do not duplicate. Do not rename folders.**
+[PROJECT_INDEX.md](https://github.com/user-attachments/files/31094021/PROJECT_INDEX.md)
+# PROJECT_INDEX.md
+### Central navigation for GRAVITY OS — the single source of truth for this project.
 
-Last Updated: 2026-08-14
-Status: Production — System healthy ✅ (14/14 checks passing)
-
----
-
-## QUICK NAVIGATION
-
-| ต้องการอะไร | ไปที่ |
-|---|---|
-| เข้าใจโปรเจกต์ครั้งแรก | `12_AI_CONTEXT/ONBOARDING.md` |
-| โครงสร้างไฟล์ทั้งหมด | `01_ARCHITECTURE/FILE_STRUCTURE.md` |
-| บั๊กที่เจอและวิธีแก้ | `04_BUG_DATABASE/` |
-| งานที่ต้องทำต่อ | `05_ROADMAP/BACKLOG.md` |
-| กฎที่ห้ามลืม | `08_DEVELOPMENT_RULES/RULES.md` |
-| Environment Variables | `14_API/ENV_VARS.md` |
-| Security — ด่วน | `09_SECURITY/CREDENTIALS.md` |
-| วิธี deploy | `03_PLAYBOOKS/DEPLOY.md` |
+> If you are an AI agent (Claude, GPT, or future agent) starting work on this
+> project, read this file first. It tells you where everything lives and why.
 
 ---
 
-## FOLDER MAP
+## How this project is organized
 
-```
-GRAVITY_OS/
-├── PROJECT_INDEX.md          ← ไฟล์นี้ — เริ่มที่นี่เสมอ
-│
-├── 00_VISION/
-│   └── VISION.md             ← เป้าหมาย, ทิศทาง, business model
-│
-├── 01_ARCHITECTURE/
-│   ├── OVERVIEW.md           ← ภาพรวมระบบทั้งหมด
-│   ├── FILE_STRUCTURE.md     ← โครงสร้างไฟล์จริงใน repo
-│   └── DATA_FLOW.md          ← ข้อมูลไหลยังไง (Grist → Pages → D1)
-│
-├── 02_SYSTEMS/
-│   ├── TRACKING.md           ← Click tracking, D1, /go/[id]
-│   ├── PUBLISHING.md         ← Multi-platform publish (6 channels)
-│   ├── ANALYTICS.md          ← GA4, /api/stats, sync workflows
-│   ├── COMMUNITY_HUB.md      ← Community Hub — 6 platforms
-│   ├── EMAIL.md              ← Newsletter (Resend)
-│   ├── WORKER_AF.md          ← Worker "af" — Product pipeline
-│   └── SYSTEM_HEALTH.md      ← Health dashboard — 14 checks
-│
-├── 03_PLAYBOOKS/
-│   ├── DEPLOY.md             ← วิธี deploy ทุกประเภท
-│   ├── DEBUG.md              ← วิธี debug step-by-step
-│   └── ADD_NEW_PRODUCT.md    ← วิธีเพิ่มสินค้าใหม่เข้าระบบ
-│
-├── 04_BUG_DATABASE/
-│   ├── INDEX.md              ← รายการบั๊กทั้งหมด
-│   ├── BUG_001_WORKER_BUNDLE.md
-│   ├── BUG_002_GRIST_429.md
-│   ├── BUG_003_D1_SQL_VARIABLES.md
-│   ├── BUG_004_GO_REDIRECT.md
-│   └── BUG_005_HTTP500_NO_TRYCATCH.md
-│
-├── 05_ROADMAP/
-│   ├── BACKLOG.md            ← งานที่ต้องทำ (เรียงตามความสำคัญ)
-│   └── DONE.md               ← งานที่เสร็จแล้ว (archive)
-│
-├── 08_DEVELOPMENT_RULES/
-│   └── RULES.md              ← กฎถาวรทั้งหมด — อ่านก่อนแก้โค้ดทุกครั้ง
-│
-├── 09_SECURITY/
-│   └── CREDENTIALS.md        ← สถานะ credential ทั้งหมด (ไม่มีค่าจริง)
-│
-├── 12_AI_CONTEXT/
-│   ├── ONBOARDING.md         ← AI ใหม่อ่านนี่ก่อน — เข้าใจโปรเจกต์ใน 5 นาที
-│   └── CODEBASE_MAP.md       ← แผนที่โค้ด — ไฟล์ไหนทำอะไร
-│
-├── 14_API/
-│   └── ENV_VARS.md           ← Environment variables ทั้งหมด
-│
-└── 15_INTEGRATIONS/
-    └── THIRD_PARTY.md        ← Grist, GA4, Cloudflare, Resend, social APIs
-```
+Every piece of information has exactly one home. Do not create duplicate
+files, `_v2`, `_final`, or `_temp` versions — extend the existing structure
+or archive the old version (`16_ARCHIVES`) instead.
 
----
-
-## SYSTEM STATUS (2026-08-14 21:11)
-
-| ระบบ | สถานะ | หมายเหตุ |
+| # | Folder | What lives here |
 |---|---|---|
-| Homepage TH `/` | ✅ 200 | |
-| Homepage EN `/en` | ✅ 200 | |
-| Community Hub `/community` | ✅ 200 | |
-| Redirect `/go/:id` | ✅ 302 | แก้บั๊กแล้ว 14 ส.ค. |
-| Grist API | ✅ 200 | หาย 429 แล้ว |
-| D1 Database | ✅ | |
-| GA4 | ✅ | |
-| Telegram/Discord/Mastodon/Facebook/Threads | ✅ | |
-| Tumblr | ⏳ | ยังไม่เสร็จ |
-| Google Service Account Key | 🔴 | **ต้อง rotate ด่วน** |
+| 00 | [`00_VISION`](./00_VISION) | Why this project exists, long-term direction |
+| 01 | [`01_ARCHITECTURE`](./01_ARCHITECTURE) | System architecture, file structure, technical design |
+| 02 | [`02_SYSTEMS`](./02_SYSTEMS) | Documentation for each major subsystem |
+| 03 | [`03_PLAYBOOKS`](./03_PLAYBOOKS) | Step-by-step how-to procedures (deploy, etc.) |
+| 04 | [`04_BUG_DATABASE`](./04_BUG_DATABASE) | Known bugs, tracked issues |
+| 05 | [`05_ROADMAP`](./05_ROADMAP) | Scoped, prioritized, scheduled work (backlog) |
+| 06 | [`06_ASSETS`](./06_ASSETS) | Brand, media, mockups, marketing graphics |
+| 07 | [`07_IDEAS`](./07_IDEAS) | Raw, unscored ideas — the inbox before the roadmap |
+| 08 | [`08_DEVELOPMENT_RULES`](./08_DEVELOPMENT_RULES) | Coding standards, conventions, dev rules |
+| 09 | [`09_SECURITY`](./09_SECURITY) | Security posture, credentials status (never actual secrets) |
+| 10 | [`10_OPERATIONS`](./10_OPERATIONS) | Deployment log, incidents, maintenance, runbooks |
+| 11 | [`11_DECISIONS`](./11_DECISIONS) | Decision log (ADRs) — the "why" behind key choices |
+| 12 | [`12_AI_CONTEXT`](./12_AI_CONTEXT) | Onboarding docs written specifically for AI agents |
+| 13 | [`13_DATA`](./13_DATA) | Data schema, models, data flow |
+| 14 | [`14_API`](./14_API) | API documentation, environment variables |
+| 15 | [`15_INTEGRATIONS`](./15_INTEGRATIONS) | Third-party services and external dependencies |
+| 16 | [`16_ARCHIVES`](./16_ARCHIVES) | Retired, superseded, or backup files — nothing is deleted, it's archived |
 
 ---
 
-*Architecture defined in GRAVITY OS FOUNDATION. Do not restructure.*
+## Quick paths for common tasks
+
+**"I need to understand what this project is."**
+→ Start at `00_VISION`, then `01_ARCHITECTURE`.
+
+**"I need to fix a bug."**
+→ Check `04_BUG_DATABASE` first, then relevant folder in `02_SYSTEMS`.
+
+**"I need to deploy."**
+→ `03_PLAYBOOKS/DEPLOY.md`, and log the result in `10_OPERATIONS/DEPLOYMENTS.md`.
+
+**"I have an idea for a feature."**
+→ Drop it in `07_IDEAS/INBOX.md`. Do not add it directly to the roadmap.
+
+**"I need to know why something was built a certain way."**
+→ Check `11_DECISIONS` before asking or redesigning.
+
+**"I'm an AI agent picking up this project cold."**
+→ Read `12_AI_CONTEXT` in full before making any changes.
+
+**"I found a stray/duplicate/backup file at the project root."**
+→ It shouldn't be there. Move it to `16_ARCHIVES` and log it in
+  `16_ARCHIVES/INDEX.md`. Never delete it outright.
+
+---
+
+## Root-level files (outside numbered folders)
+
+| File | Purpose |
+|---|---|
+| `README.md` | Public-facing project overview |
+| `PROJECT_INDEX.md` | This file — central navigation |
+| `PROJECT-STATUS.md` | Current status snapshot |
+| `.gitignore` | Git ignore rules |
+
+If you see other loose files at root (backups, duplicates, `_old` files),
+that's a sign cleanup is overdue — check `16_ARCHIVES/INDEX.md`.
+
+---
+
+## Core rules (do not violate)
+
+1. Every piece of information must have a home — use the table above.
+2. Documentation ≠ journals. Bugs ≠ roadmap. Ideas ≠ tasks.
+3. No `V2`, `FINAL`, `NEW`, `TEMP` files — extend or archive instead.
+4. Nothing gets silently deleted — archive it with a reason.
+5. Single Source of Truth — if two files say the same thing, one of them
+   is wrong or stale. Fix it immediately.
+
+---
+
+*Last updated: reflects all 16 folders present as of this commit.*
