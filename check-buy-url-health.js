@@ -1,9 +1,12 @@
-// เช็คว่า buy_url ของสินค้าแต่ละตัวใน PRODUCTS ยังเปิดได้จริงไหม
-// (คนละอย่างกับ fix-content-product-links.js ซึ่งเช็คแค่ "ID ตรงกันไหม"
-//  ไฟล์นี้เช็คของจริง — ยิง request ไปหาปลายทางแล้วดู status code)
+// เช็คว่าลิงก์ซื้อสินค้า (affiliate_link) ของสินค้าแต่ละตัวใน PRODUCTS
+// ยังเปิดได้จริงไหม (คนละอย่างกับ fix-content-product-links.js ซึ่งเช็คแค่
+// "ID ตรงกันไหม" — ไฟล์นี้เช็คของจริง ยิง request ไปหาปลายทางแล้วดู status code)
+//
+// หมายเหตุ: ฟิลด์จริงใน Grist ชื่อ "affiliate_link" (เช่น https://amzn.to/xxx)
+// ไม่ใช่ "buy_url" — ยืนยันแล้วจาก debug log เมื่อ 2026-08-15
 //
 // โหมด default = แค่รายงานผล ไม่แก้/ลบอะไรทั้งสิ้น
-// ผลลัพธ์แบ่งเป็น 3 กลุ่ม: OK / น่าสงสัย (ต้องเช็คมือ) / ตายชัดเจน
+// ผลลัพธ์แบ่งเป็น 4 กลุ่ม: OK / น่าสงสัย (ต้องเช็คมือ) / ตายชัดเจน / รูปแบบผิด
 
 const GRIST_API_KEY = process.env.GRIST_API_KEY || 'PASTE_YOUR_API_KEY_HERE';
 const GRIST_DOC_ID = process.env.GRIST_DOC_ID || 'm9vaW63yyG4hk7BsXfo5Tk';
@@ -40,6 +43,8 @@ async function checkUrl(url, attempt = 0) {
   try {
     // ใช้ GET ไม่ใช่ HEAD เพราะร้านค้าอีคอมเมิร์ซหลายเจ้า (Amazon ฯลฯ)
     // ไม่รองรับ HEAD อย่างถูกต้อง (ตอบ 405 ทั้งที่หน้าเปิดได้จริง)
+    // affiliate_link มักเป็น short link (เช่น amzn.to) ต้องให้ fetch
+    // follow redirect ไปจนถึงปลายทางจริงด้วย (redirect: 'follow')
     const res = await fetch(url, {
       method: 'GET',
       redirect: 'follow',
@@ -77,13 +82,12 @@ async function main() {
   console.log('📥 กำลังดึงข้อมูลสินค้าจาก Grist...\n');
   const products = await gristGet('PRODUCTS');
   console.log(`✅ PRODUCTS: ${products.length} แถว\n`);
-  console.log('🔬 DEBUG ฟิลด์ของสินค้าตัวแรก:', JSON.stringify(products[0]?.fields, null, 2));
-  console.log(`🔎 กำลังเช็คลิงก์ทั้งหมด...`);
+  console.log(`🔎 กำลังเช็คลิงก์ affiliate_link ทั้งหมด (พร้อมกันครั้งละ ${CONCURRENCY} ลิงก์ อาจใช้เวลาสักครู่)...\n`);
 
   const rows = products.map(p => ({
     id: p.id,
     name: p.fields.product_name || '(ไม่มีชื่อ)',
-    rawUrl: p.fields.buy_url,
+    rawUrl: p.fields.affiliate_link,
   }));
 
   const results = await runWithConcurrency(rows, CONCURRENCY, async (row) => {
@@ -146,7 +150,7 @@ async function main() {
 
   console.log(`\n✅ ลิงก์ปกติ ${ok.length} ตัว ไม่ต้องทำอะไร`);
   console.log('\n💡 สคริปต์นี้แค่ "รายงาน" เท่านั้น ไม่ได้แก้/ลบข้อมูลใดๆ ใน Grist ให้อัตโนมัติ');
-  console.log('   ต้องไปแก้ buy_url ที่ตายเองใน Grist โดยตรง (หรือบอกผมให้ช่วยเขียนสคริปต์แก้เฉพาะจุดต่อ)');
+  console.log('   ต้องไปแก้ affiliate_link ที่ตายเองใน Grist โดยตรง (หรือบอกผมให้ช่วยเขียนสคริปต์แก้เฉพาะจุดต่อ)');
 
   if (broken.length || invalidFormat.length) process.exitCode = 2;
 }
