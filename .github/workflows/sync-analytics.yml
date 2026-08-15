@@ -11,6 +11,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Debug - list repo root and scripts folder
+        run: |
+          echo "=== ROOT ==="
+          ls -la
+          echo "=== SCRIPTS FOLDER ==="
+          ls -la scripts/
+          echo "=== EXACT FILE CHECK ==="
+          test -f scripts/sync-analytics-to-grist.js && echo "FOUND" || echo "NOT FOUND"
       - name: Sync D1 -> Grist AI_ANALYTICS
         env:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
