@@ -246,6 +246,7 @@
   <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')">🚀 Product Engine</button>
   <button class="tab-btn" data-tab="system-health" onclick="switchTab('system-health')">🩺 System Health</button>
   <button class="tab-btn" data-tab="community" onclick="switchTab('community')">🎪 Community Hub</button>
+  <button class="tab-btn" data-tab="market" onclick="switchTab('market')">🔎 Market Discovery</button>
 </div>
 
 <!-- ===== Phase 3: Analytics Dashboard ===== -->
@@ -421,7 +422,7 @@
       <div class="panel-head" onclick="onPanelHeadClick('import')">
         <span class="panel-num" id="pnum-import">1</span>
         <div class="panel-head-text">
-          <div class="panel-title">Import Product</div>
+          <div class="panel-title">Import Product <span class="tag" id="md-selected-chip" style="display:none; margin-left:6px;"></span></div>
           <div class="panel-sub" id="psub-import">วาง URL สินค้าหรือพิมพ์รายละเอียด</div>
         </div>
         <span class="panel-chev">›</span>
@@ -727,6 +728,163 @@ switchTab = function(tab) {
     loadPlatforms();
   }
 };
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MARKET DISCOVERY — merged from admin-html-market-discovery-snippet.html
+     ═══════════════════════════════════════════════════════════════════ -->
+<section id="market-discovery-panel" class="tab-panel hidden" data-tab="market" style="max-width:700px; margin:0 auto; padding:0 20px;">
+  <h2 style="margin:20px 0 4px; color:var(--text);">🔎 Market Discovery</h2>
+  <p style="color:var(--text-faint); font-size:13px; margin:0 0 20px;">หา "ตลาด" ที่ควรลงทุนสร้าง Content-Commerce Engine — ไม่ใช่หาสินค้าขายดีทีละตัว</p>
+
+  <input type="text" id="md-market" placeholder="Market / Keyword เช่น Pet Care, Dog Health">
+  <input type="text" id="md-country" placeholder="Country / Global (เว้นว่าง = global)">
+  <input type="text" id="md-category" placeholder="Category (optional)">
+  <button class="btn-primary" id="md-search-btn" onclick="runMarketSearch()">🔎 ค้นหา Market</button>
+  <div class="err" id="md-err"></div>
+
+  <div id="md-results" style="margin-top:20px;"></div>
+
+  <hr style="border:none; border-top:1px solid var(--line); margin:28px 0 20px;">
+  <h3 style="margin:0 0 4px; color:var(--text);">📋 Run ก่อนหน้า</h3>
+  <button class="btn-ghost" onclick="loadMarketList()" style="width:100%; margin:10px 0;">รีเฟรชรายการ</button>
+  <div id="md-history"></div>
+</section>
+
+<style>
+  .md-score-badge{ font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; flex-shrink:0; }
+  .md-score-badge.ok{ background:rgba(79,209,197,0.15); color:var(--teal); }
+  .md-score-badge.warn{ background:rgba(232,163,61,0.15); color:var(--amber); }
+  .md-score-badge.error{ background:rgba(226,96,79,0.15); color:#f0b3a8; }
+  .md-sub-card{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:6px; cursor:pointer; }
+  .md-sub-top{ display:flex; align-items:center; gap:8px; }
+  .md-sub-name{ flex:1; font-weight:600; font-size:13.5px; color:var(--text); }
+  .md-sub-detail{ display:none; margin-top:10px; font-size:12px; color:var(--text-dim); line-height:1.6; }
+  .md-sub-card.expanded .md-sub-detail{ display:block; }
+  .md-score-row{ display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .md-select-btn{ margin-top:10px; width:auto; padding:8px 14px; font-size:12.5px; }
+  .md-parent-header{ display:flex; align-items:center; gap:8px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--text); margin-bottom:10px; }
+</style>
+
+<script>
+function mdScoreClass(total){
+  if (total >= 75) return 'ok';
+  if (total >= 50) return 'warn';
+  return 'error';
+}
+
+const MD_SCORE_LABELS = {
+  score_demand: 'Demand', score_product_depth: 'Product Depth', score_money: 'Money / AOV',
+  score_commission: 'Commission', score_repeat: 'Repeat Purchase', score_problem_intensity: 'Problem Intensity',
+  score_competition: 'Competition', score_content_potential: 'Content Potential', score_gravity_fit: 'GRAVITY Fit'
+};
+
+async function runMarketSearch(){
+  const btn = document.getElementById('md-search-btn');
+  const errEl = document.getElementById('md-err');
+  const market = document.getElementById('md-market').value.trim();
+  const country = document.getElementById('md-country').value.trim() || 'global';
+  const category = document.getElementById('md-category').value.trim();
+  errEl.style.display = 'none';
+  if (!market) { errEl.textContent = 'ใส่ Market/Keyword ก่อนครับ'; errEl.style.display = 'block'; return; }
+
+  btn.disabled = true; btn.textContent = 'กำลังวิเคราะห์...';
+  try {
+    const data = await apiCall('/api/market-search', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ market, country, category: category || undefined })
+    }, 'POST /api/market-search');
+    renderMarketResults(data);
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '🔎 ค้นหา Market';
+  }
+}
+
+function renderMarketResults(data){
+  const wrap = document.getElementById('md-results');
+  const cls = mdScoreClass(data.market.score_total);
+
+  const subCardsHtml = data.subMarkets.map(sm => {
+    const scls = mdScoreClass(sm.score_total);
+    const scoreRows = Object.entries(MD_SCORE_LABELS).map(([key, label]) =>
+      '<div class="md-score-row"><span>' + label + '</span><span>' + (sm[key] ?? 0) + '</span></div>'
+    ).join('');
+    let angles = [];
+    try { angles = JSON.parse(sm.content_angles || '[]'); } catch(e) {}
+    return '<div class="md-sub-card" onclick="this.classList.toggle(\'expanded\')">' +
+      '<div class="md-sub-top">' +
+        '<span class="md-sub-name">' + escapeHtml(sm.name) + '</span>' +
+        '<span class="md-score-badge ' + scls + '">' + sm.score_total + '</span>' +
+      '</div>' +
+      '<div class="md-sub-detail">' +
+        scoreRows +
+        (angles.length ? '<div style="margin-top:8px;">📝 Content angles: ' + angles.map(escapeHtml).join(', ') + '</div>' : '') +
+        (sm.ai_reasoning ? '<div style="margin-top:8px; color:var(--text-faint);">' + escapeHtml(sm.ai_reasoning) + '</div>' : '') +
+        '<button class="btn-teal md-select-btn" onclick="event.stopPropagation(); selectMarket(' + sm.id + ')">✓ เลือก Market นี้</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  wrap.innerHTML =
+    '<div class="md-parent-header">' + escapeHtml(data.market.name) +
+      '<span class="md-score-badge ' + cls + '">' + data.market.score_total + '</span></div>' +
+    subCardsHtml;
+}
+
+async function selectMarket(marketId){
+  try {
+    await apiCall('/api/market-select', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ marketId })
+    }, 'POST /api/market-select (#' + marketId + ')');
+    loadSelectedMarketChip();
+    alert('เลือก Market นี้แล้ว — ไปที่แท็บ Product Engine ได้เลย');
+  } catch(e) {
+    alert('เลือกไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function loadMarketList(){
+  const wrap = document.getElementById('md-history');
+  wrap.innerHTML = '<div class="note">กำลังโหลด...</div>';
+  try {
+    const data = await apiCall('/api/market-list', undefined, 'GET /api/market-list');
+    const parents = (data.markets || []).filter(m => m.level === 'market');
+    if (!parents.length) { wrap.innerHTML = '<div class="note">ยังไม่มีประวัติการค้นหา</div>'; return; }
+    wrap.innerHTML = parents.map(m =>
+      '<div class="pl-row"><div class="pl-info"><div class="pl-name">' + escapeHtml(m.name) +
+      '</div><div class="pl-meta"><span class="tag">' + m.score_total + ' คะแนน</span><span>' +
+      new Date(m.created_at).toLocaleDateString('th-TH') + '</span></div></div></div>'
+    ).join('');
+  } catch(e) {
+    wrap.innerHTML = '<div class="err" style="display:block;">โหลดไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+// เอาไปโชว์เป็น chip เล็กๆ ในพาเนล Import Product เดิม (ดูข้อ 3 ด้านบน)
+// — เชื่อม Market Discovery เข้ากับ Product Engine ตาม Definition of Done
+// โดยไม่ต้องแก้ logic การ import เดิมเลยแม้แต่บรรทัดเดียว
+async function loadSelectedMarketChip(){
+  const el = document.getElementById('md-selected-chip');
+  if (!el) return;
+  try {
+    const data = await apiCall('/api/market-list?status=selected', undefined, 'GET /api/market-list (selected)');
+    const selected = (data.markets || [])[0];
+    el.textContent = selected ? ('🔎 ' + selected.name) : '';
+    el.style.display = selected ? 'inline-flex' : 'none';
+  } catch(e) { /* silent — nice-to-have only, ไม่บล็อก Import panel */ }
+}
+
+const _origSwitchTabMD = switchTab;
+switchTab = function(tab){
+  _origSwitchTabMD(tab);
+  if (tab === 'market') loadMarketList();
+};
+
+document.addEventListener('DOMContentLoaded', loadSelectedMarketChip);
 </script>
 
 <style>
