@@ -14,10 +14,42 @@
  * PER LANGUAGE, with a `language` column. Every read here takes a `lang`
  * param and filters both CONTENT and AI_ANALYSIS rows by that language,
  * so th/en never mix.
+ *
+ * --- GRAVITY FIX (2026-08-22): quality_tier is now enforced here ---
+ * pipeline.js's content_th/content_en steps have computed quality_score /
+ * quality_tier / quality_warnings (via scoreReviewMarketFit) for a while,
+ * but until now nothing ever read them back — LIVE_STATUSES alone decided
+ * whether a product showed up on the site, so AI-flagged low-quality
+ * content (generic "มีคุณภาพดีและราคาเหมาะสม"-style boilerplate) went live
+ * exactly the same as everything else. getLiveArticles() now also checks
+ * CONTENT.quality_tier and skips products whose tier is in
+ * REJECTED_QUALITY_TIERS, the same way it already skips products missing
+ * slug/blog_draft.
+ *
+ * IMPORTANT — verify REJECTED_QUALITY_TIERS against ai-prompt.js:
+ * scoreReviewMarketFit()'s actual tier string values weren't available
+ * when this fix was written (that function lives in ai-prompt.js, not
+ * shown here). The set below assumes common tier-naming conventions
+ * ('poor'/'low'/'reject'). Open ai-prompt.js, confirm the real tier
+ * strings scoreReviewMarketFit() returns, and update the set to match —
+ * otherwise this gate silently does nothing (if the real values don't
+ * match) rather than failing loudly, by design (same fail-open pattern
+ * used elsewhere in this file for missing columns).
+ *
+ * Products generated BEFORE this fix may not have quality_tier populated
+ * at all (old CONTENT rows) — those are treated as passing (tier == null
+ * is never in the rejected set), so nothing existing suddenly disappears.
+ * Run handleResetPipeline({ productId, toStep: 2 }) from the admin side
+ * to backfill quality_tier for old products if you want them re-evaluated.
  */
 
 const GRIST_BASE = 'https://docs.getgrist.com/api/docs';
 const LIVE_STATUSES = new Set(['enriched', 'published']);
+
+// GRAVITY FIX (2026-08-22): tiers that must NOT go live automatically.
+// See the file-header note above — confirm these strings against
+// ai-prompt.js's scoreReviewMarketFit() and adjust if they don't match.
+const REJECTED_QUALITY_TIERS = new Set(['poor', 'low', 'reject', 'fail']);
 
 export async function gristFetch(env, path) {
   const res = await fetch(`${GRIST_BASE}/${env.GRIST_DOC_ID}${path}`, {
@@ -195,6 +227,16 @@ export async function getLiveArticles(env, lang = 'th') {
     if (!LIVE_STATUSES.has(status)) continue;
     const c = contentByProduct.get(String(p.id));
     if (!c || !c.slug || !c.blog_draft) continue; // not enriched enough to show yet
+
+    // GRAVITY FIX (2026-08-22): honor the quality tier scoreReviewMarketFit()
+    // already computed in pipeline.js instead of ignoring it. c.quality_tier
+    // is only absent for products enriched before this scoring existed —
+    // absent/null is treated as "pass" (fail-open), matching how missing
+    // columns are handled everywhere else in this file. See file header.
+    if (c.quality_tier && REJECTED_QUALITY_TIERS.has(String(c.quality_tier).toLowerCase())) {
+      continue;
+    }
+
     articles.push({
       id: p.id,
       slug: c.slug,
@@ -209,13 +251,17 @@ export async function getLiveArticles(env, lang = 'th') {
       updatedAt: p.fields.updated_at || c.generated_at || null,
       authorId: c.reviewer_id || c.author_id || null,
       category: p.fields.category || null,
-      // ⭐ ใหม่ — คำแปลหมวดภาษาไทยจาก AI pipeline (ถ้ามี) ต้นทางเดียวกับ
-      // category (EN) แต่เป็นคนละคอลัมน์ใน PRODUCTS. ยังไม่มีการันตีว่า
-      // Worker "af" เขียนคอลัมน์นี้แล้วหรือยัง (ดู GRAVITY-BLOG-MASTER-SUMMARY
-      // ข้อล่าสุด) — pickField() คืน null เฉยๆ ถ้าคอลัมน์ยังไม่มี/ว่าง ไม่ throw
-      // ตัวรับ (homepage.js) ต้อง fallback เป็น dictionary hardcode หรือ EN
-      // เองเวลาค่านี้เป็น null — ดู getCategoryLabel() ใน homepage.js
+      // ⭐ คำแปลหมวดภาษาไทยจาก AI pipeline (ถ้ามี) ต้นทางเดียวกับ
+      // category (EN) แต่เป็นคนละคอลัมน์ใน PRODUCTS. ตั้งแต่ 2026-08-22
+      // import.js สั่งให้ AI เขียนคอลัมน์นี้คู่กับ category ทุกครั้งที่
+      // import สินค้าใหม่ (ดู import.js) — สินค้าเก่าก่อนหน้านั้นอาจยังว่าง
+      // อยู่ ซึ่ง pickField() คืน null เฉยๆ ไม่ throw ตัวรับ (homepage.js)
+      // จะ fallback เป็น dictionary hardcode หรือ EN เองเวลาค่านี้เป็น null
       categoryTh: pickField(p.fields, ['category_th', 'category_thai', 'categorythai']) || null,
+      // Surfaced mainly for admin/debug use — not currently read by
+      // homepage.js, but useful if you want to show a "quality" badge
+      // later without another Grist round-trip.
+      qualityTier: c.quality_tier || null,
       analysis: analysisByProduct.get(String(p.id)) || null
     });
   }
