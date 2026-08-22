@@ -113,34 +113,24 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
           }
           .ch-chip:hover { opacity: 0.75; }
           .ch-chip-emoji { font-size: 15px; line-height: 1; }
-          .ch-view-all-chip { font-size: 12.5px; color: var(--text-secondary, var(--ink-muted)); text-decoration: underline; padding: 7px 4px; white-space: nowrap; flex-shrink: 0; }
 
-          /* Search button/input, placed last in the chip row */
-          .sb-wrap { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
-          .sb-btn {
-            width: 36px; height: 36px; border-radius: 50%;
-            border: 0.5px solid var(--border, var(--hairline)); background: var(--surface-2, var(--surface));
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            font-size: 15px; flex-shrink: 0; transition: border-color .15s;
-            color: inherit;
+          /* Search box — always visible, no expand-on-click. Placed last in the chip row. */
+          .sb-wrap {
+            display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+            height: 36px; padding: 0 12px; box-sizing: border-box;
+            border: 0.5px solid var(--border, var(--hairline));
+            border-radius: 18px; background: var(--surface-2, var(--surface));
           }
-          .sb-btn:hover { opacity: 0.75; }
+          .sb-icon { font-size: 13px; line-height: 1; opacity: 0.6; flex-shrink: 0; }
           .sb-input {
-            position: absolute; right: 42px; top: 50%; transform: translateY(-50%);
-            width: 0; opacity: 0; pointer-events: none;
-            box-sizing: border-box; height: 36px; padding: 0;
-            border: 0.5px solid var(--border, var(--hairline)); border-radius: 10px;
-            background: var(--surface); color: inherit;
-            font-size: 14px; font-family: inherit;
-            transition: width .25s ease, opacity .2s ease, padding .2s ease;
-            z-index: 5;
+            border: none; outline: none; background: transparent; color: inherit;
+            font-size: 14px; font-family: inherit; width: 150px; padding: 0;
           }
-          .sb-input.open { width: 200px; opacity: 1; pointer-events: auto; padding: 0 12px; }
-          @media (max-width: 400px) { .sb-input.open { width: calc(100vw - 90px); } }
+          .sb-input::placeholder { color: var(--text-secondary, var(--ink-muted)); }
+          @media (max-width: 480px) { .sb-input { width: 110px; } }
         </style>
         <div class="ch-chip-row">
           ${chips}
-          ${showViewAll ? `<a class="ch-view-all-chip" href="/community">ดูชุมชนทั้งหมด →</a>` : ''}
           ${searchBoxHtml}
         </div>
       </section>`;
