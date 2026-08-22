@@ -519,7 +519,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   // NOTE: split into two pieces on purpose.
   //   1) searchButtonHtml — just the round 🔍 button + expandable input.
   //      This gets handed to renderCommunityHub() so it renders INLINE,
-  //      as the leftmost item in the Telegram/Discord/... chip row.
+  //      as the rightmost item in the Telegram/Discord/... chip row.
   //   2) searchStylesAndScript — CSS + JS + the "no results" message.
   //      Rendered on the page regardless of where the button ends up.
   const searchButtonHtml = articles.length ? `
@@ -597,13 +597,10 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const communityHubVisible = await isCommunityHubVisible(env);
 
   // When the hub is visible, the search button is rendered INSIDE it
-  // (leftmost chip, next to Telegram/Discord/...). When it's hidden,
-  // fall back to a standalone right-aligned search bar above the filters.
+  // (rightmost chip, next to Telegram/Discord/...). When it's hidden,
+  // the search button is rendered in the header section alongside h1/subheading.
   const communityHubHtml = communityHubVisible
     ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: searchButtonHtml })
-    : '';
-  const standaloneSearchHtml = (!communityHubVisible && articles.length)
-    ? `<div style="display:flex; justify-content:flex-end; margin-bottom:16px;">${searchButtonHtml}</div>`
     : '';
 
   const body = errorMsg
@@ -613,7 +610,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${communityHubHtml}${filterHtml}${standaloneSearchHtml}${searchStylesAndScript}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${communityHubHtml}${filterHtml}${searchStylesAndScript}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
@@ -630,6 +627,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     wide: true,
     bodyHtml: `<h1 style="font-size:26px;margin-bottom:6px;">${escapeHtml(t.heading)}</h1>
     <p class="meta" style="margin-bottom:28px;">${escapeHtml(t.subheading)}</p>
+${searchButtonHtml}
 ${body}`
   });
 
