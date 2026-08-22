@@ -79,7 +79,7 @@ function renderChip(p) {
  * @param {boolean} [opts.showViewAll]
  * @param {object} [opts.env]
  * @param {string} [opts.searchBoxHtml] - Optional raw HTML for a search button/input
- *   (compact mode only). Rendered as the FIRST item in the chip row, to the left
+ *   (compact mode only). Rendered as the LAST item in the chip row, to the right
  *   of the Telegram/Discord/... chips.
  */
 export async function renderCommunityHub({ mode = 'compact', showViewAll = true, env, searchBoxHtml = '' } = {}) {
@@ -105,7 +105,7 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
           .ch-chip-emoji { font-size: 15px; line-height: 1; }
           .ch-view-all-chip { font-size: 12.5px; color: var(--text-secondary, var(--ink-muted)); text-decoration: underline; padding: 7px 4px; white-space: nowrap; }
 
-          /* Search button/input, placed first in the chip row */
+          /* Search button/input, placed last in the chip row */
           .sb-wrap { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
           .sb-btn {
             width: 36px; height: 36px; border-radius: 50%;
@@ -116,7 +116,7 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
           }
           .sb-btn:hover { opacity: 0.75; }
           .sb-input {
-            position: absolute; left: 42px; top: 50%; transform: translateY(-50%);
+            position: absolute; right: 42px; top: 50%; transform: translateY(-50%);
             width: 0; opacity: 0; pointer-events: none;
             box-sizing: border-box; height: 36px; padding: 0;
             border: 0.5px solid var(--border, var(--hairline)); border-radius: 10px;
@@ -129,9 +129,9 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
           @media (max-width: 400px) { .sb-input.open { width: calc(100vw - 90px); } }
         </style>
         <div class="ch-chip-row">
-          ${searchBoxHtml}
           ${chips}
           ${showViewAll ? `<a class="ch-view-all-chip" href="/community">ดูชุมชนทั้งหมด →</a>` : ''}
+          ${searchBoxHtml}
         </div>
       </section>`;
   }
