@@ -164,39 +164,19 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
 
 // ── Category filter helpers ────────────────────────────────────────────────
 
-/**
- * แยก category string ออกเป็น top-level vs sub-level
- *
- * กฎ: ถ้า category มี " > " คั่น → ส่วนแรก = top, ส่วนที่เหลือ = sub
- *      ถ้าไม่มี " > " → top = category นั้นเลย, sub = null
- *
- * ตัวอย่าง:
- *   "Pet Supplies > Dogs > Health Supplies > Relaxants"
- *     → top: "Pet Supplies", sub: "Dogs > Health Supplies > Relaxants"
- *   "Electronics"
- *     → top: "Electronics", sub: null
- */
 function splitCategory(cat) {
   const idx = cat.indexOf(' > ');
   if (idx === -1) return { top: cat, sub: null };
   return { top: cat.slice(0, idx), sub: cat.slice(idx + 3) };
 }
 
-/**
- * สร้าง HTML ของ category filter แบบ C:
- *   แถวเดียว = pills หมวดหลัก (top-level) + ปุ่ม dropdown "หมวดย่อย ▾"
- *   dropdown แสดงเฉพาะ sub ของ top ที่ active อยู่
- *
- * URL param ยังคง ?category= เหมือนเดิม ไม่ต้องเปลี่ยน backend เลย
- */
 function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   if (!categories.length) return '';
 
   const base = homePath(lang);
 
-  // สร้าง map: topLevel → [ { sub, fullCat } ]
-  const topMap = {};   // top → count (เพื่อ sort)
-  const subMap = {};   // top → [ { sub, fullCat } ]
+  const topMap = {};
+  const subMap = {};
 
   categories.forEach(cat => {
     const { top, sub } = splitCategory(cat);
@@ -207,25 +187,18 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
     }
   });
 
-  // top-level pills เรียง descending ตามจำนวนสินค้า (ตัดให้สั้น ≤ 4 คำ)
   const tops = Object.keys(topMap).sort((a, b) => topMap[b] - topMap[a]);
 
-  // active top = top ของ selectedCategory (หรือ null ถ้า All)
   const activeTop = selectedCategory ? splitCategory(selectedCategory).top : null;
 
-  // sub dropdown สำหรับ top ที่ active
   const activeSubs = activeTop ? (subMap[activeTop] || []) : [];
 
-  // ──────────────────────────────────────────────
-  // CSS (inject ครั้งเดียว)
-  // ──────────────────────────────────────────────
   const css = `
 <style id="cf-style">
 .cf-wrap{
   display:flex; align-items:center; flex-wrap:wrap;
   gap:8px; margin-bottom:20px; position:relative;
 }
-/* pill หมวดหลัก */
 .cf-pill{
   display:inline-flex; align-items:center;
   padding:7px 16px; border-radius:99px;
@@ -236,9 +209,6 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   -webkit-tap-highlight-color:transparent;
   touch-action:manipulation;
 }
-/* จำกัด :hover ให้ใช้เฉพาะอุปกรณ์ที่มีเมาส์จริง —
-   บน iOS/mobile Safari การมี :hover บน <a> ทำให้แตะครั้งแรก
-   ถูกตีความเป็น hover-state แทน click จริง (ต้องแตะ 2 ครั้ง) */
 @media (hover: hover) and (pointer: fine) {
   .cf-pill:hover{ background:var(--surface); border-color:var(--accent); }
 }
@@ -246,7 +216,6 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   background:var(--ink); color:var(--surface);
   border-color:var(--ink);
 }
-/* ปุ่ม dropdown หมวดย่อย */
 .cf-dd-btn{
   display:inline-flex; align-items:center; gap:5px;
   padding:7px 14px; border-radius:99px;
@@ -267,7 +236,6 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   font-size:10px; transition:transform .2s; display:inline-block;
 }
 .cf-dd-btn.open .cf-chevron{ transform:rotate(180deg); }
-/* dropdown panel */
 .cf-dd-panel{
   position:absolute; top:calc(100% + 6px); left:0;
   min-width:220px; max-width:320px;
@@ -279,7 +247,6 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
   pointer-events:none;
 }
 .cf-dd-panel.open{ display:flex; pointer-events:auto; }
-/* link ภายใน dropdown */
 .cf-dd-item{
   display:block; padding:8px 12px; border-radius:8px;
   font-size:13px; color:var(--ink);
@@ -291,32 +258,20 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
 .cf-dd-item.is-active{
   background:var(--ink); color:var(--surface);
 }
-/* ซ่อนปุ่มถ้าไม่มี sub */
 .cf-dd-btn[hidden]{ display:none; }
 </style>`;
 
-  // ──────────────────────────────────────────────
-  // Pills หมวดหลัก
-  // ──────────────────────────────────────────────
   const pillsHtml = [
-    // "ทั้งหมด" / "All"
     `<a href="${base}" class="cf-pill${!selectedCategory ? ' is-active' : ''}">${escapeHtml(t.filterAll)}</a>`,
-    // top-level categories
     ...tops.map(top => {
-      // ถ้าคลิก pill top → link ไปที่ full category ที่มีคนเดียว หรือ top เอง
-      // ถ้า top มี sub → link = top เอง (filter เฉพาะ top, ไม่ใช่ fullCat)
       const href = `${base}?category=${encodeURIComponent(top)}`;
       const isActive = activeTop === top;
       return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(top)}</a>`;
     })
   ].join('\n    ');
 
-  // ──────────────────────────────────────────────
-  // Dropdown หมวดย่อย (แสดงเฉพาะถ้า activeTop มี sub)
-  // ──────────────────────────────────────────────
   const hasSubs = activeSubs.length > 0;
 
-  // label ของปุ่ม: ถ้า selectedCategory เป็น sub ให้โชว์ชื่อ sub ที่เลือกอยู่
   const selectedSub = selectedCategory && activeTop && selectedCategory !== activeTop
     ? splitCategory(selectedCategory).sub
     : null;
@@ -341,9 +296,6 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
     </div>
   </div>` : '';
 
-  // ──────────────────────────────────────────────
-  // JS toggle (minimal — ไม่ใช้ framework)
-  // ──────────────────────────────────────────────
   const js = hasSubs ? `
 <script>
 (function(){
@@ -458,12 +410,10 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const selectedCategory = request ? new URL(request.url).searchParams.get('category') : null;
 
   // ── Category filter ────────────────────────────────────────────────────
-  // นับจาก articles ทั้งหมด (ไม่ filter ก่อน) เพื่อให้ pills โชว์ครบทุกหมวด
   const MIN_PRODUCTS_PER_CATEGORY = 2;
   const categoryCounts = {};
   articles.forEach(a => {
     if (a.category) {
-      // นับทั้ง full path และ top-level
       categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
       const { top } = splitCategory(a.category);
       if (top !== a.category) {
@@ -475,9 +425,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     .filter(cat => categoryCounts[cat] >= MIN_PRODUCTS_PER_CATEGORY)
     .sort((a, b) => categoryCounts[b] - categoryCounts[a]);
 
-  // filter articles ตาม selectedCategory
-  // - ไม่มี " > " = top-level → match ทุก article ที่ category ขึ้นต้นด้วย top นั้น
-  // - มี " > " = full path → exact match
   let displayScoredArticles;
   if (!selectedCategory) {
     displayScoredArticles = scoredArticles;
@@ -491,7 +438,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     });
   }
 
-  // ── สร้าง filterHtml แบบ C ─────────────────────────────────────────────
   const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t });
 
   // ── Split top / new arrivals ───────────────────────────────────────────
@@ -516,12 +462,9 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   ` : '';
 
   // ── Search UI ───────────────────────────────────────────────────────────
-  // NOTE: split into two pieces on purpose.
-  //   1) searchButtonHtml — just the round 🔍 button + expandable input.
-  //      This gets handed to renderCommunityHub() so it renders INLINE,
-  //      as the rightmost item in the Telegram/Discord/... chip row.
-  //   2) searchStylesAndScript — CSS + JS + the "no results" message.
-  //      Rendered on the page regardless of where the button ends up.
+  // searchButtonHtml — ส่งไปให้ renderCommunityHub() วางเป็น chip ขวาสุด
+  // ในแถว Telegram/Discord/... เมื่อ hub มองเห็น
+  // เมื่อ hub ซ่อน → render standalone ใน header แทน (ผ่าน standaloneSearchHtml)
   const searchButtonHtml = articles.length ? `
     <div class="sb-wrap">
       <button class="sb-btn" id="sbBtn" aria-label="ค้นหาสินค้า" onclick="toggleSearch()">🔍</button>
@@ -533,9 +476,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const searchStylesAndScript = articles.length ? `
   <style>
-    /* Fallback styles — only apply when the Community Hub is hidden and the
-       search button renders standalone above the category filter instead of
-       inside the chip row (which has its own copy of these rules). */
     .sb-wrap{ position:relative; display:inline-flex; align-items:center; }
     .sb-btn{
       width:38px; height:38px; border-radius:50%;
@@ -596,12 +536,16 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const communityHubVisible = await isCommunityHubVisible(env);
 
-  // When the hub is visible, the search button is rendered INSIDE it
-  // (rightmost chip, next to Telegram/Discord/...). When it's hidden,
-  // the search button is rendered in the header section alongside h1/subheading.
+  // เมื่อ hub มองเห็น: ส่ง searchButtonHtml ไปให้ community-hub.js วาง
+  //   เป็น chip ขวาสุดในแถว Telegram/Discord/... (ไม่ render ซ้ำที่ homepage)
+  // เมื่อ hub ซ่อน: render search button standalone ใน header แทน
   const communityHubHtml = communityHubVisible
     ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: searchButtonHtml })
     : '';
+
+  // standaloneSearchHtml แสดงเฉพาะตอนที่ hub ซ่อน
+  // ตอนที่ hub โชว์ → '' เพราะ searchButtonHtml อยู่ใน communityHubHtml แล้ว
+  const standaloneSearchHtml = communityHubVisible ? '' : searchButtonHtml;
 
   const body = errorMsg
     ? `<div class="error-page">
@@ -633,7 +577,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     </div>
     <div style="flex-shrink:0; display:flex; gap:8px; align-items:center; margin-top:2px;">
       ${communityHubHtml}
-      ${searchButtonHtml}
+      ${standaloneSearchHtml}
     </div>
   </div>
 </div>
