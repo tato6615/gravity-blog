@@ -8,6 +8,9 @@
  * 3. Better currency handling in formatPrice()
  * 4. Added author bio section rendering
  * 5. Better AggregateRating support (when data exists)
+ * 6. NEW: renderPage() now accepts a `headerExtra` slot so content like the
+ *    community-hub social row + search box can live inside <header class="site">,
+ *    on the same row as the GRAVITY OS logo (wraps under it on narrow screens).
  */
 
 const SITE_URL = 'https://gravity-blog.pages.dev';
@@ -134,7 +137,23 @@ const BASE_CSS = `
   header.site{
     border-bottom:1px solid var(--hairline); padding:22px 0; margin-bottom:8px;
   }
-  .site-header-row{ display:flex; align-items:center; justify-content:space-between; }
+  /* UPDATED: header row now wraps so it can hold brand + social/search + lang switch */
+  .site-header-row{
+    display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px;
+  }
+  .site-header-row .brand{ flex:0 0 auto; }
+  .site-header-row .lang-switch{ margin-left:auto; flex:0 0 auto; }
+  /* NEW: extra header content (community/social row + search).
+     On narrow screens it drops to its own full-width line right under
+     the brand/lang row, still inside the same <header>. On wider screens
+     it sits inline between the logo and the lang switch. */
+  .site-header-extra{
+    flex:1 1 100%; order:3;
+    display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  }
+  @media (min-width:900px){
+    .site-header-extra{ flex:1 1 auto; order:2; }
+  }
   header.site a.brand{
     display:inline-flex; align-items:center; gap:9px;
     font-family:'Noto Serif Thai', serif; font-weight:700; font-size:19px;
@@ -357,7 +376,8 @@ const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="
 
 export function renderPage({
   title, description, canonicalPath = '/', image, lang = 'th',
-  altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false
+  altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false,
+  headerExtra = ''
 }) {
   const t = uiStrings(lang);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
@@ -369,6 +389,9 @@ export function renderPage({
   const langSwitchHtml = altLangPath
     ? `<a class="lang-switch" href="${escapeHtml(altLangPath)}">${escapeHtml(t.langSwitchLabel)}</a>`
     : '';
+  // NEW: headerExtra (e.g. community-hub social row + search box) renders
+  // inside the header, on the same visual row as the GRAVITY OS logo.
+  const headerExtraHtml = headerExtra ? `<div class="site-header-extra">${headerExtra}</div>` : '';
 
   return `<!DOCTYPE html>
 <html lang="${t.htmlLang}">
@@ -402,6 +425,7 @@ ${FONT_LINK}
 <body>
 <header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
   <a class="brand" href="${lang === 'en' ? '/en/' : '/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
+  ${headerExtraHtml}
   ${langSwitchHtml}
 </div></header>
 <main class="${wide ? 'wrap-wide' : 'wrap'}">${breadcrumbHtml}${bodyHtml}</main>
