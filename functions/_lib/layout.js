@@ -272,17 +272,21 @@ const BASE_CSS = `
     color:var(--ink-muted); font-size:12px; margin-top:10px; padding-top:10px;
     border-top:1px solid var(--hairline);
   }
+  /* UPDATED: auto-fit + minmax instead of fixed column-count breakpoints.
+     When there are fewer cards than would fill a row (e.g. only 3 products),
+     the existing cards stretch to fill the full width instead of leaving an
+     empty gap on the right. Columns still shrink/wrap responsively as the
+     viewport narrows — no manual breakpoints needed. */
   .card-grid{
-    display:grid; grid-template-columns:1fr; gap:16px;
-  }
-  @media (min-width:680px){
-    .card-grid{ grid-template-columns:repeat(2, 1fr); }
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+    gap:16px;
   }
   @media (min-width:820px){
-    .card-grid{ grid-template-columns:repeat(3, 1fr); gap:18px; }
+    .card-grid{ gap:18px; }
   }
   @media (min-width:1080px){
-    .card-grid{ grid-template-columns:repeat(4, 1fr); gap:20px; }
+    .card-grid{ gap:20px; }
   }
   .verdict{
     background:#FBFAF6; border:1px solid var(--hairline);
