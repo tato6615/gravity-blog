@@ -79,8 +79,6 @@ function homePath(lang) {
   return lang === 'en' ? '/en/' : '/';
 }
 
-const TOP_SECTION_COUNT = 3;
-
 // D1 จำกัด bound parameters ต่อ query ไว้ที่ 100 ตัว — แบ่งเป็น chunk ละ 90
 // เผื่อไว้ (กันชนเพดานพอดีถ้าจำนวนสินค้าโตขึ้นอีกในอนาคต)
 const D1_CHUNK_SIZE = 90;
@@ -126,6 +124,95 @@ async function getOrCreateFirstSeenMap(env, productIds) {
   }
 
   return firstSeenMap;
+}
+
+// ── Composite ranking score (แทนระบบ 2 โซนเดิม: Top 3 + Newest arrivals) ──
+//
+// รวม 3 สัญญาณเป็นคะแนนเดียว แล้วเรียงทั้งหน้าจากคะแนนนี้ ไม่แยก section:
+//   1. click score ที่ decay ตามเวลา (สูตรทำนอง Hacker News ranking)
+//   2. Bayesian-weighted rating (กัน rating เพี้ยนจากสินค้าที่เพิ่งเข้าระบบ/มีข้อมูลน้อย)
+//   3. recency boost (สินค้าใหม่ได้แต้มพิเศษที่ค่อยๆ ลดลง ไม่ใช่กันโซนพิเศษให้ตลอดไป)
+//
+// ⭐ หมายเหตุ: ระบบนี้ไม่มีฟิลด์ "จำนวนรีวิว" (มีแค่ rating ตัวเลขเดียว 0-5)
+// สูตร Bayesian ตำรามาตรฐานต้องใช้ v = จำนวนรีวิวจริง แต่เราไม่มีข้อมูลนั้น
+// จึงใช้ "จำนวนคลิก" แทนเป็นตัวแทนความน่าเชื่อถือ (proxy for confidence) —
+// สินค้าที่มีคนคลิกดูเยอะ ถือว่ามีหลักฐานมากพอจะเชื่อ rating ของมันได้มากขึ้น
+// สินค้าที่ยังไม่มีคลิกเลย จะได้ weighted rating ใกล้เคียงค่าเฉลี่ยทั้งเว็บ (C)
+// แทนที่จะโดนตัดสินจาก rating ดิบที่อาจมาจากแหล่งข้อมูลต้นทางเพียงจุดเดียว
+
+const CLICK_DECAY_EXPONENT = 1.5;   // ยิ่งสูง ยิ่งลดความสำคัญของคลิกเก่าเร็วขึ้น
+const RATING_CONFIDENCE_M = 10;     // pseudo-count ขั้นต่ำก่อนเชื่อ rating ดิบเต็มที่
+const RECENCY_BOOST_DAYS = 7;       // จำนวนวันที่ recency boost ค่อยๆ ลดจนเป็น 0
+const SCORE_WEIGHTS = { click: 0.5, rating: 0.3, recency: 0.2 };
+
+// C = ค่าเฉลี่ย rating ของสินค้าทั้งหมดที่มี rating จริง (ไม่นับสินค้าที่ไม่มี rating)
+function computeSiteAverageRating(articles) {
+  const rated = articles
+    .map(a => a.product && a.product.rating)
+    .filter(r => r != null && !isNaN(Number(r)));
+  if (!rated.length) return 4.0; // fallback ถ้ายังไม่มี rating ในระบบเลยสักตัว
+  return rated.reduce((sum, r) => sum + Number(r), 0) / rated.length;
+}
+
+// weighted_rating = (v × R + m × C) / (v + m)
+// v = clicks (proxy แทนจำนวนรีวิวที่ไม่มีจริงในระบบนี้), R = rating ดิบของสินค้า
+// (หรือ C ถ้าไม่มี rating เลย — ทำให้สูตรได้ค่า = C พอดี ไม่ลงโทษสินค้าที่ยังไม่มี rating)
+function bayesianRating(article, clicks, siteAvgRating) {
+  const rawRating = article.product && article.product.rating;
+  const R = rawRating != null && !isNaN(Number(rawRating)) ? Number(rawRating) : siteAvgRating;
+  const v = clicks;
+  const m = RATING_CONFIDENCE_M;
+  return (v * R + m * siteAvgRating) / (v + m);
+}
+
+// score_from_clicks = clicks / (days_since_first_seen + 2)^1.5 — สูตรทำนอง Hacker News
+// สินค้าใหม่คลิกดีจะแซงสินค้าเก่าคลิกเยอะแต่นิ่งไปแล้วได้ตามธรรมชาติ
+function timeDecayedClickScore(clicks, firstSeenAt, nowMs) {
+  const ageDays = firstSeenAt
+    ? Math.max(0, (nowMs - new Date(firstSeenAt).getTime()) / (1000 * 60 * 60 * 24))
+    : 9999; // ไม่รู้วันที่ → ถือว่าเก่ามาก กันไม่ให้ได้เปรียบผิดที่
+  return clicks / Math.pow(ageDays + 2, CLICK_DECAY_EXPONENT);
+}
+
+// recency boost ลดจาก 1 → 0 เชิงเส้นตลอด RECENCY_BOOST_DAYS วัน
+// (แทนการกันโซน "สินค้าใหม่" แยกไว้ถาวร — พอครบวันก็หายไปเอง)
+function recencyBoost(firstSeenAt, nowMs) {
+  if (!firstSeenAt) return 0;
+  const ageDays = (nowMs - new Date(firstSeenAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (ageDays >= RECENCY_BOOST_DAYS) return 0;
+  return Math.max(0, (RECENCY_BOOST_DAYS - ageDays) / RECENCY_BOOST_DAYS);
+}
+
+// รวมทุก signal เป็น final_score เดียวต่อสินค้า 1 ชิ้น พร้อม normalize แต่ละส่วนให้อยู่ช่วง 0-1
+// ก่อนถ่วงน้ำหนัก เพื่อไม่ให้สเกลที่ต่างกัน (คลิกเป็นร้อย vs rating 0-5) บิดผลลัพธ์
+function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs) {
+  const siteAvgRating = computeSiteAverageRating(articles);
+
+  const raw = articles.map(a => {
+    const id = String(a.id);
+    const clicks = clickCounts[id] || 0;
+    const firstSeenAt = firstSeenMap[id] || null;
+    return {
+      id,
+      clickScoreRaw: timeDecayedClickScore(clicks, firstSeenAt, nowMs),
+      weightedRating: bayesianRating(a, clicks, siteAvgRating),
+      recency: recencyBoost(firstSeenAt, nowMs),
+    };
+  });
+
+  const maxClickScore = Math.max(1e-9, ...raw.map(r => r.clickScoreRaw));
+
+  const scoreById = {};
+  raw.forEach(r => {
+    const normalizedClick = r.clickScoreRaw / maxClickScore;   // 0..1
+    const normalizedRating = r.weightedRating / 5;              // 0..1 (สเกล rating คือ 0-5)
+    scoreById[r.id] =
+      normalizedClick * SCORE_WEIGHTS.click +
+      normalizedRating * SCORE_WEIGHTS.rating +
+      r.recency * SCORE_WEIGHTS.recency;
+  });
+
+  return scoreById;
 }
 
 function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0, newProductIds = new Set() }) {
@@ -394,10 +481,12 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       .map(a => String(a.id))
   );
 
+  // final_score เดียวต่อสินค้า = click score (decay ตามเวลา) + Bayesian rating + recency boost
+  // แทนที่ "เรียงตามคลิกดิบอย่างเดียว" — ดูรายละเอียดสูตรที่ computeFinalScores() ด้านบน
+  const finalScoreById = computeFinalScores(articles, clickCounts, firstSeenMap, nowMs);
+
   const scoredArticles = [...articles].sort((a, b) => {
-    const clicksA = clickCounts[String(a.id)] || 0;
-    const clicksB = clickCounts[String(b.id)] || 0;
-    return clicksB - clicksA;
+    return (finalScoreById[String(b.id)] || 0) - (finalScoreById[String(a.id)] || 0);
   });
 
   const clickedValues = Object.values(clickCounts).filter(v => v > 0);
@@ -439,26 +528,12 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t });
 
-  // ── Split top / new arrivals ───────────────────────────────────────────
-  const topArticles = displayScoredArticles.slice(0, TOP_SECTION_COUNT);
-  const topIds = new Set(topArticles.map(a => String(a.id)));
-
-  const newArrivalArticles = displayScoredArticles
-    .filter(a => !topIds.has(String(a.id)))
-    .sort((a, b) => {
-      const dateA = firstSeenMap[String(a.id)] ? new Date(firstSeenMap[String(a.id)]).getTime() : -Infinity;
-      const dateB = firstSeenMap[String(b.id)] ? new Date(firstSeenMap[String(b.id)]).getTime() : -Infinity;
-      return dateB - dateA;
-    });
-
-  const topCardsHtml = renderCardGrid(topArticles, { t, lang, clickCounts, hotThreshold, startRank: 0, newProductIds });
-  const newArrivalsCardsHtml = renderCardGrid(newArrivalArticles, { t, lang, clickCounts, hotThreshold, startRank: TOP_SECTION_COUNT, newProductIds });
-
-  const newArrivalsSectionHtml = newArrivalArticles.length ? `
-    <h2 style="font-size:20px;margin:36px 0 4px;">${escapeHtml(t.newArrivalsHeading)}</h2>
-    <p class="meta" style="margin-bottom:20px;">${escapeHtml(t.newArrivalsSub)}</p>
-    <div class="card-grid">${newArrivalsCardsHtml}</div>
-  ` : '';
+  // ── Ranked grid เดียว ─────────────────────────────────────────────────
+  // เดิมแยก "Top 3" (ตามคลิก) กับ "Newest arrivals" (ตามวันที่) เป็น 2 ก้อน
+  // ตอนนี้ทุกสินค้าเรียงจาก final_score เดียวกันทั้งหน้า (ดู computeFinalScores)
+  // สินค้าใหม่ที่ดีจริงจะขึ้นเร็วเอง ไม่ต้องกันโซนพิเศษให้ — badge "🆕 ใหม่"
+  // ยังติดอยู่กับการ์ดตามปกติ (ดูจาก newProductIds เหมือนเดิม ไม่เกี่ยวกับ section)
+  const rankedCardsHtml = renderCardGrid(displayScoredArticles, { t, lang, clickCounts, hotThreshold, startRank: 0, newProductIds });
 
   // ── Search UI ───────────────────────────────────────────────────────────
   // searchButtonHtml — ส่งไปให้ renderCommunityHub() วางเป็น chip ขวาสุด
@@ -532,7 +607,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${filterHtml}<div class="card-grid">${rankedCardsHtml}</div>`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
