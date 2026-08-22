@@ -28,7 +28,7 @@ const STRINGS = {
     pageTitle: 'GRAVITY OS — รีวิวสินค้าที่คัดมาให้',
     pageDescription: 'รีวิวและคำแนะนำสินค้า สรุปให้อ่านง่าย ตัดสินใจได้เร็ว',
     heading: 'รีวิวล่าสุด',
-    subheading: 'คัดสรรและตรวจสอบโดยทีมงาน อัปเดตอัตโนมัติทุกครั้งที่มีสินค้าใหม่วิเคราะห์เสร็จ',
+    subheading: 'คัดสรรโดยทีมงาน อัปเดตอัตโนมัติ',
     rankLabel: 'อันดับ',
     fallbackEyebrow: 'รีวิว',
     noImage: 'ไม่มีรูปสินค้า',
@@ -51,7 +51,7 @@ const STRINGS = {
     pageTitle: 'GRAVITY OS — Curated product reviews',
     pageDescription: 'Product reviews and buying guides, summarized so you can decide fast.',
     heading: 'Latest reviews',
-    subheading: 'Curated and checked by our team, updated automatically whenever a new product finishes analysis.',
+    subheading: 'Curated by our team, auto-updated.',
     rankLabel: 'Rank',
     fallbackEyebrow: 'Review',
     noImage: 'No product photo',
@@ -571,9 +571,9 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     wide: true,
     bodyHtml: `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
   <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
-    <div style="flex:1;">
-      <h1 style="font-size:26px;margin:0 0 6px;line-height:1.2;">${escapeHtml(t.heading)}</h1>
-      <p class="meta" style="margin:0;">${escapeHtml(t.subheading)}</p>
+    <div style="flex:1; min-width:0; max-width:220px;">
+      <h1 style="font-size:26px;margin:0 0 4px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.heading)}</h1>
+      <p class="meta" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.subheading)}</p>
     </div>
     <div style="flex-shrink:0; display:flex; gap:8px; align-items:center; margin-top:2px;">
       ${communityHubHtml}
