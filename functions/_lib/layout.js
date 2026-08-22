@@ -8,9 +8,25 @@
  * 3. Better currency handling in formatPrice()
  * 4. Added author bio section rendering
  * 5. Better AggregateRating support (when data exists)
- * 6. NEW: renderPage() now accepts a `headerExtra` slot so content like the
+ * 6. renderPage() now accepts a `headerExtra` slot so content like the
  *    community-hub social row + search box can live inside <header class="site">,
  *    on the same row as the GRAVITY OS logo (wraps under it on narrow screens).
+ *
+ * --- GRAVITY FIX (2026-08-22): hreflang tags added ---
+ * renderPage() previously only used `altLangPath` to render the clickable
+ * .lang-switch button for humans — it never told search engines that the
+ * TH/EN pages are language variants of the same content, so Google could
+ * treat them as duplicate/canonical-confused pages instead of a th/en pair.
+ * This matters more than usual here because content_th/content_en are
+ * separate AI calls, not translations of each other, so the pages are
+ * genuinely not identical — hreflang is what tells Google "these are
+ * intentionally different-language versions of one product", not "pick
+ * one, ignore the other". Self-referencing hreflang for the current page
+ * is included too (expected pattern: every page in a language group should
+ * list itself as well as its alternates). x-default points at the Thai
+ * version, since Thai is this site's primary/default audience and language.
+ * No signature change — still driven entirely by the existing altLangPath
+ * param, so every existing caller of renderPage() is unaffected.
  */
 
 const SITE_URL = 'https://gravity-blog.pages.dev';
@@ -39,7 +55,7 @@ export const TOKENS = {
   radius: '10px'
 };
 
-// NEW: Author registry — single source of truth for all reviewers.
+// Author registry — single source of truth for all reviewers.
 // Add/remove reviewers here, and they automatically appear in author
 // sections + share bio links across the site.
 //
@@ -137,16 +153,11 @@ const BASE_CSS = `
   header.site{
     border-bottom:1px solid var(--hairline); padding:22px 0; margin-bottom:8px;
   }
-  /* UPDATED: header row now wraps so it can hold brand + social/search + lang switch */
   .site-header-row{
     display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px;
   }
   .site-header-row .brand{ flex:0 0 auto; }
   .site-header-row .lang-switch{ margin-left:auto; flex:0 0 auto; }
-  /* NEW: extra header content (community/social row + search).
-     On narrow screens it drops to its own full-width line right under
-     the brand/lang row, still inside the same <header>. On wider screens
-     it sits inline between the logo and the lang switch. */
   .site-header-extra{
     flex:1 1 100%; order:3;
     display:flex; align-items:center; flex-wrap:wrap; gap:8px;
@@ -272,11 +283,6 @@ const BASE_CSS = `
     color:var(--ink-muted); font-size:12px; margin-top:10px; padding-top:10px;
     border-top:1px solid var(--hairline);
   }
-  /* UPDATED: auto-fit + minmax instead of fixed column-count breakpoints.
-     When there are fewer cards than would fill a row (e.g. only 3 products),
-     the existing cards stretch to fill the full width instead of leaving an
-     empty gap on the right. Columns still shrink/wrap responsively as the
-     viewport narrows — no manual breakpoints needed. */
   .card-grid{
     display:grid;
     grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
@@ -344,7 +350,6 @@ const BASE_CSS = `
   .error-page h1{ font-size:48px; margin-bottom:8px; color:var(--ink-muted); }
   .error-page p{ color:var(--ink-muted); margin-bottom:24px; }
   
-  /* NEW: Author section styling */
   .author-section{
     background:var(--surface); border:1px solid var(--hairline);
     border-radius:8px; padding:16px; margin:24px 0;
@@ -393,9 +398,34 @@ export function renderPage({
   const langSwitchHtml = altLangPath
     ? `<a class="lang-switch" href="${escapeHtml(altLangPath)}">${escapeHtml(t.langSwitchLabel)}</a>`
     : '';
-  // NEW: headerExtra (e.g. community-hub social row + search box) renders
+  // headerExtra (e.g. community-hub social row + search box) renders
   // inside the header, on the same visual row as the GRAVITY OS logo.
   const headerExtraHtml = headerExtra ? `<div class="site-header-extra">${headerExtra}</div>` : '';
+
+  // GRAVITY FIX (2026-08-22): hreflang tags. Previously altLangPath was
+  // ONLY used to render the clickable .lang-switch button for humans — it
+  // never told Google that the TH/EN pages are language variants of the
+  // same content, so search engines could treat them as duplicate/canonical-
+  // confused pages instead of a th/en pair. This matters more than usual
+  // here because content_th/content_en are separate AI calls, not
+  // translations of each other, so the pages are genuinely not identical —
+  // hreflang is what tells Google "these are intentionally different-
+  // language versions of one product", not "pick one, ignore the other".
+  // Self-referencing hreflang for the CURRENT page is included too, since
+  // that's part of Google's expected pattern (every page in a language
+  // group should list itself as well as its alternates).
+  // x-default points at the Thai version, since this site's primary/
+  // default audience and canonical language is Thai.
+  let hreflangHtml = '';
+  if (altLangPath) {
+    const otherLang = lang === 'en' ? 'th' : 'en';
+    const otherUrl = toAbsoluteUrl(altLangPath);
+    const thUrl = lang === 'th' ? canonicalUrl : otherUrl;
+    hreflangHtml = `
+<link rel="alternate" hreflang="${lang}" href="${escapeHtml(canonicalUrl)}">
+<link rel="alternate" hreflang="${otherLang}" href="${escapeHtml(otherUrl)}">
+<link rel="alternate" hreflang="x-default" href="${escapeHtml(thUrl)}">`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="${t.htmlLang}">
@@ -405,7 +435,7 @@ ${GA_SNIPPET}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(desc)}">
-<link rel="canonical" href="${canonicalUrl}">
+<link rel="canonical" href="${canonicalUrl}">${hreflangHtml}
 
 <!-- Open Graph (Facebook, Line, most link-preview scrapers) -->
 <meta property="og:type" content="article">
@@ -438,7 +468,7 @@ ${FONT_LINK}
 </html>`;
 }
 
-// NEW: Render author section for article pages
+// Render author section for article pages
 export function renderAuthorSection(authorId, lang = 'th') {
   const author = getAuthorInfo(authorId);
   const t = uiStrings(lang);
