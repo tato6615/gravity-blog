@@ -610,7 +610,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${communityHubHtml}${filterHtml}${searchStylesAndScript}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
+      ? `${filterHtml}<div class="card-grid">${topCardsHtml}</div>${newArrivalsSectionHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
@@ -625,9 +625,19 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     lang,
     altLangPath,
     wide: true,
-    bodyHtml: `<h1 style="font-size:26px;margin-bottom:6px;">${escapeHtml(t.heading)}</h1>
-    <p class="meta" style="margin-bottom:28px;">${escapeHtml(t.subheading)}</p>
-${searchButtonHtml}
+    bodyHtml: `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
+    <div style="flex:1;">
+      <h1 style="font-size:26px;margin:0 0 6px;line-height:1.2;">${escapeHtml(t.heading)}</h1>
+      <p class="meta" style="margin:0;">${escapeHtml(t.subheading)}</p>
+    </div>
+    <div style="flex-shrink:0; display:flex; gap:8px; align-items:center; margin-top:2px;">
+      ${communityHubHtml}
+      ${searchButtonHtml}
+    </div>
+  </div>
+</div>
+${searchStylesAndScript}
 ${body}`
   });
 
