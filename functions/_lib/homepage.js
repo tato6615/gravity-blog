@@ -464,7 +464,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   // ── Search UI ───────────────────────────────────────────────────────────
   // searchButtonHtml — ส่งไปให้ renderCommunityHub() วางเป็น chip ขวาสุด
   // ในแถว Telegram/Discord/... เมื่อ hub มองเห็น
-  // เมื่อ hub ซ่อน → render standalone ใน header แทน (ผ่าน standaloneSearchHtml)
+  // เมื่อ hub ซ่อน → render standalone ใน headerExtra แทน (ผ่าน standaloneSearchHtml)
   const searchButtonHtml = articles.length ? `
     <div class="sb-wrap">
       <button class="sb-btn" id="sbBtn" aria-label="ค้นหาสินค้า" onclick="toggleSearch()">🔍</button>
@@ -537,8 +537,8 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const communityHubVisible = await isCommunityHubVisible(env);
 
   // เมื่อ hub มองเห็น: ส่ง searchButtonHtml ไปให้ community-hub.js วาง
-  //   เป็น chip ขวาสุดในแถว Telegram/Discord/... (ไม่ render ซ้ำที่ homepage)
-  // เมื่อ hub ซ่อน: render search button standalone ใน header แทน
+  //   เป็น chip ขวาสุดในแถว Telegram/Discord/... (ไม่ render ซ้ำที่อื่น)
+  // เมื่อ hub ซ่อน: render search button standalone ใน headerExtra แทน
   const communityHubHtml = communityHubVisible
     ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: searchButtonHtml })
     : '';
@@ -562,6 +562,9 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const altLangPath = lang === 'en' ? '/' : '/en/';
 
+  // UPDATED: community hub + search now render as headerExtra so they sit
+  // inside <header class="site">, on the same row as the GRAVITY OS logo
+  // (wraps to its own full-width line under the logo on narrow screens).
   const html = renderPage({
     title: t.pageTitle,
     description: t.pageDescription,
@@ -569,11 +572,8 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     lang,
     altLangPath,
     wide: true,
-    bodyHtml: `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
-  ${communityHubHtml}
-  ${standaloneSearchHtml}
-</div>
-${searchStylesAndScript}
+    headerExtra: `${communityHubHtml}${standaloneSearchHtml}`,
+    bodyHtml: `${searchStylesAndScript}
 ${body}`
   });
 
