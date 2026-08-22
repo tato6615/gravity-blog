@@ -467,58 +467,37 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   // เมื่อ hub ซ่อน → render standalone ใน headerExtra แทน (ผ่าน standaloneSearchHtml)
   const searchButtonHtml = articles.length ? `
     <div class="sb-wrap">
-      <button class="sb-btn" id="sbBtn" aria-label="ค้นหาสินค้า" onclick="toggleSearch()">🔍</button>
+      <span class="sb-icon" aria-hidden="true">🔍</span>
       <input type="text" id="sbInput" class="sb-input"
         placeholder="${escapeHtml(t.searchPlaceholder)}"
+        aria-label="${escapeHtml(t.searchPlaceholder)}"
         autocomplete="off" oninput="filterProductCards(this.value)">
     </div>
   ` : '';
 
+  // NOTE: when the community hub is visible, .sb-wrap/.sb-icon/.sb-input are
+  // already styled by community-hub.js (it renders the same markup inline in
+  // its chip row). This block only needs to style the standalone fallback
+  // case (hub hidden) — kept visually identical to the hub version.
   const searchStylesAndScript = articles.length ? `
   <style>
-    .sb-wrap{ position:relative; display:inline-flex; align-items:center; }
-    .sb-btn{
-      width:38px; height:38px; border-radius:50%;
-      border:1px solid var(--hairline); background:var(--surface);
-      cursor:pointer; display:flex; align-items:center; justify-content:center;
-      font-size:17px; flex-shrink:0; transition:border-color .15s;
-      color:var(--ink);
+    .sb-wrap{
+      display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
+      height:38px; padding:0 14px; box-sizing:border-box;
+      border:1px solid var(--hairline); border-radius:19px;
+      background:var(--surface);
     }
-    .sb-btn:hover{ border-color:var(--accent); }
+    .sb-icon{ font-size:14px; line-height:1; opacity:.6; flex-shrink:0; }
     .sb-input{
-      position:absolute; left:46px; top:50%; transform:translateY(-50%);
-      width:0; opacity:0; pointer-events:none;
-      box-sizing:border-box; height:38px; padding:0;
-      border:1px solid var(--hairline); border-radius:10px;
-      background:var(--surface); color:var(--ink);
-      font-size:15px; font-family:inherit;
-      transition:width .25s ease, opacity .2s ease, padding .2s ease;
-      z-index:5;
+      border:none; outline:none; background:transparent; color:var(--ink);
+      font-size:15px; font-family:inherit; width:180px; padding:0;
     }
-    .sb-input.open{
-      width:220px; opacity:1; pointer-events:auto;
-      padding:0 14px;
-    }
-    @media(max-width:400px){ .sb-input.open{ width:calc(100vw - 80px); } }
+    .sb-input::placeholder{ color:var(--ink-muted); }
+    @media(max-width:480px){ .sb-input{ width:130px; } }
     .sb-no-results{ display:none; color:var(--ink-muted); padding:12px 0 4px; font-size:14px; }
   </style>
   <p id="searchNoResults" class="sb-no-results">${escapeHtml(t.searchNoResults)}</p>
   <script>
-    function toggleSearch() {
-      var inp = document.getElementById('sbInput');
-      var open = inp.classList.toggle('open');
-      if (open) { inp.focus(); } else { inp.value=''; filterProductCards(''); }
-    }
-    document.addEventListener('click', function(e) {
-      var wrap = document.querySelector('.sb-wrap');
-      if (wrap && !wrap.contains(e.target)) {
-        var inp = document.getElementById('sbInput');
-        if (inp && inp.classList.contains('open') && !inp.value) {
-          inp.classList.remove('open');
-          filterProductCards('');
-        }
-      }
-    });
     function filterProductCards(query) {
       var q = query.trim().toLowerCase();
       var cards = document.querySelectorAll('.card[data-search]');
