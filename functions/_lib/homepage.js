@@ -153,7 +153,6 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
         <h2>${escapeHtml(a.seoTitle)}</h2>
         ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
         <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
-        ${(clickCounts[String(a.id)] || 0) > 0 ? `<div class="click-count">${clickCounts[String(a.id)]} คลิก</div>` : ''}
         ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
         <div class="cta-btn">${escapeHtml(t.ctaBtn)}</div>
       </div>
