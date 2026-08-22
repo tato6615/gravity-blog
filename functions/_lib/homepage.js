@@ -72,6 +72,40 @@ const STRINGS = {
   }
 };
 
+// ── Category display-name translations (TH) ────────────────────────────────
+// ⭐ ใช้เฉพาะตอน "แสดงผล" (label บนปุ่ม/dropdown) เท่านั้น — ห้ามใช้ค่าที่แปลแล้ว
+// ไปทำ query/filter หรือ href เด็ดขาด เพราะ a.category ที่ดึงจาก Grist ยังเป็น
+// string ภาษาอังกฤษดิบเสมอ (ไม่มีคอลัมน์แปลไทยแยกต่างหากในต้นทาง) การ filter/
+// เทียบค่าต้อง match กับ string ดิบนั้นเป๊ะๆ — ดูฟังก์ชัน getCategoryLabel() ด้านล่าง
+// ที่ทำหน้าที่เป็น display-layer เท่านั้น ไม่แตะค่าที่ใช้ในลอจิกอื่น
+//
+// ถ้ามีหมวดใหม่โผล่ใน Grist ที่ยังไม่มีคีย์อยู่ในนี้ getCategoryLabel() จะ
+// fallback กลับไปโชว์ชื่ออังกฤษเดิม ไม่ throw ไม่พังหน้าเว็บ — แค่ต้องมาเพิ่ม
+// คีย์ใหม่ในนี้เองเวลามีเวลา (ไม่มี auto-translate)
+const CATEGORY_LABELS_TH = {
+  'Pet Supplies': 'อุปกรณ์สัตว์เลี้ยง',
+  'Electronics': 'อิเล็กทรอนิกส์',
+  'Automatic Feeders': 'เครื่องให้อาหารอัตโนมัติ',
+  'Air Purifiers': 'เครื่องฟอกอากาศ',
+  'Sports & Outdoors': 'กีฬาและกิจกรรมกลางแจ้ง',
+  'Home & Kitchen': 'บ้านและครัว',
+  'Vest Harnesses': 'สายรัดตัว',
+  'Health & Household': 'สุขภาพและของใช้ในบ้าน',
+  'Luggage & Travel Gear': 'กระเป๋าเดินทาง',
+  'Dog Slow Feeders': 'ชามให้อาหารสุนัขแบบช้า',
+  'Toys & Games': 'ของเล่นและเกม',
+  'Point & Shoot Digital Cameras': 'กล้องดิจิทัลคอมแพค',
+};
+
+/**
+ * แปลชื่อหมวด/หมวดย่อยเป็นไทยสำหรับ "แสดงผล" เท่านั้น
+ * lang !== 'th' หรือไม่มีคีย์ตรง -> คืนค่าเดิม (fallback ปลอดภัย)
+ */
+function getCategoryLabel(name, lang) {
+  if (lang === 'th' && CATEGORY_LABELS_TH[name]) return CATEGORY_LABELS_TH[name];
+  return name;
+}
+
 /**
  * Root-relative link to the given lang's home page.
  */
@@ -352,7 +386,7 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
     ...tops.map(top => {
       const href = `${base}?category=${encodeURIComponent(top)}`;
       const isActive = activeTop === top;
-      return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(top)}</a>`;
+      return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(getCategoryLabel(top, lang))}</a>`;
     })
   ].join('\n    ');
 
@@ -362,14 +396,15 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
     ? splitCategory(selectedCategory).sub
     : null;
   const ddLabel = selectedSub
-    ? truncateLabel(selectedSub, 28)
+    ? truncateLabel(getCategoryLabel(selectedSub, lang), 28)
     : escapeHtml(t.filterSubcategory);
   const ddHasActive = !!selectedSub;
 
   const ddItemsHtml = activeSubs.map(({ sub, fullCat }) => {
     const isActive = selectedCategory === fullCat;
     const href = `${base}?category=${encodeURIComponent(fullCat)}`;
-    return `<a href="${href}" class="cf-dd-item${isActive ? ' is-active' : ''}" title="${escapeHtml(sub)}">${escapeHtml(truncateLabel(sub, 36))}</a>`;
+    const label = getCategoryLabel(sub, lang);
+    return `<a href="${href}" class="cf-dd-item${isActive ? ' is-active' : ''}" title="${escapeHtml(label)}">${truncateLabel(label, 36)}</a>`;
   }).join('\n      ');
 
   const dropdownHtml = hasSubs ? `
