@@ -569,16 +569,11 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     lang,
     altLangPath,
     wide: true,
-    bodyHtml: `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
-  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
-    <div style="flex:1; min-width:0; max-width:220px;">
-      <h1 style="font-size:26px;margin:0 0 4px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.heading)}</h1>
-      <p class="meta" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.subheading)}</p>
-    </div>
-    <div style="flex-shrink:0; display:flex; gap:8px; align-items:center; margin-top:2px;">
-      ${communityHubHtml}
-      ${standaloneSearchHtml}
-    </div>
+    bodyHtml: `<div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
+  <h1 style="font-size:26px;margin:0;line-height:1.2;white-space:nowrap;">${escapeHtml(t.heading)}</h1>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    ${communityHubHtml}
+    ${standaloneSearchHtml}
   </div>
 </div>
 ${searchStylesAndScript}
