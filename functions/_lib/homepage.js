@@ -569,12 +569,9 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     lang,
     altLangPath,
     wide: true,
-    bodyHtml: `<div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
-  <h1 style="font-size:26px;margin:0;line-height:1.2;white-space:nowrap;">${escapeHtml(t.heading)}</h1>
-  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-    ${communityHubHtml}
-    ${standaloneSearchHtml}
-  </div>
+    bodyHtml: `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
+  ${communityHubHtml}
+  ${standaloneSearchHtml}
 </div>
 ${searchStylesAndScript}
 ${body}`
