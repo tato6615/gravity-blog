@@ -209,6 +209,13 @@ export async function getLiveArticles(env, lang = 'th') {
       updatedAt: p.fields.updated_at || c.generated_at || null,
       authorId: c.reviewer_id || c.author_id || null,
       category: p.fields.category || null,
+      // ⭐ ใหม่ — คำแปลหมวดภาษาไทยจาก AI pipeline (ถ้ามี) ต้นทางเดียวกับ
+      // category (EN) แต่เป็นคนละคอลัมน์ใน PRODUCTS. ยังไม่มีการันตีว่า
+      // Worker "af" เขียนคอลัมน์นี้แล้วหรือยัง (ดู GRAVITY-BLOG-MASTER-SUMMARY
+      // ข้อล่าสุด) — pickField() คืน null เฉยๆ ถ้าคอลัมน์ยังไม่มี/ว่าง ไม่ throw
+      // ตัวรับ (homepage.js) ต้อง fallback เป็น dictionary hardcode หรือ EN
+      // เองเวลาค่านี้เป็น null — ดู getCategoryLabel() ใน homepage.js
+      categoryTh: pickField(p.fields, ['category_th', 'category_thai', 'categorythai']) || null,
       analysis: analysisByProduct.get(String(p.id)) || null
     });
   }
