@@ -99,10 +99,16 @@ const CATEGORY_LABELS_TH = {
 
 /**
  * แปลชื่อหมวด/หมวดย่อยเป็นไทยสำหรับ "แสดงผล" เท่านั้น
- * lang !== 'th' หรือไม่มีคีย์ตรง -> คืนค่าเดิม (fallback ปลอดภัย)
+ * ลำดับความสำคัญ: 1) categoryThMap ที่มาจาก Grist field `category_th` ต่อ
+ * สินค้าจริง (ถ้า AI pipeline เขียนคอลัมน์นี้ตอนสร้างสินค้าแล้ว — auto-sync
+ * ของจริง ไม่ต้อง deploy โค้ดใหม่เวลามีหมวดใหม่) 2) dictionary hardcode
+ * ด้านบน (safety net สำหรับหมวดเก่า/สินค้าเก่าที่ยังไม่มี category_th)
+ * 3) คืนชื่ออังกฤษเดิมเป็น fallback สุดท้าย — ไม่ throw ไม่ว่ากรณีไหน
  */
-function getCategoryLabel(name, lang) {
-  if (lang === 'th' && CATEGORY_LABELS_TH[name]) return CATEGORY_LABELS_TH[name];
+function getCategoryLabel(name, lang, categoryThMap) {
+  if (lang !== 'th') return name;
+  if (categoryThMap && categoryThMap[name]) return categoryThMap[name];
+  if (CATEGORY_LABELS_TH[name]) return CATEGORY_LABELS_TH[name];
   return name;
 }
 
@@ -290,7 +296,7 @@ function splitCategory(cat) {
   return { top: cat.slice(0, idx), sub: cat.slice(idx + 3) };
 }
 
-function buildFilterHtml({ categories, selectedCategory, lang, t }) {
+function buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap }) {
   if (!categories.length) return '';
 
   const base = homePath(lang);
@@ -386,7 +392,7 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
     ...tops.map(top => {
       const href = `${base}?category=${encodeURIComponent(top)}`;
       const isActive = activeTop === top;
-      return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(getCategoryLabel(top, lang))}</a>`;
+      return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(getCategoryLabel(top, lang, categoryThMap))}</a>`;
     })
   ].join('\n    ');
 
@@ -396,14 +402,14 @@ function buildFilterHtml({ categories, selectedCategory, lang, t }) {
     ? splitCategory(selectedCategory).sub
     : null;
   const ddLabel = selectedSub
-    ? truncateLabel(getCategoryLabel(selectedSub, lang), 28)
+    ? truncateLabel(getCategoryLabel(selectedSub, lang, categoryThMap), 28)
     : escapeHtml(t.filterSubcategory);
   const ddHasActive = !!selectedSub;
 
   const ddItemsHtml = activeSubs.map(({ sub, fullCat }) => {
     const isActive = selectedCategory === fullCat;
     const href = `${base}?category=${encodeURIComponent(fullCat)}`;
-    const label = getCategoryLabel(sub, lang);
+    const label = getCategoryLabel(sub, lang, categoryThMap);
     return `<a href="${href}" class="cf-dd-item${isActive ? ' is-active' : ''}" title="${escapeHtml(label)}">${truncateLabel(label, 36)}</a>`;
   }).join('\n      ');
 
@@ -535,12 +541,26 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   // ── Category filter ────────────────────────────────────────────────────
   const MIN_PRODUCTS_PER_CATEGORY = 2;
   const categoryCounts = {};
+  // ⭐ ใหม่ — เก็บคำแปลไทยต่อ segment (top/sub/full) จาก field category_th
+  // ของ Grist จริง (ถ้ามี) มา "เรียนรู้" จากสินค้าแต่ละชิ้นที่ผ่านมา แทนที่จะ
+  // พึ่ง dictionary hardcode อย่างเดียว — ถ้า AI pipeline เขียน category_th
+  // ให้ทุกสินค้าใหม่แล้ว หมวดใหม่จะมีคำแปลโผล่มาเองโดยไม่ต้อง deploy โค้ด
+  const categoryThMap = {};
   articles.forEach(a => {
     if (a.category) {
       categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
-      const { top } = splitCategory(a.category);
+      const { top, sub } = splitCategory(a.category);
       if (top !== a.category) {
         categoryCounts[top] = (categoryCounts[top] || 0) + 1;
+      }
+      // สมมติ category_th ใช้รูปแบบ "Top > Sub" ขนานกับ category (EN) —
+      // ถ้าไม่มี category_th เลย (pipeline ยังไม่ได้เขียนคอลัมน์นี้) ข้ามไปเฉยๆ
+      // ปล่อยให้ getCategoryLabel() fallback ไปที่ dictionary/EN แทน
+      if (a.categoryTh) {
+        const { top: topTh, sub: subTh } = splitCategory(a.categoryTh);
+        if (!categoryThMap[top]) categoryThMap[top] = topTh;
+        if (sub && subTh && !categoryThMap[sub]) categoryThMap[sub] = subTh;
+        if (!categoryThMap[a.category]) categoryThMap[a.category] = a.categoryTh;
       }
     }
   });
@@ -561,7 +581,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     });
   }
 
-  const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t });
+  const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap });
 
   // ── Ranked grid เดียว ─────────────────────────────────────────────────
   // เดิมแยก "Top 3" (ตามคลิก) กับ "Newest arrivals" (ตามวันที่) เป็น 2 ก้อน
