@@ -71,6 +71,26 @@ const MIN_PUBLISHABLE_QUALITY_SCORE = 70;
 // matches, which is exactly the bug this fix corrects.
 const REJECTED_TIER_SUBSTRINGS = ['poor', 'fair'];
 
+// GRAVITY FIX (2026-08-22d): grandfather clause for the quality gate above.
+// The gate was silently a no-op (see 2026-08-22c note in the file header)
+// from the day it was deployed until it got fixed today — meaning every
+// product ever generated up to now went live regardless of its actual
+// quality_score, and nobody ever had to write content that clears 70 to
+// get published. Flipping the gate on and immediately re-judging the
+// ENTIRE existing catalog against that bar at once caused most/all of the
+// site to disappear the moment this fix shipped, which is worse than the
+// no-op bug it was meant to fix.
+//
+// To avoid that, content generated before the gate actually started
+// enforcing is grandfathered in — it's exempt from the quality check
+// entirely, the same way content with no quality_score/quality_tier at
+// all already was. Only content generated FROM THIS POINT ON is held to
+// the real >= 70 threshold. This is intentionally temporary: once old
+// content has been reviewed/backfilled (see handleResetPipeline note in
+// the file header), this constant and its use below should be removed so
+// every product is judged by the same rule.
+const QUALITY_GATE_ENFORCED_SINCE = new Date('2026-08-22T00:00:00Z');
+
 export async function gristFetch(env, path) {
   const res = await fetch(`${GRIST_BASE}/${env.GRIST_DOC_ID}${path}`, {
     headers: { Authorization: `Bearer ${env.GRIST_API_KEY}` }
@@ -273,7 +293,16 @@ export async function getLiveArticles(env, lang = 'th') {
     // matching how missing columns are handled everywhere else in this
     // file. See file header for why this now checks quality_score instead
     // of pattern-matching the emoji-prefixed tier string.
-    if (isBelowPublishableQuality(c)) {
+    //
+    // GRAVITY FIX (2026-08-22d): grandfather clause — only enforce the
+    // gate on content generated after it started actually working. See
+    // QUALITY_GATE_ENFORCED_SINCE above for why: retroactively applying
+    // this to the whole existing catalog at once was what emptied the
+    // homepage. Content with no generated_at at all is also grandfathered
+    // in (treated as old), matching the fail-open behavior used elsewhere.
+    const generatedAt = c.generated_at ? new Date(c.generated_at) : null;
+    const isGrandfathered = !generatedAt || generatedAt < QUALITY_GATE_ENFORCED_SINCE;
+    if (!isGrandfathered && isBelowPublishableQuality(c)) {
       continue;
     }
 
