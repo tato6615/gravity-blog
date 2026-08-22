@@ -22,34 +22,54 @@
  * whether a product showed up on the site, so AI-flagged low-quality
  * content (generic "มีคุณภาพดีและราคาเหมาะสม"-style boilerplate) went live
  * exactly the same as everything else. getLiveArticles() now also checks
- * CONTENT.quality_tier and skips products whose tier is in
- * REJECTED_QUALITY_TIERS, the same way it already skips products missing
- * slug/blog_draft.
+ * CONTENT.quality_tier/quality_score and skips products that don't meet the
+ * bar, the same way it already skips products missing slug/blog_draft.
  *
- * IMPORTANT — verify REJECTED_QUALITY_TIERS against ai-prompt.js:
- * scoreReviewMarketFit()'s actual tier string values weren't available
- * when this fix was written (that function lives in ai-prompt.js, not
- * shown here). The set below assumes common tier-naming conventions
- * ('poor'/'low'/'reject'). Open ai-prompt.js, confirm the real tier
- * strings scoreReviewMarketFit() returns, and update the set to match —
- * otherwise this gate silently does nothing (if the real values don't
- * match) rather than failing loudly, by design (same fail-open pattern
- * used elsewhere in this file for missing columns).
+ * --- GRAVITY FIX (2026-08-22c): quality gate was silently a no-op ---
+ * The first version of this fix (above) compared `quality_tier` against a
+ * guessed set of plain lowercase strings — 'poor'/'low'/'reject'/'fail' —
+ * because ai-prompt.js wasn't available yet when it was written. Now that
+ * ai-prompt.js has been reviewed, scoreReviewMarketFit() actually returns
+ * tier as an EMOJI-PREFIXED string, e.g. '❌ Poor', '⚠️ Fair', '✅ Good',
+ * '⭐ Very Good', '🏆 Excellent'. `'❌ Poor'.toLowerCase()` is '❌ poor', which
+ * never matched the plain 'poor' string in the old Set via exact
+ * Set.has() equality — so the gate NEVER rejected anything, silently,
+ * since the day it was deployed.
  *
- * Products generated BEFORE this fix may not have quality_tier populated
- * at all (old CONTENT rows) — those are treated as passing (tier == null
- * is never in the rejected set), so nothing existing suddenly disappears.
- * Run handleResetPipeline({ productId, toStep: 2 }) from the admin side
- * to backfill quality_tier for old products if you want them re-evaluated.
+ * Fixed properly by gating on `quality_score` (a plain number, always
+ * reliable) against the SAME threshold (`>= 70`) that ai-prompt.js's own
+ * `scoreReviewMarketFit().publishable` flag uses — instead of pattern-
+ * matching a display string that can change wording/emoji independently.
+ * This also corrects a second bug in the original guess: 'Fair' (60-69)
+ * was never in the rejected set at all, even though a 60-69 score is
+ * NOT publishable by ai-prompt.js's own definition. Tier string matching
+ * is kept ONLY as a fallback for old rows that might have quality_tier
+ * populated without quality_score (shouldn't happen going forward, since
+ * pipeline.js always sets both together, but this keeps the gate from
+ * going fail-open if that ever occurs).
+ *
+ * Products generated BEFORE quality scoring existed at all may have
+ * NEITHER quality_score NOR quality_tier populated — those are treated as
+ * passing (no score/tier == never rejected), so nothing existing suddenly
+ * disappears. Run handleResetPipeline({ productId, toStep: 2 }) from the
+ * admin side to backfill quality scoring for old products if you want
+ * them re-evaluated under the real gate.
  */
 
 const GRIST_BASE = 'https://docs.getgrist.com/api/docs';
 const LIVE_STATUSES = new Set(['enriched', 'published']);
 
-// GRAVITY FIX (2026-08-22): tiers that must NOT go live automatically.
-// See the file-header note above — confirm these strings against
-// ai-prompt.js's scoreReviewMarketFit() and adjust if they don't match.
-const REJECTED_QUALITY_TIERS = new Set(['poor', 'low', 'reject', 'fail']);
+// GRAVITY FIX (2026-08-22c): the real publish threshold, matching
+// ai-prompt.js's scoreReviewMarketFit() -> `publishable = totalScore >= 70`
+// exactly. Keep these in sync if that threshold ever changes there.
+const MIN_PUBLISHABLE_QUALITY_SCORE = 70;
+
+// Fallback only — used when quality_score is missing but quality_tier
+// isn't (shouldn't normally happen). Matched via substring/includes, NOT
+// exact equality, since real tier strings are emoji-prefixed (e.g.
+// '❌ Poor', '⚠️ Fair') and exact-matching a bare word here silently never
+// matches, which is exactly the bug this fix corrects.
+const REJECTED_TIER_SUBSTRINGS = ['poor', 'fair'];
 
 export async function gristFetch(env, path) {
   const res = await fetch(`${GRIST_BASE}/${env.GRIST_DOC_ID}${path}`, {
@@ -167,6 +187,25 @@ function normalizeProduct(fields) {
   };
 }
 
+// GRAVITY FIX (2026-08-22c): the real gate. Prefers quality_score (a plain
+// number set by pipeline.js alongside quality_tier) since it's threshold-
+// comparable and immune to string/emoji drift. Falls back to substring-
+// matching quality_tier only if score is missing but tier isn't. Returns
+// false (do not reject / fail-open) when neither is present, so products
+// generated before quality scoring existed are unaffected.
+function isBelowPublishableQuality(contentFields) {
+  const score = contentFields.quality_score;
+  if (score != null && score !== '' && !isNaN(Number(score))) {
+    return Number(score) < MIN_PUBLISHABLE_QUALITY_SCORE;
+  }
+  const tier = contentFields.quality_tier;
+  if (tier) {
+    const tierLower = String(tier).toLowerCase();
+    return REJECTED_TIER_SUBSTRINGS.some(s => tierLower.includes(s));
+  }
+  return false;
+}
+
 /**
  * Joins 03_PRODUCTS + CONTENT + AI_ANALYSIS for every "live" product in
  * the given language.
@@ -228,12 +267,13 @@ export async function getLiveArticles(env, lang = 'th') {
     const c = contentByProduct.get(String(p.id));
     if (!c || !c.slug || !c.blog_draft) continue; // not enriched enough to show yet
 
-    // GRAVITY FIX (2026-08-22): honor the quality tier scoreReviewMarketFit()
-    // already computed in pipeline.js instead of ignoring it. c.quality_tier
-    // is only absent for products enriched before this scoring existed —
-    // absent/null is treated as "pass" (fail-open), matching how missing
-    // columns are handled everywhere else in this file. See file header.
-    if (c.quality_tier && REJECTED_QUALITY_TIERS.has(String(c.quality_tier).toLowerCase())) {
+    // GRAVITY FIX (2026-08-22 / corrected 2026-08-22c): honor the quality
+    // score scoreReviewMarketFit() already computed in pipeline.js instead
+    // of ignoring it. Absent score/tier is treated as "pass" (fail-open),
+    // matching how missing columns are handled everywhere else in this
+    // file. See file header for why this now checks quality_score instead
+    // of pattern-matching the emoji-prefixed tier string.
+    if (isBelowPublishableQuality(c)) {
       continue;
     }
 
@@ -262,6 +302,7 @@ export async function getLiveArticles(env, lang = 'th') {
       // homepage.js, but useful if you want to show a "quality" badge
       // later without another Grist round-trip.
       qualityTier: c.quality_tier || null,
+      qualityScore: c.quality_score != null ? Number(c.quality_score) : null,
       analysis: analysisByProduct.get(String(p.id)) || null
     });
   }
