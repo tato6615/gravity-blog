@@ -93,17 +93,27 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
     return `
       <section class="community-hub community-hub--compact">
         <style>
-          .community-hub--compact { max-width: 700px; margin: 0 auto 20px; }
-          .ch-chip-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+          .community-hub--compact { max-width: 100%; margin: 0 auto 20px; }
+          /* UPDATED: no more flex-wrap — the row scrolls horizontally instead of
+             letting the search button (last item) drop to its own line when
+             the chips don't fit on one row. Scrollbar hidden but still
+             swipeable/draggable on touch and mouse-drag/trackpad. */
+          .ch-chip-row {
+            display: flex; flex-wrap: nowrap; gap: 8px; align-items: center;
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; -ms-overflow-style: none;
+            padding-bottom: 2px; /* room so focus rings aren't clipped */
+          }
+          .ch-chip-row::-webkit-scrollbar { display: none; }
           .ch-chip {
             display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
             border-radius: 20px; border: 0.5px solid var(--border, var(--hairline));
             background: var(--surface-2, var(--surface)); color: inherit; text-decoration: none;
-            font-size: 13px; font-weight: 500; white-space: nowrap;
+            font-size: 13px; font-weight: 500; white-space: nowrap; flex-shrink: 0;
           }
           .ch-chip:hover { opacity: 0.75; }
           .ch-chip-emoji { font-size: 15px; line-height: 1; }
-          .ch-view-all-chip { font-size: 12.5px; color: var(--text-secondary, var(--ink-muted)); text-decoration: underline; padding: 7px 4px; white-space: nowrap; }
+          .ch-view-all-chip { font-size: 12.5px; color: var(--text-secondary, var(--ink-muted)); text-decoration: underline; padding: 7px 4px; white-space: nowrap; flex-shrink: 0; }
 
           /* Search button/input, placed last in the chip row */
           .sb-wrap { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
