@@ -1482,6 +1482,8 @@ window._captionOverrides = window._captionOverrides || {};
 //     mode 'manual' (มี button ให้กด) เหมือนเดิม
 // ─────────────────────────────────────────────────────────────────────────────
 let rehostAttemptedForProduct = null; // productId ที่เคยลอง auto-rehost ไปแล้ว
+let rehostInProgress = false; // true ระหว่างที่ retryRehostImage() กำลังยิง request อยู่จริง (auto หรือ manual)
+                               // ใช้แยก label "กำลังลองอยู่" ออกจาก "ลองอัตโนมัติไปแล้วแต่ไม่สำเร็จ รอ user กด"
 
 async function autoRetryRehostIfNeeded(){
   // ลองได้ครั้งเดียวต่อสินค้า — ถ้าลองแล้วยังไม่สำเร็จ จะยังโชว์ปุ่มให้ user กดเอง
@@ -1552,11 +1554,23 @@ function renderPrePublishPreview(){
     autoRetryRehostIfNeeded(); // fire-and-forget; refreshStatus() จะ re-render เองเมื่อเสร็จ
   }
 
+  // GRAVITY FIX (2026-08-23): label เดิม hardcode เป็น "กำลัง re-host รูปไป GitHub…"
+  // ทุกครั้งที่ !rehosted ไม่ว่าจริงๆ แล้วกำลังลองอยู่หรือลองไปแล้วล้มเหลวก็ตาม ทำให้ข้อความ
+  // ขัดกับปุ่ม "ลองรี-โฮสต์อีกครั้ง" ที่โผล่มาด้วย (บอกว่า "กำลังทำ" แต่ก็มีปุ่มให้กดไปพร้อมกัน)
+  // ตอนนี้แยก 3 สถานะให้ตรงกับความเป็นจริง: กำลังลองอยู่ / ไม่มีรูปให้ลอง / ลองอัตโนมัติไปแล้วไม่สำเร็จ
+  const rehostLabel = rehosted
+    ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)'
+    : !imageUrl
+      ? 'ยังไม่มีรูปสินค้าให้ re-host'
+      : rehostInProgress
+        ? 'กำลัง re-host รูปไป GitHub…'
+        : 'รี-โฮสต์อัตโนมัติไม่สำเร็จ — กดลองอีกครั้งได้';
+
   const checks = [
     { ok: !!imageUrl, label: imageUrl ? 'มีรูปสินค้า (image_url)' : 'ยังไม่มีรูปสินค้า (image_url)' },
-    { ok: rehosted, label: rehosted ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)' : 'กำลัง re-host รูปไป GitHub…', id: 'rehostCheck',
-      // ยังโชว์ปุ่ม retry สำหรับกรณีที่ auto ลองแล้วยังไม่สำเร็จ (user กดซ้ำเองได้)
-      retry: !rehosted && rehostAttemptedForProduct === productId },
+    { ok: rehosted, label: rehostLabel, id: 'rehostCheck',
+      // โชว์ปุ่ม retry เฉพาะตอนมีรูปจริง, ยังไม่ rehost สำเร็จ, และไม่มี request กำลังวิ่งอยู่ ณ ขณะนี้
+      retry: !rehosted && !!imageUrl && !rehostInProgress },
     { ok: !!rating, label: rating ? ('มีคะแนนรีวิว (' + rating + ' ดาว)') : 'ยังไม่มีคะแนนรีวิว' },
     { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
     { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
@@ -1619,7 +1633,12 @@ async function retryRehostImage(mode){
   const btn = isManual ? document.getElementById('retryRehostBtn') : null;
   const row = isManual ? document.getElementById('rehostCheck') : null;
 
+  // ตั้งค่าก่อนอะไรทั้งหมด (แบบ sync) เพื่อให้ renderPrePublishPreview() ที่เรียกซ้อนกัน
+  // จากเส้นทาง auto เห็นค่านี้เป็น true ทันที ก่อนจะไปถึง await ตัวแรกข้างล่าง
+  rehostInProgress = true;
+
   if (isManual && btn) { btn.disabled = true; btn.textContent = 'กำลังลอง...'; }
+  if (isManual) renderPrePublishPreview(); // อัปเดต label แถวให้ตรงกับสถานะ "กำลังลองอยู่" ทันที
 
   try{
     const data = await apiCall('/api/retry-image', {
@@ -1644,7 +1663,10 @@ async function retryRehostImage(mode){
       const originalLabel = 'ลองรี-โฮสต์อีกครั้ง';
       btn.disabled = false; btn.textContent = originalLabel;
     }
-    // mode = 'auto': ไม่โชว์ error (แค่ log ผ่าน apiCall แล้ว) — preview จะโชว์ปุ่ม manual แทน
+    // mode = 'auto': ไม่โชว์ error (แค่ log ผ่าน apiCall แล้ว) — preview จะโชว์ label "ไม่สำเร็จ" + ปุ่ม manual แทน
+  }finally{
+    rehostInProgress = false;
+    if (isManual) renderPrePublishPreview(); // เคลียร์ label "กำลังลองอยู่" กลับเป็นสถานะจริงล่าสุด
   }
 }
 
