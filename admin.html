@@ -1169,18 +1169,55 @@ function startNewProduct(){
   chPickerRendered = false;
   window._captionOverrides = {};
   window._lastDistributeResults = null;
-  distributeResultsRestoredFor = null; // GRAVITY FIX: เคลียร์ก่อนเริ่มสินค้าใหม่
-  pipelineSteps = [];
-  document.getElementById('in').value = '';
-  document.getElementById('resultTable').innerHTML = '';
-  document.getElementById('stepsList').innerHTML = '';
+  distributeResultsRestoredFor = null;
+
+  // ─────────────────────────────────────────────────────────────
+  // FIX Bug 2: ล้าง stale UI ที่ค้างจากสินค้าก่อนหน้า
+  //
+  // ปัญหาเดิม: resetตัวแปรครบ แต่ไม่ได้สั่งล้าง DOM ที่ render
+  // จากค่าเหล่านั้น ทำให้:
+  //   • #statusTag badge ยังแสดง PUBLISHED (badge ใน panel-generate)
+  //   • AI provider chips ยังมีสถานะ "ใช้อยู่" (amber border) ค้างอยู่
+  //   • ผลลัพธ์/preview ในแต่ละ panel ยังแสดงข้อมูลของสินค้าเก่า
+  //
+  // แก้ไข: reset UI ทุกชิ้นก่อน renderStepper() ใหม่
+  // ─────────────────────────────────────────────────────────────
+
+  // 1) ล้าง statusTag badge ใน panel-generate header
+  const statusTag = document.getElementById('statusTag');
+  if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
+
+  // 2) ล้าง "used" markers บน AI provider chips — reset aiUsageThisRun แล้ว re-render grid
+  aiUsageThisRun = {};
+  renderAiGrid();
+
+  // 3) ล้าง content ของ panel-results ทั้งหมด
+  const resultTable = document.getElementById('resultTable');
+  if (resultTable) resultTable.innerHTML = '';
   const dr = document.getElementById('distributeResults');
   if (dr) dr.innerHTML = '';
   const plc = document.getElementById('publishLocationCard');
   if (plc) plc.innerHTML = '';
+
+  // 4) ล้าง publish panel UI
   const cc = document.getElementById('categoryCheck');
   if (cc) cc.innerHTML = '';
+  const pvWrap = document.getElementById('pvWrap');
+  if (pvWrap) { pvWrap.classList.add('hidden'); pvWrap.innerHTML = ''; }
+  const chPicker = document.getElementById('chPicker');
+  if (chPicker) chPicker.innerHTML = '';
+
+  // 5) ล้าง generate panel UI
+  const stepsList = document.getElementById('stepsList');
+  if (stepsList) stepsList.innerHTML = '';
+
+  // 6) ล้าง field checklist และ progress text
   renderFieldChecklist({});
+
+  // ─────────────────────────────────────────────────────────────
+  // (ยังเหมือนเดิม) ล้าง input field และ reset stepper state
+  // ─────────────────────────────────────────────────────────────
+  document.getElementById('in').value = '';
   lastAutoKey = null;
   renderStepper();
   document.getElementById('panel-import').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -1313,7 +1350,18 @@ async function doImport(){
     productId = data.productId;
     window._captionOverrides = {};
     window._lastDistributeResults = null;
-    distributeResultsRestoredFor = null; // GRAVITY FIX: สินค้าใหม่ → ให้ลองกู้คืนผลลัพธ์ของ productId นี้ใหม่
+    distributeResultsRestoredFor = null;
+
+    // ─────────────────────────────────────────────────────────────
+    // FIX Bug 2 (doImport path): ล้าง stale UI เหมือนกัน
+    // เผื่อกรณีที่ user กด Import สินค้าใหม่ภายใน session เดิม
+    // โดยไม่ได้กด "+ Import สินค้าใหม่" ก่อน
+    // ─────────────────────────────────────────────────────────────
+    aiUsageThisRun = {};
+    renderAiGrid();
+    const statusTag = document.getElementById('statusTag');
+    if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
+
     latestPipelineStatus = data.pipeline.status;
     updateStatusTag(data.pipeline.status);
     renderFieldChecklist({});
@@ -1417,6 +1465,32 @@ const PLATFORM_LIMITS = {
 };
 window._captionOverrides = window._captionOverrides || {};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX Bug 1: Auto-rehost image เมื่อ renderPrePublishPreview() ตรวจพบว่ารูปยัง
+// ไม่ถูก re-host ไป GitHub
+//
+// ปัญหาเดิม: renderPrePublishPreview() ตรวจสอบ rehosted flag แล้วแค่วาด
+// ปุ่ม "ลองรี-โฮสต์อีกครั้ง" โดยไม่ได้ลองอัตโนมัติเลย ทำให้ user ต้องกดเอง
+// ทุกครั้ง และไม่มีกลไกกันลองซ้ำอนันต์
+//
+// แก้ไข:
+//   • เพิ่ม rehostAttemptedForProduct — จำว่าเราลองอัตโนมัติให้ productId นี้
+//     แล้วหรือยัง (reset เมื่อ productId เปลี่ยน)
+//   • autoRetryRehostIfNeeded() — ถ้ายังไม่เคยลองและยังไม่ได้ rehost → ลองเลย
+//     (เรียกจาก renderPrePublishPreview ตอนที่ตรวจพบว่า rehosted = false)
+//   • retryRehostImage() รองรับ mode 'auto' (ไม่ต้องการ DOM button) นอกจาก
+//     mode 'manual' (มี button ให้กด) เหมือนเดิม
+// ─────────────────────────────────────────────────────────────────────────────
+let rehostAttemptedForProduct = null; // productId ที่เคยลอง auto-rehost ไปแล้ว
+
+async function autoRetryRehostIfNeeded(){
+  // ลองได้ครั้งเดียวต่อสินค้า — ถ้าลองแล้วยังไม่สำเร็จ จะยังโชว์ปุ่มให้ user กดเอง
+  if (!productId || rehostAttemptedForProduct === productId) return;
+  rehostAttemptedForProduct = productId;
+  logEvent('pending', 'auto-rehost: รูปยังไม่ถูก re-host — ลองอัตโนมัติ...');
+  await retryRehostImage('auto');
+}
+
 function smartTrim(text, limit){
   if (!text || text.length <= limit) return text;
   let cut = text.slice(0, Math.max(0, limit - 1));
@@ -1470,9 +1544,19 @@ function renderPrePublishPreview(){
   const linkTitle = content.seo_title || product.title || product.name || 'ไม่มีชื่อ SEO';
   const rehosted = /githubusercontent\.com|github\.io/.test(imageUrl);
 
+  // ─────────────────────────────────────────────────────────────────────
+  // FIX Bug 1: ถ้ารูปยังไม่ได้ rehost → ลองอัตโนมัติทันที (ครั้งเดียวต่อสินค้า)
+  // แทนที่จะแค่โชว์ปุ่มรอ user กด
+  // ─────────────────────────────────────────────────────────────────────
+  if (!rehosted && imageUrl) {
+    autoRetryRehostIfNeeded(); // fire-and-forget; refreshStatus() จะ re-render เองเมื่อเสร็จ
+  }
+
   const checks = [
     { ok: !!imageUrl, label: imageUrl ? 'มีรูปสินค้า (image_url)' : 'ยังไม่มีรูปสินค้า (image_url)' },
-    { ok: rehosted, label: rehosted ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)' : 'รูปยังไม่ได้ re-host ไป GitHub', id: 'rehostCheck', retry: !rehosted },
+    { ok: rehosted, label: rehosted ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)' : 'กำลัง re-host รูปไป GitHub…', id: 'rehostCheck',
+      // ยังโชว์ปุ่ม retry สำหรับกรณีที่ auto ลองแล้วยังไม่สำเร็จ (user กดซ้ำเองได้)
+      retry: !rehosted && rehostAttemptedForProduct === productId },
     { ok: !!rating, label: rating ? ('มีคะแนนรีวิว (' + rating + ' ดาว)') : 'ยังไม่มีคะแนนรีวิว' },
     { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
     { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
@@ -1480,7 +1564,7 @@ function renderPrePublishPreview(){
   const checksHtml = checks.map(c =>
     '<div class="pv-check-row ' + (c.ok ? 'ok' : 'warn') + '"' + (c.id ? ' id="' + c.id + '"' : '') + '>' +
       '<span class="ico">' + (c.ok ? '✓' : '!') + '</span><span>' + c.label + '</span>' +
-      (c.retry ? '<button class="btn-ghost" id="retryRehostBtn" onclick="retryRehostImage()" style="margin-left:auto; flex-shrink:0; padding:5px 10px; font-size:12px;">ลองรี-โฮสต์อีกครั้ง</button>' : '') +
+      (c.retry ? '<button class="btn-ghost" id="retryRehostBtn" onclick="retryRehostImage(\'manual\')" style="margin-left:auto; flex-shrink:0; padding:5px 10px; font-size:12px;">ลองรี-โฮสต์อีกครั้ง</button>' : '') +
     '</div>'
   ).join('');
 
@@ -1524,20 +1608,28 @@ function renderPrePublishPreview(){
   wrap.classList.remove('hidden');
 }
 
-async function retryRehostImage(){
-  const btn = document.getElementById('retryRehostBtn');
-  const row = document.getElementById('rehostCheck');
-  if (!btn) return;
-  const originalLabel = btn.textContent;
-  btn.disabled = true; btn.textContent = 'กำลังลอง...';
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX Bug 1 (ต่อ): retryRehostImage รองรับ mode parameter
+//   mode = 'manual' (default): มี button #retryRehostBtn ใน DOM → update ปุ่มด้วย
+//   mode = 'auto':             เรียกจาก autoRetryRehostIfNeeded → ไม่ต้อง touch DOM
+// ─────────────────────────────────────────────────────────────────────────────
+async function retryRehostImage(mode){
+  mode = mode || 'manual';
+  const isManual = mode === 'manual';
+  const btn = isManual ? document.getElementById('retryRehostBtn') : null;
+  const row = isManual ? document.getElementById('rehostCheck') : null;
+
+  if (isManual && btn) { btn.disabled = true; btn.textContent = 'กำลังลอง...'; }
+
   try{
     const data = await apiCall('/api/retry-image', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
-    }, 'POST /api/retry-image');
+    }, 'POST /api/retry-image (' + mode + ')');
     if (!data.ok) throw new Error(data.reason || 'รี-โฮสต์ไม่สำเร็จ ลองใหม่อีกครั้งภายหลัง');
+    // สำเร็จ → refreshStatus จะ re-render preview พร้อม rehosted = true
     await refreshStatus();
   }catch(e){
-    if (row) {
+    if (isManual && row) {
       let errEl = document.getElementById('rehostRetryErr');
       if (!errEl) {
         errEl = document.createElement('div');
@@ -1548,7 +1640,11 @@ async function retryRehostImage(){
       }
       errEl.textContent = e.message;
     }
-    btn.disabled = false; btn.textContent = originalLabel;
+    if (isManual && btn) {
+      const originalLabel = 'ลองรี-โฮสต์อีกครั้ง';
+      btn.disabled = false; btn.textContent = originalLabel;
+    }
+    // mode = 'auto': ไม่โชว์ error (แค่ log ผ่าน apiCall แล้ว) — preview จะโชว์ปุ่ม manual แทน
   }
 }
 
@@ -1882,8 +1978,7 @@ function renderProductList(products){
     const statusKey = p.pipeline_status || 'imported';
     const statusLabel = PL_STATUS_LABELS[statusKey] || statusKey.toUpperCase();
     return '<div class="pl-row" id="plrow_' + p.id + '">' +
-      '<div class="pl-info">' +
-        '<div class="pl-name">' + escapeHtml(p.name) + '</div>' +
+      '<div class="pl-info"><div class="pl-name">' + escapeHtml(p.name) + '</div>' +
         '<div class="pl-meta"><span class="tag ' + statusKey + '">' + statusLabel + '</span><span>#' + p.id + '</span></div>' +
       '</div>' +
       '<button class="pl-del-btn" onclick="deleteProductRow(' + p.id + ')">ลบ</button>' +
