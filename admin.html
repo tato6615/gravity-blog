@@ -315,10 +315,6 @@
   startInput.value = monthAgo.toISOString().slice(0, 10);
 
   function sortProducts(products, metric) {
-    // GRAVITY FIX (2026-08-23): เดิมเรียงตาม commission เป็นหลักเสมอ
-    // ทำให้ตอนยังไม่มี conversion เลย (commission ทุกแถว = $0) การเรียงจะ
-    // fallback ไปตาม insertion order ของ SQL แทนที่จะโชว์สินค้าที่มีคนคลิกเยอะสุดก่อน
-    // ตอนนี้เรียงตาม metric ที่กำลังดูอยู่จริงบนกราฟ
     return [...products].sort((a, b) => {
       if (metric === 'clicks') {
         const clickDiff = (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
@@ -380,8 +376,6 @@
     const values = products.map(p => (isClicks ? p.total_clicks : p.total_commission) || 0);
     const color = isClicks ? '#4fd1c5' : '#e8a33d';
 
-    // ป้องกัน "Canvas is already in use" — เผื่อมี Chart instance ค้างอยู่บน canvas นี้
-    // จากการ re-render ใด ๆ ที่ตัวแปร chart local ไม่รู้จัก
     const existing = Chart.getChart(canvas);
     if (existing) existing.destroy();
     if (chart) chart.destroy();
@@ -687,7 +681,7 @@ async function toggleCommunityHub(visible) {
   } catch (err) {
     errEl.textContent = '⚠️ ' + err.message;
     errEl.style.display = 'block';
-    await loadCommunityHubStatus(); // sync กลับสถานะจริง
+    await loadCommunityHubStatus();
   }
 }
 
@@ -903,9 +897,6 @@ async function loadMarketList(){
   }
 }
 
-// เอาไปโชว์เป็น chip เล็กๆ ในพาเนล Import Product เดิม (ดูข้อ 3 ด้านบน)
-// — เชื่อม Market Discovery เข้ากับ Product Engine ตาม Definition of Done
-// โดยไม่ต้องแก้ logic การ import เดิมเลยแม้แต่บรรทัดเดียว
 async function loadSelectedMarketChip(){
   const el = document.getElementById('md-selected-chip');
   if (!el) return;
@@ -1177,11 +1168,12 @@ function startNewProduct(){
   selectedChannels = new Set();
   chPickerRendered = false;
   window._captionOverrides = {};
+  window._lastDistributeResults = null;
+  distributeResultsRestoredFor = null; // GRAVITY FIX: เคลียร์ก่อนเริ่มสินค้าใหม่
   pipelineSteps = [];
   document.getElementById('in').value = '';
   document.getElementById('resultTable').innerHTML = '';
   document.getElementById('stepsList').innerHTML = '';
-  // ล้าง distributeResults ใน panel-results
   const dr = document.getElementById('distributeResults');
   if (dr) dr.innerHTML = '';
   const plc = document.getElementById('publishLocationCard');
@@ -1320,6 +1312,8 @@ async function doImport(){
     }, 'POST /api/import');
     productId = data.productId;
     window._captionOverrides = {};
+    window._lastDistributeResults = null;
+    distributeResultsRestoredFor = null; // GRAVITY FIX: สินค้าใหม่ → ให้ลองกู้คืนผลลัพธ์ของ productId นี้ใหม่
     latestPipelineStatus = data.pipeline.status;
     updateStatusTag(data.pipeline.status);
     renderFieldChecklist({});
@@ -1357,6 +1351,39 @@ const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'threads', 'website', 'teleg
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
 let chPickerRendered = false;
+
+/**
+ * GRAVITY FIX (2026-08-23): ผลการเผยแพร่แต่ละช่องทาง (window._lastDistributeResults)
+ * เดิมเก็บไว้ใน memory ของหน้าเว็บเท่านั้น — พอ refreshStatus() ถูกเรียกใหม่ (เช่น
+ * รีเฟรชหน้า, กลับมาเปิดดูสินค้าที่ publish ไปแล้ว) ค่านี้จะหายไปทันที เพราะ
+ * refreshStatus() ไม่เคยเรียก renderDistributeResults() ด้วยข้อมูลเก่าเลย
+ * ตอนนี้บันทึกผลลัพธ์ลง localStorage ผูกกับ productId ทุกครั้งที่อัปเดต และ
+ * ให้ refreshStatus() ดึงกลับมาแสดงอัตโนมัติเมื่อ pipeline status เป็น 'published'
+ * และยังไม่มีผลลัพธ์อยู่ใน memory ของ session ปัจจุบัน
+ */
+const DISTRIBUTE_RESULTS_STORAGE_PREFIX = 'gravity_distribute_results_';
+let distributeResultsRestoredFor = null;
+
+function getDistributeResultsStorageKey(pid){
+  return DISTRIBUTE_RESULTS_STORAGE_PREFIX + pid;
+}
+function saveDistributeResults(pid, results){
+  if (!pid) return;
+  try{
+    localStorage.setItem(getDistributeResultsStorageKey(pid), JSON.stringify(results));
+  }catch(e){ /* localStorage ใช้ไม่ได้ (private mode ฯลฯ) — ไม่ critical ข้ามไปเงียบๆ */ }
+}
+function loadDistributeResults(pid){
+  if (!pid) return null;
+  try{
+    const raw = localStorage.getItem(getDistributeResultsStorageKey(pid));
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearDistributeResults(pid){
+  if (!pid) return;
+  try{ localStorage.removeItem(getDistributeResultsStorageKey(pid)); }catch(e){}
+}
 
 function renderChannelPicker(){
   const el = document.getElementById('chPicker');
@@ -1525,15 +1552,6 @@ async function retryRehostImage(){
   }
 }
 
-/**
- * GRAVITY ENHANCEMENT (2026-08-12): "หาสินค้านี้เจอที่ไหน" card
- * Renders right in panel-results, right where "Published ✓" already
- * lives — so the deep link to the real product page + its AI-assigned
- * category are visible the moment publish finishes, instead of the user
- * having to guess where a just-published product landed on the site.
- * Purely additive: only reads existing latestStages/latestProduct data
- * that's already being fetched, doesn't touch any API call or other panel.
- */
 function renderPublishLocation(){
   const wrap = document.getElementById('publishLocationCard');
   if (!wrap) return;
@@ -1578,6 +1596,17 @@ async function refreshStatus(){
   if (data.pipeline.status === 'published') {
     renderResults(data.stages);
     renderPublishLocation();
+    // GRAVITY FIX: กู้คืน "ผลการเผยแพร่แต่ละช่องทาง" ที่เคยบันทึกไว้ กรณี memory
+    // ของ session นี้ยังไม่มีข้อมูล (เช่น refresh หน้า หรือ productId ถูกตั้งค่าใหม่)
+    if (distributeResultsRestoredFor !== productId
+        && !(window._lastDistributeResults && window._lastDistributeResults.length)) {
+      const persisted = loadDistributeResults(productId);
+      if (persisted && persisted.length) {
+        window._lastDistributeResults = persisted;
+        renderDistributeResults(persisted);
+      }
+      distributeResultsRestoredFor = productId;
+    }
   }
   renderStepper();
   return data;
@@ -1641,7 +1670,6 @@ async function doPublish(){
 
     btn.textContent = 'Published ✓';
 
-    // ═══ FIX: auto-open panel-results และ scroll ไปหาผลลัพธ์ ═══
     expandedStep = 'results';
     renderStepper();
     document.getElementById('panel-results').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -1677,7 +1705,6 @@ async function distributeToChannels(channels){
   return results;
 }
 
-// ═══ FIX: render ผลการเผยแพร่ใน panel-results แทน panel-publish ═══
 function retryChannel(channel) {
   const channels = channel.includes(',') ? channel.split(',') : [channel];
   const all = window._lastDistributeResults || [];
@@ -1692,6 +1719,7 @@ function retryChannel(channel) {
 
 function renderDistributeResults(results){
   window._lastDistributeResults = results;
+  saveDistributeResults(productId, results); // GRAVITY FIX: กันผลลัพธ์หายตอน refreshStatus() / เปิดหน้าใหม่
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
     let val;
@@ -1701,7 +1729,6 @@ function renderDistributeResults(results){
     return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
   }).join('');
 
-  // target: panel-results (ไม่ใช่ panel-publish แล้ว)
   const failedChs = results.filter(r => r.error || r.skipped).map(r => r.channel);
   const retryAllBtn = failedChs.length > 1
     ? '<button class="btn-teal" onclick="retryChannel(\'' + failedChs.join(',') + '\')" style="width:100%;margin-top:12px;">↺ ส่งซ้ำทุกที่ที่ล้มเหลว (' + failedChs.length + ')</button>'
