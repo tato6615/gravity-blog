@@ -8,15 +8,26 @@
 // clicks ปกติแต่ conversions/commission เป็น 0 ตลอด (root cause ที่เจอ
 // จาก system check ก่อนหน้านี้) ไฟล์นี้แก้จุดนั้นโดยเฉพาะ ไม่แตะไฟล์อื่น
 //
+// UPDATE (2026-08-23): เพิ่ม secret key auth — endpoint เดิมเป็น public
+// ล้วนๆ ไม่มีการเช็คสิทธิ์เลย ใครรู้ URL ก็ยิงข้อมูลปลอมเข้าได้ จึงเพิ่ม
+// การเช็ค header X-Import-Secret เทียบกับ env var IMPORT_SECRET ก่อน
+// ทำงานส่วนอื่นทุกครั้ง ถ้าไม่ตรง/ไม่มี header นี้ → ตอบ 401 ทันที
+// ไม่แตะฐานข้อมูลเลย ต้องตั้งค่า IMPORT_SECRET ใน Cloudflare Pages
+// Settings → Environment variables (แบบ Encrypted) ก่อนถึงจะใช้งานได้
+//
 // วิธีเรียก:
 //   POST https://gravity-blog.pages.dev/api/conversions/import
 //   Content-Type: application/json
+//   X-Import-Secret: <ค่าเดียวกับ env var IMPORT_SECRET>
 //   Body: { "rows": [
 //     { "product_id": "104", "commission": 12.5, "order_id": "AMZ-001", "status": "approved" },
 //     ...
 //   ]}
 //
 // พฤติกรรม:
+//   - ถ้า header X-Import-Secret ไม่ตรงกับ env.IMPORT_SECRET → 401 ทันที
+//   - ถ้ายังไม่ได้ตั้งค่า env.IMPORT_SECRET ใน Cloudflare → ปฏิเสธด้วย 500
+//     (fail-safe: ไม่ปล่อยให้ endpoint เปิดโล่งโดยไม่ตั้งใจ)
 //   - แต่ละแถวต้องมี product_id + order_id (unique key ของตาราง) ไม่งั้นข้าม
 //     แถวนั้นแล้วรายงานกลับมาใน `skipped` แทนที่จะทำให้ทั้ง batch fail
 //   - ใช้ ON CONFLICT(order_id) เหมือนโค้ดต้นฉบับที่ user เตรียมไว้ — ยิงซ้ำ
@@ -25,6 +36,20 @@
 //     กัน unhandled exception หลุดไปเป็น raw 500
 
 export async function onRequestPost({ request, env }) {
+  // --- Auth check: ต้องผ่านก่อนแตะอะไรทั้งนั้น ---
+  const expectedSecret = env.IMPORT_SECRET;
+  if (!expectedSecret) {
+    // ยังไม่ได้ตั้งค่า env var ใน Cloudflare — ปฏิเสธไว้ก่อนเพื่อความปลอดภัย
+    console.error('conversions/import: IMPORT_SECRET env var ยังไม่ได้ตั้งค่า');
+    return json({ ok: false, error: 'Server ยังไม่ได้ตั้งค่า auth — ติดต่อผู้ดูแลระบบ' }, 500);
+  }
+
+  const providedSecret = request.headers.get('X-Import-Secret');
+  if (!providedSecret || providedSecret !== expectedSecret) {
+    return json({ ok: false, error: 'Unauthorized: X-Import-Secret ไม่ถูกต้องหรือไม่ได้ส่งมา' }, 401);
+  }
+  // --- จบ auth check ---
+
   let body;
   try {
     body = await request.json();
