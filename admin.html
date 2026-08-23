@@ -231,6 +231,9 @@
   .an-load-btn{ padding:9px 18px; font-size:13.5px; }
   .an-status{ color:var(--text-faint); font-size:12.5px; }
   .an-chart-wrap{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:18px; }
+  .an-chart-toggle{ display:flex; gap:6px; margin-bottom:12px; }
+  .an-chart-toggle button{ flex:none; padding:6px 14px; font-size:12px; background:var(--panel); border:1px solid var(--line); color:var(--text-dim); }
+  .an-chart-toggle button.active{ border-color:var(--teal); color:var(--text); background:rgba(79,209,197,0.08); }
   .an-table-wrap{ overflow-x:auto; }
   #stat-table{ width:100%; border-collapse:collapse; }
   #stat-table th{ padding:10px 12px; color:var(--text-faint); font-size:12px; font-weight:600; text-align:left;
@@ -266,6 +269,10 @@
     </div>
 
     <div class="an-chart-wrap">
+      <div class="an-chart-toggle" id="stat-chart-toggle">
+        <button data-metric="clicks" class="active">Clicks</button>
+        <button data-metric="commission">Commission ($)</button>
+      </div>
       <canvas id="stat-chart" height="90"></canvas>
     </div>
 
@@ -294,15 +301,30 @@
   const endInput = document.getElementById('stat-end');
   const statusEl = document.getElementById('stat-status');
   const tbody = document.getElementById('stat-tbody');
+  const toggleWrap = document.getElementById('stat-chart-toggle');
   let chart = null;
+  let lastProducts = [];
+  let activeMetric = 'clicks'; // GRAVITY FIX (2026-08-23): เดิม hardcode เป็น commission เท่านั้น
+                                // ทำให้กราฟแบนราบเป็น 0 ตอนยังไม่มี conversion แม้จะมีคลิกเข้ามาเยอะแล้วก็ตาม
+                                // ตอนนี้ default เป็น clicks เพื่อให้เห็นข้อมูลจริงตั้งแต่วันแรก
+                                // และมีปุ่มสลับไปดู Commission ได้เมื่อพร้อม
 
   const today = new Date();
   const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   endInput.value = today.toISOString().slice(0, 10);
   startInput.value = monthAgo.toISOString().slice(0, 10);
 
-  function sortProducts(products) {
+  function sortProducts(products, metric) {
+    // GRAVITY FIX (2026-08-23): เดิมเรียงตาม commission เป็นหลักเสมอ
+    // ทำให้ตอนยังไม่มี conversion เลย (commission ทุกแถว = $0) การเรียงจะ
+    // fallback ไปตาม insertion order ของ SQL แทนที่จะโชว์สินค้าที่มีคนคลิกเยอะสุดก่อน
+    // ตอนนี้เรียงตาม metric ที่กำลังดูอยู่จริงบนกราฟ
     return [...products].sort((a, b) => {
+      if (metric === 'clicks') {
+        const clickDiff = (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
+        if (clickDiff !== 0) return clickDiff;
+        return (Number(b.total_commission) || 0) - (Number(a.total_commission) || 0);
+      }
       const commDiff = (Number(b.total_commission) || 0) - (Number(a.total_commission) || 0);
       if (commDiff !== 0) return commDiff;
       return (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
@@ -319,10 +341,12 @@
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'unknown error');
 
-      const sorted = sortProducts(data.products);
+      lastProducts = data.products;
+      const sorted = sortProducts(lastProducts, activeMetric);
       renderTable(sorted);
-      renderChart(sorted.slice(0, 15));
-      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม Commission มาก→น้อย`;
+      renderChart(sorted.slice(0, 15), activeMetric);
+      const metricLabel = activeMetric === 'clicks' ? 'Clicks มาก→น้อย' : 'Commission มาก→น้อย';
+      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม ${metricLabel}`;
     } catch (err) {
       statusEl.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
     }
@@ -348,11 +372,13 @@
     }
   }
 
-  function renderChart(products) {
+  function renderChart(products, metric) {
     const canvas = document.getElementById('stat-chart');
     const ctx = canvas.getContext('2d');
     const labels = products.map(p => `Product ${p.product_id}`);
-    const values = products.map(p => p.total_commission || 0);
+    const isClicks = metric === 'clicks';
+    const values = products.map(p => (isClicks ? p.total_clicks : p.total_commission) || 0);
+    const color = isClicks ? '#4fd1c5' : '#e8a33d';
 
     // ป้องกัน "Canvas is already in use" — เผื่อมี Chart instance ค้างอยู่บน canvas นี้
     // จากการ re-render ใด ๆ ที่ตัวแปร chart local ไม่รู้จัก
@@ -365,13 +391,13 @@
       data: {
         labels,
         datasets: [{
-          label: 'Total Commission ($)',
+          label: isClicks ? 'Clicks' : 'Total Commission ($)',
           data: values,
-          borderColor: '#e8a33d',
-          backgroundColor: 'rgba(232, 163, 61, 0.15)',
+          borderColor: color,
+          backgroundColor: isClicks ? 'rgba(79, 209, 197, 0.15)' : 'rgba(232, 163, 61, 0.15)',
           fill: true,
           tension: 0.3,
-          pointBackgroundColor: '#e8a33d',
+          pointBackgroundColor: color,
           pointRadius: 4
         }]
       },
@@ -385,6 +411,19 @@
       }
     });
   }
+
+  toggleWrap.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-metric]');
+    if (!btn || btn.classList.contains('active')) return;
+    activeMetric = btn.dataset.metric;
+    toggleWrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    if (!lastProducts.length) return;
+    const sorted = sortProducts(lastProducts, activeMetric);
+    renderTable(sorted);
+    renderChart(sorted.slice(0, 15), activeMetric);
+    const metricLabel = activeMetric === 'clicks' ? 'Clicks มาก→น้อย' : 'Commission มาก→น้อย';
+    statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม ${metricLabel}`;
+  });
 
   document.getElementById('stat-load').addEventListener('click', loadStats);
   loadStats();
