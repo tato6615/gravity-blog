@@ -83,6 +83,35 @@
   .ov-dot{ width:6px; height:6px; border-radius:50%; background:var(--text-faint); }
   .ov-dot.live{ background:var(--teal); }
 
+  /* ═══ Timeline layout (single-page flow) ═══ */
+  .timeline{ margin-bottom:22px; }
+  .tl-row{ display:flex; }
+  .tl-rail{ width:30px; display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
+  .tl-dot{ width:24px; height:24px; border-radius:50%; border:2px solid var(--line); background:var(--bg);
+    display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace;
+    font-size:11px; color:var(--text-faint); flex-shrink:0; transition:all .15s; }
+  .tl-line{ width:2px; flex:1; background:var(--line); min-height:14px; margin:2px 0; }
+  .tl-row.done .tl-dot{ background:var(--teal); border-color:var(--teal); color:#062421; }
+  .tl-row.done .tl-line{ background:var(--teal); }
+  .tl-row.active .tl-dot{ border-color:var(--amber); color:var(--amber); }
+  .tl-row.error .tl-dot{ border-color:var(--red); color:var(--red); }
+  .tl-row.last .tl-line{ display:none; }
+  .tl-card{ flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; margin-bottom:14px; transition:opacity .15s; }
+  .tl-row.locked .tl-card{ opacity:0.42; pointer-events:none; }
+  .tl-row.active .tl-card{ border-color:rgba(232,163,61,0.35); }
+  .tl-card-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; }
+  .tl-card-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
+  .tl-card-sub{ color:var(--text-dim); font-size:12.5px; margin-bottom:2px; }
+  .tl-card-body{ margin-top:10px; }
+  .tl-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:2px; }
+  .tl-stat{ background:var(--panel-2); border-radius:8px; padding:8px 10px; }
+  .tl-stat-num{ font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:700; }
+  .tl-stat-label{ color:var(--text-faint); font-size:10.5px; margin-top:1px; }
+  .tl-chip-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .tl-chip{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:3px 9px; border-radius:20px;
+    background:rgba(79,209,197,0.12); color:var(--teal); }
+
   .stepper{ display:flex; flex-direction:column; gap:10px; margin-bottom:26px; }
   .panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
   .panel.locked{ opacity:0.4; }
@@ -428,109 +457,90 @@
   <div class="crumb">GRAVITY_OS <span>/</span> <b>AI Product Engine</b></div>
   <div class="page-title">Dashboard</div>
 
-  <div class="overview" id="overview">
-    <div class="ov-top">
-      <span class="ov-name" id="ovName">ยังไม่มีสินค้า</span>
-      <span class="tag" id="ovTag">ยังไม่เริ่ม</span>
-    </div>
-    <div class="ov-track">
-      <div class="ov-seg" id="ovSeg-import"></div>
-      <div class="ov-seg" id="ovSeg-generate"></div>
-      <div class="ov-seg" id="ovSeg-publish"></div>
-      <div class="ov-seg" id="ovSeg-results"></div>
-    </div>
-    <div class="ov-labels">
-      <span id="ovlab-import">Import</span><span id="ovlab-generate">Generate</span>
-      <span id="ovlab-publish">Publish</span><span id="ovlab-results">Done</span>
-    </div>
-    <div class="ov-foot">
-      <div class="ov-chip" onclick="toggleAux('system')"><span class="ov-dot" id="ovAiDot"></span><span id="ovAiText">AI …</span></div>
-      <div class="ov-chip" onclick="toggleAux('products')"><span id="ovProductsText">สินค้า —</span></div>
-    </div>
+  <div class="tl-card-head" style="margin-bottom:16px; align-items:flex-start;">
+    <span class="ov-name" id="ovName" style="font-size:15px;">ยังไม่มีสินค้า</span>
+    <span class="tag" id="ovTag">ยังไม่เริ่ม</span>
   </div>
 
-  <div class="stepper" id="stepper">
+  <div class="timeline" id="timeline">
 
-    <section class="panel" id="panel-import" data-key="import">
-      <div class="panel-head" onclick="onPanelHeadClick('import')">
-        <span class="panel-num" id="pnum-import">1</span>
-        <div class="panel-head-text">
-          <div class="panel-title">Import Product <span class="tag" id="md-selected-chip" style="display:none; margin-left:6px;"></span></div>
-          <div class="panel-sub" id="psub-import">วาง URL สินค้าหรือพิมพ์รายละเอียด</div>
+    <!-- 1. Import -->
+    <div class="tl-row" id="tlrow-import" data-key="import">
+      <div class="tl-rail"><span class="tl-dot" id="tldot-import">1</span><span class="tl-line"></span></div>
+      <div class="tl-card" id="panel-import">
+        <div class="tl-card-head">
+          <span class="tl-card-title">Import Product <span class="tag" id="md-selected-chip" style="display:none; margin-left:6px;"></span></span>
         </div>
-        <span class="panel-chev">›</span>
+        <div class="tl-card-sub" id="psub-import">วาง URL สินค้าหรือพิมพ์รายละเอียด</div>
+        <div class="tl-card-body">
+          <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
+          <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
+          <div class="err" id="importErr"></div>
+        </div>
       </div>
-      <div class="panel-body">
-        <div class="sub" style="margin-bottom:14px;">วาง URL สินค้า หรือพิมพ์รายละเอียด แล้วให้ AI จัดการที่เหลือทั้งหมด</div>
-        <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
-        <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
-        <div class="err" id="importErr"></div>
-      </div>
-    </section>
+    </div>
 
-    <section class="panel" id="panel-generate" data-key="generate">
-      <div class="panel-head" onclick="onPanelHeadClick('generate')">
-        <span class="panel-num" id="pnum-generate">2</span>
-        <div class="panel-head-text">
-          <div class="panel-title">Generate Everything <span class="tag" id="statusTag" style="margin-left:6px;"></span></div>
-          <div class="panel-sub" id="psub-generate">รอนำเข้าสินค้าก่อน</div>
-          <div class="mini-bar hidden" id="genBar"><div class="mini-bar-fill" id="genBarFill" style="width:0%;"></div></div>
+    <!-- 2. Generate -->
+    <div class="tl-row" id="tlrow-generate" data-key="generate">
+      <div class="tl-rail"><span class="tl-dot" id="tldot-generate">2</span><span class="tl-line"></span></div>
+      <div class="tl-card" id="panel-generate">
+        <div class="tl-card-head">
+          <span class="tl-card-title">Generate Everything</span>
+          <span class="tag" id="statusTag"></span>
         </div>
-        <span class="panel-chev">›</span>
-      </div>
-      <div class="panel-body">
-        <div class="sub" style="margin-bottom:14px;">AI จะสร้างข้อมูลทุกอย่างให้อัตโนมัติ — วิเคราะห์สินค้า, คีย์เวิร์ด, เนื้อหา SEO, โพสต์โซเชียล, และ prompt รูปภาพ</div>
-        <ul class="steps" id="stepsList"></ul>
-        <div class="fc-wrap">
-          <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
-          <div class="fc-groups hidden" id="fcGroups"></div>
+        <div class="tl-card-sub" id="psub-generate">รอนำเข้าสินค้าก่อน</div>
+        <div class="mini-bar hidden" id="genBar"><div class="mini-bar-fill" id="genBarFill" style="width:0%;"></div></div>
+        <div class="tl-card-body">
+          <div class="fc-wrap" style="margin-top:0; border-top:none; padding-top:0;">
+            <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
+            <div class="fc-groups hidden" id="fcGroups"></div>
+          </div>
+          <ul class="steps" id="stepsList"></ul>
+          <div style="height:10px;"></div>
+          <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
+          <div class="err" id="generateErr"></div>
         </div>
-        <div style="height:16px;"></div>
-        <button class="btn-primary" id="generateBtn" onclick="runGenerateAll()">Generate Everything</button>
-        <div class="err" id="generateErr"></div>
       </div>
-    </section>
+    </div>
 
-    <section class="panel" id="panel-publish" data-key="publish">
-      <div class="panel-head" onclick="onPanelHeadClick('publish')">
-        <span class="panel-num" id="pnum-publish">3</span>
-        <div class="panel-head-text">
-          <div class="panel-title">Publish</div>
-          <div class="panel-sub" id="psub-publish">รอสร้างเนื้อหาให้เสร็จก่อน</div>
+    <!-- 3. Publish -->
+    <div class="tl-row" id="tlrow-publish" data-key="publish">
+      <div class="tl-rail"><span class="tl-dot" id="tldot-publish">3</span><span class="tl-line"></span></div>
+      <div class="tl-card" id="panel-publish">
+        <div class="tl-card-head">
+          <span class="tl-card-title">Publish</span>
         </div>
-        <span class="panel-chev">›</span>
+        <div class="tl-card-sub" id="psub-publish">รอสร้างเนื้อหาให้เสร็จก่อน</div>
+        <div class="tl-card-body">
+          <div id="categoryCheck"></div>
+          <div class="ch-picker" id="chPicker"></div>
+          <div class="pv-wrap hidden" id="pvWrap"></div>
+          <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
+          <div class="err" id="publishErr"></div>
+        </div>
       </div>
-      <div class="panel-body">
-        <div class="sub" style="margin-bottom:14px;">ข้อมูลพร้อมครบทุก Table แล้ว เลือกช่องทางที่ต้องการเผยแพร่ แล้วกด Publish เพื่อยืนยัน</div>
-        <div id="categoryCheck"></div>
-        <div class="ch-picker" id="chPicker"></div>
-        <div class="pv-wrap hidden" id="pvWrap"></div>
-        <button class="btn-teal" id="publishBtn" onclick="doPublish()">Publish</button>
-        <div class="err" id="publishErr"></div>
-      </div>
-    </section>
+    </div>
 
-    <!-- ═══ Panel 4: ผลลัพธ์ — ผลการบันทึก + ผลการเผยแพร่แต่ละช่องทาง ═══ -->
-    <section class="panel" id="panel-results" data-key="results">
-      <div class="panel-head" onclick="onPanelHeadClick('results')">
-        <span class="panel-num" id="pnum-results">4</span>
-        <div class="panel-head-text">
-          <div class="panel-title">ผลลัพธ์</div>
-          <div class="panel-sub" id="psub-results">รอเผยแพร่ก่อน</div>
+    <!-- 4. Results -->
+    <div class="tl-row last" id="tlrow-results" data-key="results">
+      <div class="tl-rail"><span class="tl-dot" id="tldot-results">4</span></div>
+      <div class="tl-card" id="panel-results">
+        <div class="tl-card-head">
+          <span class="tl-card-title">ผลลัพธ์</span>
         </div>
-        <span class="panel-chev">›</span>
+        <div class="tl-card-sub" id="psub-results">รอเผยแพร่ก่อน</div>
+        <div class="tl-card-body">
+          <div class="tl-stat-grid" id="resultStats" style="display:none;">
+            <div class="tl-stat"><div class="tl-stat-num" id="resultTablesNum">0</div><div class="tl-stat-label">Tables บันทึกแล้ว</div></div>
+            <div class="tl-stat"><div class="tl-stat-num" id="resultChannelsNum">0</div><div class="tl-stat-label">ช่องทางที่เผยแพร่</div></div>
+          </div>
+          <div class="result-table hidden" id="resultTable"></div>
+          <div id="publishLocationCard"></div>
+          <div id="distributeResults"></div>
+          <button class="btn-ghost" id="newProductBtn" onclick="startNewProduct()" style="width:100%; margin-top:16px;">+ Import สินค้าใหม่</button>
+        </div>
       </div>
-      <div class="panel-body">
-        <div class="sub" style="margin-bottom:14px;">สรุปข้อมูลที่บันทึกแล้ว และผลการโพสต์แต่ละช่องทาง</div>
-        <!-- ข้อมูลที่บันทึกลง Grist -->
-        <div class="result-table" id="resultTable"></div>
-        <!-- หาสินค้านี้เจอที่ไหน — deep link ตรงไปหน้าสินค้าจริง + หมวดหมู่ -->
-        <div id="publishLocationCard"></div>
-        <!-- ผลการเผยแพร่แต่ละช่องทาง — แสดงที่นี่ (ย้ายจาก panel-publish) -->
-        <div id="distributeResults"></div>
-        <button class="btn-ghost" id="newProductBtn" onclick="startNewProduct()" style="width:100%; margin-top:16px;">+ Import สินค้าใหม่</button>
-      </div>
-    </section>
+    </div>
 
   </div>
 
@@ -1063,12 +1073,6 @@ function isPanelLocked(key){
   return false;
 }
 
-function onPanelHeadClick(key){
-  if (isPanelLocked(key)) return;
-  expandedStep = (expandedStep === key) ? null : key;
-  renderStepper();
-}
-
 function toggleAux(key){
   auxExpanded[key] = !auxExpanded[key];
   const panel = document.getElementById('panel-' + key);
@@ -1079,7 +1083,7 @@ function toggleAux(key){
 
 function renderStepper(){
   const current = getCurrentStepKey();
-  if (current !== lastAutoKey) { expandedStep = current; lastAutoKey = current; }
+  lastAutoKey = current;
 
   const doneFlags = {
     import: !!productId,
@@ -1106,16 +1110,17 @@ function renderStepper(){
   };
 
   PANEL_ORDER.forEach((key, i) => {
-    const panel = document.getElementById('panel-' + key);
-    const num = document.getElementById('pnum-' + key);
+    const row = document.getElementById('tlrow-' + key);
+    const dot = document.getElementById('tldot-' + key);
     const sub = document.getElementById('psub-' + key);
     const locked = isPanelLocked(key);
     const isActive = key === current;
-    panel.classList.toggle('locked', locked);
-    panel.classList.toggle('done', doneFlags[key] && !isActive);
-    panel.classList.toggle('active', isActive);
-    panel.classList.toggle('expanded', key === expandedStep && !locked);
-    num.textContent = (doneFlags[key] && !isActive) ? '✓' : String(i + 1);
+    const isError = isActive && latestPipelineStatus === 'error';
+    row.classList.toggle('locked', locked);
+    row.classList.toggle('done', doneFlags[key] && !isActive);
+    row.classList.toggle('active', isActive && !isError);
+    row.classList.toggle('error', isError);
+    dot.textContent = (doneFlags[key] && !isActive) ? '✓' : String(i + 1);
     sub.textContent = subText[key];
   });
 
@@ -1128,6 +1133,18 @@ function renderStepper(){
     genBar.classList.add('hidden');
   }
 
+  const resultStats = document.getElementById('resultStats');
+  if (resultStats) {
+    if (doneFlags.results) {
+      resultStats.style.display = '';
+      const tablesNum = Object.values(latestStages || {}).filter(Boolean).length;
+      document.getElementById('resultTablesNum').textContent = tablesNum;
+      document.getElementById('resultChannelsNum').textContent = selectedChannels.size;
+    } else {
+      resultStats.style.display = 'none';
+    }
+  }
+
   renderOverview(current, doneFlags);
 }
 
@@ -1138,21 +1155,6 @@ function renderOverview(current, doneFlags){
   const ovTag = document.getElementById('ovTag');
   ovTag.textContent = latestPipelineStatus ? latestPipelineStatus.toUpperCase() : 'ยังไม่เริ่ม';
   ovTag.className = 'tag' + (latestPipelineStatus ? ' ' + latestPipelineStatus : '');
-
-  PANEL_ORDER.forEach(key => {
-    const seg = document.getElementById('ovSeg-' + key);
-    seg.className = 'ov-seg';
-    if (key === current && latestPipelineStatus === 'error') seg.classList.add('error');
-    else if (doneFlags[key] && key !== current) seg.classList.add('done');
-    else if (key === current) seg.classList.add('active');
-    document.getElementById('ovlab-' + key).classList.toggle('current', key === current);
-  });
-
-  const aiAvailable = lastAiStatus.filter(p => p.available).length;
-  const aiTotal = lastAiStatus.length;
-  document.getElementById('ovAiText').textContent = aiTotal ? (aiAvailable + '/' + aiTotal + ' AI พร้อมใช้') : 'AI …';
-  document.getElementById('ovAiDot').classList.toggle('live', activityLog.some(e => e.status === 'pending'));
-  document.getElementById('ovProductsText').textContent = lastProductCount == null ? 'สินค้า —' : ('สินค้า ' + lastProductCount + ' ชิ้น');
 }
 
 function updateProductsSummary(count){
