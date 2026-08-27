@@ -1537,6 +1537,7 @@ function renderPrePublishPreview(){
   const product = latestProduct || {};
 
   const imageUrl = product.image_url || product.imageUrl || product.image || '';
+  const sourceUrl = product.source_url || product.sourceUrl || '';
   const rating = product.rating || product.review_score || product.rating_score || null;
   const GRAVITY_BLOG_BASE_URL = 'https://gravity-blog.pages.dev';
   const blogLink = content.slug ? (GRAVITY_BLOG_BASE_URL + '/product/' + encodeURIComponent(content.slug)) : '';
@@ -1547,21 +1548,25 @@ function renderPrePublishPreview(){
   const rehosted = /githubusercontent\.com|github\.io/.test(imageUrl);
 
   // ─────────────────────────────────────────────────────────────────────
-  // FIX Bug 1: ถ้ารูปยังไม่ได้ rehost → ลองอัตโนมัติทันที (ครั้งเดียวต่อสินค้า)
-  // แทนที่จะแค่โชว์ปุ่มรอ user กด
+  // FIX Bug 1 (root cause): เดิม gate เช็ค `imageUrl` (ผลลัพธ์ที่เคย scrape
+  // สำเร็จ) ทำให้สินค้าที่ image_url ว่างมาตั้งแต่ import (เช่น eBay error)
+  // ไม่มีวัน trigger auto-retry หรือโชว์ปุ่ม retry เลย ทั้งที่ backend
+  // (retryProductImage() ใน pipeline.js) ใช้ source_url เป็นตัวตั้งต้น
+  // ไม่ใช่ image_url — เปลี่ยนมาเช็ค sourceUrl แทน เพราะนั่นคือสิ่งที่บอกว่า
+  // "มีต้นทางให้ retry ได้จริง" ไม่ใช่ imageUrl ที่เป็นแค่ผลลัพธ์ก่อนหน้า
   // ─────────────────────────────────────────────────────────────────────
-  if (!rehosted && imageUrl) {
+  if (!rehosted && sourceUrl) {
     autoRetryRehostIfNeeded(); // fire-and-forget; refreshStatus() จะ re-render เองเมื่อเสร็จ
   }
 
   // GRAVITY FIX (2026-08-23): label เดิม hardcode เป็น "กำลัง re-host รูปไป GitHub…"
   // ทุกครั้งที่ !rehosted ไม่ว่าจริงๆ แล้วกำลังลองอยู่หรือลองไปแล้วล้มเหลวก็ตาม ทำให้ข้อความ
   // ขัดกับปุ่ม "ลองรี-โฮสต์อีกครั้ง" ที่โผล่มาด้วย (บอกว่า "กำลังทำ" แต่ก็มีปุ่มให้กดไปพร้อมกัน)
-  // ตอนนี้แยก 3 สถานะให้ตรงกับความเป็นจริง: กำลังลองอยู่ / ไม่มีรูปให้ลอง / ลองอัตโนมัติไปแล้วไม่สำเร็จ
+  // ตอนนี้แยก 3 สถานะให้ตรงกับความเป็นจริง: กำลังลองอยู่ / ไม่มีต้นทางให้ลอง / ลองอัตโนมัติไปแล้วไม่สำเร็จ
   const rehostLabel = rehosted
     ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)'
-    : !imageUrl
-      ? 'ยังไม่มีรูปสินค้าให้ re-host'
+    : !sourceUrl
+      ? 'ยังไม่มี URL ต้นทางให้ re-host (source_url ว่าง)'
       : rehostInProgress
         ? 'กำลัง re-host รูปไป GitHub…'
         : 'รี-โฮสต์อัตโนมัติไม่สำเร็จ — กดลองอีกครั้งได้';
@@ -1569,8 +1574,9 @@ function renderPrePublishPreview(){
   const checks = [
     { ok: !!imageUrl, label: imageUrl ? 'มีรูปสินค้า (image_url)' : 'ยังไม่มีรูปสินค้า (image_url)' },
     { ok: rehosted, label: rehostLabel, id: 'rehostCheck',
-      // โชว์ปุ่ม retry เฉพาะตอนมีรูปจริง, ยังไม่ rehost สำเร็จ, และไม่มี request กำลังวิ่งอยู่ ณ ขณะนี้
-      retry: !rehosted && !!imageUrl && !rehostInProgress },
+      // โชว์ปุ่ม retry เฉพาะตอนมี source_url จริง (ต้นทางให้ retry ได้), ยังไม่ rehost สำเร็จ,
+      // และไม่มี request กำลังวิ่งอยู่ ณ ขณะนี้ — ไม่ผูกกับ imageUrl อีกต่อไป (แก้ Bug #217)
+      retry: !rehosted && !!sourceUrl && !rehostInProgress },
     { ok: !!rating, label: rating ? ('มีคะแนนรีวิว (' + rating + ' ดาว)') : 'ยังไม่มีคะแนนรีวิว' },
     { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
     { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
