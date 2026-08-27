@@ -1545,16 +1545,30 @@ function renderPrePublishPreview(){
   if (blogLink) { try{ domain = new URL(blogLink).hostname; }catch(e){} }
   if (!domain) domain = 'ยังไม่มีลิงก์ (ต้องมี slug ก่อน)';
   const linkTitle = content.seo_title || product.title || product.name || 'ไม่มีชื่อ SEO';
-  const rehosted = /githubusercontent\.com|github\.io/.test(imageUrl);
 
   // ─────────────────────────────────────────────────────────────────────
-  // FIX Bug 1 (root cause): เดิม gate เช็ค `imageUrl` (ผลลัพธ์ที่เคย scrape
-  // สำเร็จ) ทำให้สินค้าที่ image_url ว่างมาตั้งแต่ import (เช่น eBay error)
-  // ไม่มีวัน trigger auto-retry หรือโชว์ปุ่ม retry เลย ทั้งที่ backend
-  // (retryProductImage() ใน pipeline.js) ใช้ source_url เป็นตัวตั้งต้น
-  // ไม่ใช่ image_url — เปลี่ยนมาเช็ค sourceUrl แทน เพราะนั่นคือสิ่งที่บอกว่า
-  // "มีต้นทางให้ retry ได้จริง" ไม่ใช่ imageUrl ที่เป็นแค่ผลลัพธ์ก่อนหน้า
+  // FIX Bug A: images.js โฮสต์รูปจริงผ่าน jsDelivr CDN (cdn.jsdelivr.net/gh/...),
+  // ไม่ใช่ githubusercontent.com/github.io — regex เดิมเช็คผิด domain เลย
+  // ไม่มีทาง match กับ imageUrl จริงได้ ทำให้ checklist ค้างที่ "! กำลัง
+  // re-host รูปไป GitHub..." ตลอดไปแม้ backend rehost สำเร็จแล้วจริงๆ
+  // (ดู jsDelivrBaseUrl() ใน images.js)
   // ─────────────────────────────────────────────────────────────────────
+  const rehosted = /cdn\.jsdelivr\.net/.test(imageUrl);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // FIX Bug B: pipeline.js's retryProductImage() ตั้ง image_source /
+  // is_screenshot ไว้ชัดเจนเวลาต้องใช้ fallback ชั้น 3 (screenshot ทั้ง
+  // หน้าเว็บ แทนรูปสินค้าจริง) พร้อมคอมเมนต์บอกตรงๆ ว่าเพื่อให้ admin.html
+  // เตือน/จัดคิว review — แต่ก่อนหน้านี้ไม่มีจุดไหนอ่านฟิลด์นี้เลย ทำให้
+  // สินค้าที่ scrape รูปจริงไม่ได้แล้วตกไปเป็น screenshot หน้าเว็บ (ซึ่งอาจ
+  // เจอ paywall/หน้าอื่นที่ไม่เกี่ยวกับสินค้าเลย) ขึ้น checklist ว่า "✓ มีรูป
+  // สินค้า" เฉยๆ โดยไม่เตือนอะไรเลย — เช็คทั้ง product.is_screenshot (เผื่อ
+  // /api/status แนบ fields มาแบบแบน) และ product.fields?.is_screenshot
+  // (โครงสร้างแบบ Grist record ตรงๆ) เพื่อไม่พลาดไม่ว่า backend จะ shape
+  // response แบบไหน
+  // ─────────────────────────────────────────────────────────────────────
+  const isScreenshotFallback = !!(product.is_screenshot || product.fields?.is_screenshot);
+
   if (!rehosted && sourceUrl) {
     autoRetryRehostIfNeeded(); // fire-and-forget; refreshStatus() จะ re-render เองเมื่อเสร็จ
   }
@@ -1581,6 +1595,16 @@ function renderPrePublishPreview(){
     { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
     { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
   ];
+
+  // FIX Bug B (ต่อ): แทรก warning row แยกออกมาให้เห็นชัดๆ ก่อน publish
+  // เมื่อรูปที่ได้มาเป็น screenshot fallback ชั้น 3 ไม่ใช่รูปสินค้าจริง
+  if (isScreenshotFallback) {
+    checks.splice(1, 0, {
+      ok: false,
+      label: 'รูปนี้เป็น screenshot หน้าเว็บ (ไม่ใช่รูปสินค้าจริง) — scrape รูปสินค้าไม่สำเร็จ แนะนำเช็คด้วยตาก่อน publish'
+    });
+  }
+
   const checksHtml = checks.map(c =>
     '<div class="pv-check-row ' + (c.ok ? 'ok' : 'warn') + '"' + (c.id ? ' id="' + c.id + '"' : '') + '>' +
       '<span class="ico">' + (c.ok ? '✓' : '!') + '</span><span>' + c.label + '</span>' +
