@@ -321,6 +321,49 @@
       </table>
     </div>
   </div>
+
+  <div class="stepper" style="margin-top:14px;">
+    <section class="panel" id="panel-system">
+      <div class="panel-head" onclick="toggleAux('system')">
+        <span class="panel-num aux-ic">⚙</span>
+        <div class="panel-head-text">
+          <div class="panel-title">สถานะระบบ</div>
+          <div class="panel-sub">AI providers, ตารางที่บันทึกแล้ว, log การเรียก API</div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sys-section">
+          <div class="sys-section-title">AI Providers</div>
+          <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
+        </div>
+        <div class="sys-section">
+          <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
+          <div class="table-grid" id="tableGrid"></div>
+        </div>
+        <div class="sys-section">
+          <div class="sys-section-title"><span class="ov-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
+          <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-products">
+      <div class="panel-head" onclick="toggleAux('products')">
+        <span class="panel-num aux-ic">▤</span>
+        <div class="panel-head-text">
+          <div class="panel-title">สินค้าทั้งหมด</div>
+          <div class="panel-sub" id="psub-products">กดเพื่อดูรายการ</div>
+        </div>
+        <span class="panel-chev">›</span>
+      </div>
+      <div class="panel-body">
+        <div class="sub" style="margin-bottom:14px;">ลบสินค้าที่ไม่ต้องการได้ (ลบแล้วกู้คืนไม่ได้ ข้อมูลทุก table ของสินค้านั้นจะหายไปด้วย)</div>
+        <button class="btn-ghost" id="productListRefreshBtn" onclick="loadProductList()" style="width:100%; margin-bottom:14px;">รีเฟรชรายการ</button>
+        <div id="productListBody"><div class="note">กด "รีเฟรชรายการ" เพื่อโหลดข้อมูล</div></div>
+      </div>
+    </section>
+  </div>
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -542,49 +585,6 @@
       </div>
     </div>
 
-  </div>
-
-  <div class="stepper">
-    <section class="panel" id="panel-system">
-      <div class="panel-head" onclick="toggleAux('system')">
-        <span class="panel-num aux-ic">⚙</span>
-        <div class="panel-head-text">
-          <div class="panel-title">สถานะระบบ</div>
-          <div class="panel-sub">AI providers, ตารางที่บันทึกแล้ว, log การเรียก API</div>
-        </div>
-        <span class="panel-chev">›</span>
-      </div>
-      <div class="panel-body">
-        <div class="sys-section">
-          <div class="sys-section-title">AI Providers</div>
-          <div class="ai-grid" id="aiGrid"><span class="note" style="margin:0;">กำลังโหลด...</span></div>
-        </div>
-        <div class="sys-section">
-          <div class="sys-section-title">บันทึกลง Grist แล้วกี่ตาราง</div>
-          <div class="table-grid" id="tableGrid"></div>
-        </div>
-        <div class="sys-section">
-          <div class="sys-section-title"><span class="ov-dot" id="sysPulse" style="display:inline-block; margin-right:6px; vertical-align:middle;"></span>Live Activity Log</div>
-          <div class="log-panel" id="logPanel"><div class="log-empty">ยังไม่มีการเรียก API</div></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel" id="panel-products">
-      <div class="panel-head" onclick="toggleAux('products')">
-        <span class="panel-num aux-ic">▤</span>
-        <div class="panel-head-text">
-          <div class="panel-title">สินค้าทั้งหมด</div>
-          <div class="panel-sub" id="psub-products">กดเพื่อดูรายการ</div>
-        </div>
-        <span class="panel-chev">›</span>
-      </div>
-      <div class="panel-body">
-        <div class="sub" style="margin-bottom:14px;">ลบสินค้าที่ไม่ต้องการได้ (ลบแล้วกู้คืนไม่ได้ ข้อมูลทุก table ของสินค้านั้นจะหายไปด้วย)</div>
-        <button class="btn-ghost" id="productListRefreshBtn" onclick="loadProductList()" style="width:100%; margin-bottom:14px;">รีเฟรชรายการ</button>
-        <div id="productListBody"><div class="note">กด "รีเฟรชรายการ" เพื่อโหลดข้อมูล</div></div>
-      </div>
-    </section>
   </div>
 </div>
 
@@ -1548,37 +1548,14 @@ function renderPrePublishPreview(){
   if (!domain) domain = 'ยังไม่มีลิงก์ (ต้องมี slug ก่อน)';
   const linkTitle = content.seo_title || product.title || product.name || 'ไม่มีชื่อ SEO';
 
-  // ─────────────────────────────────────────────────────────────────────
-  // FIX Bug A: images.js โฮสต์รูปจริงผ่าน jsDelivr CDN (cdn.jsdelivr.net/gh/...),
-  // ไม่ใช่ githubusercontent.com/github.io — regex เดิมเช็คผิด domain เลย
-  // ไม่มีทาง match กับ imageUrl จริงได้ ทำให้ checklist ค้างที่ "! กำลัง
-  // re-host รูปไป GitHub..." ตลอดไปแม้ backend rehost สำเร็จแล้วจริงๆ
-  // (ดู jsDelivrBaseUrl() ใน images.js)
-  // ─────────────────────────────────────────────────────────────────────
   const rehosted = /cdn\.jsdelivr\.net/.test(imageUrl);
 
-  // ─────────────────────────────────────────────────────────────────────
-  // FIX Bug B: pipeline.js's retryProductImage() ตั้ง image_source /
-  // is_screenshot ไว้ชัดเจนเวลาต้องใช้ fallback ชั้น 3 (screenshot ทั้ง
-  // หน้าเว็บ แทนรูปสินค้าจริง) พร้อมคอมเมนต์บอกตรงๆ ว่าเพื่อให้ admin.html
-  // เตือน/จัดคิว review — แต่ก่อนหน้านี้ไม่มีจุดไหนอ่านฟิลด์นี้เลย ทำให้
-  // สินค้าที่ scrape รูปจริงไม่ได้แล้วตกไปเป็น screenshot หน้าเว็บ (ซึ่งอาจ
-  // เจอ paywall/หน้าอื่นที่ไม่เกี่ยวกับสินค้าเลย) ขึ้น checklist ว่า "✓ มีรูป
-  // สินค้า" เฉยๆ โดยไม่เตือนอะไรเลย — เช็คทั้ง product.is_screenshot (เผื่อ
-  // /api/status แนบ fields มาแบบแบน) และ product.fields?.is_screenshot
-  // (โครงสร้างแบบ Grist record ตรงๆ) เพื่อไม่พลาดไม่ว่า backend จะ shape
-  // response แบบไหน
-  // ─────────────────────────────────────────────────────────────────────
   const isScreenshotFallback = !!(product.is_screenshot || product.fields?.is_screenshot);
 
   if (!rehosted && sourceUrl) {
     autoRetryRehostIfNeeded(); // fire-and-forget; refreshStatus() จะ re-render เองเมื่อเสร็จ
   }
 
-  // GRAVITY FIX (2026-08-23): label เดิม hardcode เป็น "กำลัง re-host รูปไป GitHub…"
-  // ทุกครั้งที่ !rehosted ไม่ว่าจริงๆ แล้วกำลังลองอยู่หรือลองไปแล้วล้มเหลวก็ตาม ทำให้ข้อความ
-  // ขัดกับปุ่ม "ลองรี-โฮสต์อีกครั้ง" ที่โผล่มาด้วย (บอกว่า "กำลังทำ" แต่ก็มีปุ่มให้กดไปพร้อมกัน)
-  // ตอนนี้แยก 3 สถานะให้ตรงกับความเป็นจริง: กำลังลองอยู่ / ไม่มีต้นทางให้ลอง / ลองอัตโนมัติไปแล้วไม่สำเร็จ
   const rehostLabel = rehosted
     ? 'รูปถูก re-host ไป GitHub แล้ว (ปลอดภัยกับบอท Facebook)'
     : !sourceUrl
@@ -1590,16 +1567,12 @@ function renderPrePublishPreview(){
   const checks = [
     { ok: !!imageUrl, label: imageUrl ? 'มีรูปสินค้า (image_url)' : 'ยังไม่มีรูปสินค้า (image_url)' },
     { ok: rehosted, label: rehostLabel, id: 'rehostCheck',
-      // โชว์ปุ่ม retry เฉพาะตอนมี source_url จริง (ต้นทางให้ retry ได้), ยังไม่ rehost สำเร็จ,
-      // และไม่มี request กำลังวิ่งอยู่ ณ ขณะนี้ — ไม่ผูกกับ imageUrl อีกต่อไป (แก้ Bug #217)
       retry: !rehosted && !!sourceUrl && !rehostInProgress },
     { ok: !!rating, label: rating ? ('มีคะแนนรีวิว (' + rating + ' ดาว)') : 'ยังไม่มีคะแนนรีวิว' },
     { ok: !!(content.seo_title && content.meta_description), label: 'เนื้อหา SEO title + description ครบ' },
     { ok: !!blogLink, label: blogLink ? 'มีลิงก์บทความจริงพร้อมโพสต์ (ลองกดลิงก์ด้านล่างเพื่อเช็คได้เลย)' : 'ยังไม่มี slug บทความ — ยังสร้างลิงก์จริงไม่ได้' }
   ];
 
-  // FIX Bug B (ต่อ): แทรก warning row แยกออกมาให้เห็นชัดๆ ก่อน publish
-  // เมื่อรูปที่ได้มาเป็น screenshot fallback ชั้น 3 ไม่ใช่รูปสินค้าจริง
   if (isScreenshotFallback) {
     checks.splice(1, 0, {
       ok: false,
@@ -1654,30 +1627,22 @@ function renderPrePublishPreview(){
   wrap.classList.remove('hidden');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX Bug 1 (ต่อ): retryRehostImage รองรับ mode parameter
-//   mode = 'manual' (default): มี button #retryRehostBtn ใน DOM → update ปุ่มด้วย
-//   mode = 'auto':             เรียกจาก autoRetryRehostIfNeeded → ไม่ต้อง touch DOM
-// ─────────────────────────────────────────────────────────────────────────────
 async function retryRehostImage(mode){
   mode = mode || 'manual';
   const isManual = mode === 'manual';
   const btn = isManual ? document.getElementById('retryRehostBtn') : null;
   const row = isManual ? document.getElementById('rehostCheck') : null;
 
-  // ตั้งค่าก่อนอะไรทั้งหมด (แบบ sync) เพื่อให้ renderPrePublishPreview() ที่เรียกซ้อนกัน
-  // จากเส้นทาง auto เห็นค่านี้เป็น true ทันที ก่อนจะไปถึง await ตัวแรกข้างล่าง
   rehostInProgress = true;
 
   if (isManual && btn) { btn.disabled = true; btn.textContent = 'กำลังลอง...'; }
-  if (isManual) renderPrePublishPreview(); // อัปเดต label แถวให้ตรงกับสถานะ "กำลังลองอยู่" ทันที
+  if (isManual) renderPrePublishPreview();
 
   try{
     const data = await apiCall('/api/retry-image', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
     }, 'POST /api/retry-image (' + mode + ')');
     if (!data.ok) throw new Error(data.reason || 'รี-โฮสต์ไม่สำเร็จ ลองใหม่อีกครั้งภายหลัง');
-    // สำเร็จ → refreshStatus จะ re-render preview พร้อม rehosted = true
     await refreshStatus();
   }catch(e){
     if (isManual && row) {
@@ -1695,10 +1660,9 @@ async function retryRehostImage(mode){
       const originalLabel = 'ลองรี-โฮสต์อีกครั้ง';
       btn.disabled = false; btn.textContent = originalLabel;
     }
-    // mode = 'auto': ไม่โชว์ error (แค่ log ผ่าน apiCall แล้ว) — preview จะโชว์ label "ไม่สำเร็จ" + ปุ่ม manual แทน
   }finally{
     rehostInProgress = false;
-    if (isManual) renderPrePublishPreview(); // เคลียร์ label "กำลังลองอยู่" กลับเป็นสถานะจริงล่าสุด
+    if (isManual) renderPrePublishPreview();
   }
 }
 
@@ -1746,8 +1710,6 @@ async function refreshStatus(){
   if (data.pipeline.status === 'published') {
     renderResults(data.stages);
     renderPublishLocation();
-    // GRAVITY FIX: กู้คืน "ผลการเผยแพร่แต่ละช่องทาง" ที่เคยบันทึกไว้ กรณี memory
-    // ของ session นี้ยังไม่มีข้อมูล (เช่น refresh หน้า หรือ productId ถูกตั้งค่าใหม่)
     if (distributeResultsRestoredFor !== productId
         && !(window._lastDistributeResults && window._lastDistributeResults.length)) {
       const persisted = loadDistributeResults(productId);
@@ -1869,7 +1831,7 @@ function retryChannel(channel) {
 
 function renderDistributeResults(results){
   window._lastDistributeResults = results;
-  saveDistributeResults(productId, results); // GRAVITY FIX: กันผลลัพธ์หายตอน refreshStatus() / เปิดหน้าใหม่
+  saveDistributeResults(productId, results);
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
     let val;
