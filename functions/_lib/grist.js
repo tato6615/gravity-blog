@@ -54,6 +54,16 @@
  * disappears. Run handleResetPipeline({ productId, toStep: 2 }) from the
  * admin side to backfill quality scoring for old products if you want
  * them re-evaluated under the real gate.
+ *
+ * --- GRAVITY FIX (2026-09-03): D1 fallback cache when Grist itself is down ---
+ * See readFallbackArticles()/writeFallbackArticles() and the try/catch
+ * inside getLiveArticles() below. Summary: the 5-minute Cache API layer
+ * only survives 5 minutes — once it expires, a Grist outage (daily OR
+ * monthly 429) used to throw straight through to homepage.js, which
+ * showed a bare error page to every visitor instead of the article list.
+ * Now every successful live fetch also writes a durable copy to D1, and
+ * a failed live fetch reads that copy back before giving up, so visitors
+ * see (slightly stale) articles instead of an outage page.
  */
 
 const GRIST_BASE = 'https://docs.getgrist.com/api/docs';
@@ -226,6 +236,56 @@ function isBelowPublishableQuality(contentFields) {
   return false;
 }
 
+// ─── GRAVITY FIX (2026-09-03): D1 fallback cache สำหรับตอน Grist ล่ม ───────
+// ปัญหาเดิม: getLiveArticles() cache แค่ 5 นาที (Cache API) พอหมดอายุแล้ว
+// Grist ตอบ 429 (ไม่ว่าจะ daily limit ต่อเอกสาร หรือ monthly limit ต่อ site)
+// โค้ดจะ throw ทันที ไม่มีที่พึ่ง -> homepage.js เห็น errorMsg -> ทั้งเว็บ
+// กลายเป็นหน้า error แทนรายการบทความ ทั้งที่จริงๆ มีข้อมูลบทความอยู่แล้ว
+// แค่ดึงรอบใหม่ไม่ได้ชั่วคราวเท่านั้น
+//
+// แก้โดยเพิ่ม "ชั้นสำรอง" ที่ทนกว่า edge cache: ทุกครั้งที่ getLiveArticles()
+// ดึง Grist สำเร็จ จะบันทึกสำเนาผลลัพธ์ล่าสุดลง D1 (ไม่มีวันหมดอายุเอง)
+// ควบคู่ไปกับ edge cache 5 นาทีเดิม แล้วถ้ารอบไหน live fetch ล้ม (throw)
+// ก่อนจะยอม throw ต่อให้ homepage.js เห็น error จะลองอ่านสำเนาล่าสุดจาก D1
+// มาคืนค่าแทนก่อนเสมอ — ผู้ใช้จะเห็นบทความ (อาจเก่ากว่าปกตินิดหน่อย) แทน
+// หน้า error เปล่าๆ
+//
+// Fail-safe: ทุกจุดที่แตะ D1 ในนี้ครอบ try/catch หมด — ถ้า D1 เองมีปัญหาด้วย
+// (ไม่น่าเกิดพร้อมกับ Grist แต่กันไว้) จะแค่ return null / ไม่ทำอะไร แล้วปล่อย
+// ให้ error เดิมจาก Grist หลุดออกไปตามปกติ ไม่ทำให้พังหนักกว่าเดิม
+//
+// ⚠️ ต้องรัน migration สร้างตาราง D1 ก่อน (ดูไฟล์
+// 001_create_articles_fallback_cache.sql ที่มาคู่กับไฟล์นี้) ไม่งั้น
+// readFallbackArticles/writeFallbackArticles จะ fail เงียบๆ (ตาม design)
+// และ fallback จะไม่ทำงาน — โค้ดจะไม่พังเพิ่ม แต่ก็จะยังไม่ได้ประโยชน์จากมัน
+const FALLBACK_CACHE_TABLE = 'articles_fallback_cache';
+
+async function readFallbackArticles(env, lang) {
+  if (!env.DB) return null;
+  try {
+    const row = await env.DB.prepare(
+      `SELECT data, updated_at FROM ${FALLBACK_CACHE_TABLE} WHERE lang = ?`
+    ).bind(lang).first();
+    if (!row) return null;
+    return { articles: JSON.parse(row.data), updatedAt: row.updated_at };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function writeFallbackArticles(env, lang, articles) {
+  if (!env.DB) return;
+  try {
+    await env.DB.prepare(
+      `INSERT INTO ${FALLBACK_CACHE_TABLE} (lang, data, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(lang) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
+    ).bind(lang, JSON.stringify(articles), new Date().toISOString()).run();
+  } catch (e) {
+    // best-effort เท่านั้น — ห้ามให้การบันทึก fallback ล้มเหลวจนกระทบ live fetch ที่สำเร็จอยู่แล้ว
+  }
+}
+
 /**
  * Joins 03_PRODUCTS + CONTENT + AI_ANALYSIS for every "live" product in
  * the given language.
@@ -243,105 +303,122 @@ export async function getLiveArticles(env, lang = 'th') {
   const cached = await cache.match(cacheKey);
   if (cached) return await cached.json();
 
-  const productsTableId = await findProductsTableId(env);
-  const [products, content, analysis] = await Promise.all([
-    fetchTableRecords(env, productsTableId),
-    // NOTE: the table is named "CONTENT" in worker.js (no "AI_" prefix —
-    // see STAGE_TABLES / TABLE_DEFS there). Using "AI_CONTENT" here would
-    // 404 against Grist and take the whole Promise.all down with it.
-    fetchTableRecords(env, 'CONTENT'),
-    fetchTableRecords(env, 'AI_ANALYSIS')
-  ]);
+  let articles;
+  try {
+    const productsTableId = await findProductsTableId(env);
+    const [products, content, analysis] = await Promise.all([
+      fetchTableRecords(env, productsTableId),
+      // NOTE: the table is named "CONTENT" in worker.js (no "AI_" prefix —
+      // see STAGE_TABLES / TABLE_DEFS there). Using "AI_CONTENT" here would
+      // 404 against Grist and take the whole Promise.all down with it.
+      fetchTableRecords(env, 'CONTENT'),
+      fetchTableRecords(env, 'AI_ANALYSIS')
+    ]);
 
-  // CONTENT has TWO rows per product — one per language ('th' and 'en',
-  // see the content_th / content_en pipeline steps in worker.js). Filter
-  // by the requested lang so th/en never mix or overwrite each other.
-  //
-  // IMPORTANT: CONTENT.product is a plain Text column in Grist (not a
-  // Ref:PRODUCTS link like AI_ANALYSIS.product is), so its value comes
-  // back as a STRING (e.g. "1"). p.id from the PRODUCTS table is always
-  // a NUMBER. Without String(...) on both sides, contentByProduct.get(p.id)
-  // fails a strict-equality Map lookup every single time — normalize
-  // both sides to String to fix the join.
-  const contentByProduct = new Map(
-    content
-      .filter(r => r.fields.language === lang)
-      .map(r => [String(r.fields.product), r.fields])
-  );
-
-  // AI_ANALYSIS follows the same bilingual pattern as CONTENT (analysis_th
-  // / analysis_en pipeline steps in worker.js) — one row per product PER
-  // LANGUAGE, with a `language` column. Filter by lang here too so th/en
-  // analysis (pros/cons/target_audience) never mix, matching how CONTENT
-  // is filtered above.
-  const analysisByProduct = new Map(
-    analysis
-      .filter(r => r.fields.language === lang)
-      .map(r => [String(r.fields.product), r.fields])
-  );
-
-  const articles = [];
-  for (const p of products) {
-    const status = p.fields.pipeline_status;
-    if (!LIVE_STATUSES.has(status)) continue;
-    const c = contentByProduct.get(String(p.id));
-    if (!c || !c.slug || !c.blog_draft) continue; // not enriched enough to show yet
-
-    // GRAVITY FIX (2026-08-22 / corrected 2026-08-22c): honor the quality
-    // score scoreReviewMarketFit() already computed in pipeline.js instead
-    // of ignoring it. Absent score/tier is treated as "pass" (fail-open),
-    // matching how missing columns are handled everywhere else in this
-    // file. See file header for why this now checks quality_score instead
-    // of pattern-matching the emoji-prefixed tier string.
+    // CONTENT has TWO rows per product — one per language ('th' and 'en',
+    // see the content_th / content_en pipeline steps in worker.js). Filter
+    // by the requested lang so th/en never mix or overwrite each other.
     //
-    // GRAVITY FIX (2026-08-22d): grandfather clause — only enforce the
-    // gate on content generated after it started actually working. See
-    // QUALITY_GATE_ENFORCED_SINCE above for why: retroactively applying
-    // this to the whole existing catalog at once was what emptied the
-    // homepage. Content with no generated_at at all is also grandfathered
-    // in (treated as old), matching the fail-open behavior used elsewhere.
-    const generatedAt = c.generated_at ? new Date(c.generated_at) : null;
-    const isGrandfathered = !generatedAt || generatedAt < QUALITY_GATE_ENFORCED_SINCE;
-    if (!isGrandfathered && isBelowPublishableQuality(c)) {
-      continue;
+    // IMPORTANT: CONTENT.product is a plain Text column in Grist (not a
+    // Ref:PRODUCTS link like AI_ANALYSIS.product is), so its value comes
+    // back as a STRING (e.g. "1"). p.id from the PRODUCTS table is always
+    // a NUMBER. Without String(...) on both sides, contentByProduct.get(p.id)
+    // fails a strict-equality Map lookup every single time — normalize
+    // both sides to String to fix the join.
+    const contentByProduct = new Map(
+      content
+        .filter(r => r.fields.language === lang)
+        .map(r => [String(r.fields.product), r.fields])
+    );
+
+    // AI_ANALYSIS follows the same bilingual pattern as CONTENT (analysis_th
+    // / analysis_en pipeline steps in worker.js) — one row per product PER
+    // LANGUAGE, with a `language` column. Filter by lang here too so th/en
+    // analysis (pros/cons/target_audience) never mix, matching how CONTENT
+    // is filtered above.
+    const analysisByProduct = new Map(
+      analysis
+        .filter(r => r.fields.language === lang)
+        .map(r => [String(r.fields.product), r.fields])
+    );
+
+    articles = [];
+    for (const p of products) {
+      const status = p.fields.pipeline_status;
+      if (!LIVE_STATUSES.has(status)) continue;
+      const c = contentByProduct.get(String(p.id));
+      if (!c || !c.slug || !c.blog_draft) continue; // not enriched enough to show yet
+
+      // GRAVITY FIX (2026-08-22 / corrected 2026-08-22c): honor the quality
+      // score scoreReviewMarketFit() already computed in pipeline.js instead
+      // of ignoring it. Absent score/tier is treated as "pass" (fail-open),
+      // matching how missing columns are handled everywhere else in this
+      // file. See file header for why this now checks quality_score instead
+      // of pattern-matching the emoji-prefixed tier string.
+      //
+      // GRAVITY FIX (2026-08-22d): grandfather clause — only enforce the
+      // gate on content generated after it started actually working. See
+      // QUALITY_GATE_ENFORCED_SINCE above for why: retroactively applying
+      // this to the whole existing catalog at once was what emptied the
+      // homepage. Content with no generated_at at all is also grandfathered
+      // in (treated as old), matching the fail-open behavior used elsewhere.
+      const generatedAt = c.generated_at ? new Date(c.generated_at) : null;
+      const isGrandfathered = !generatedAt || generatedAt < QUALITY_GATE_ENFORCED_SINCE;
+      if (!isGrandfathered && isBelowPublishableQuality(c)) {
+        continue;
+      }
+
+      articles.push({
+        id: p.id,
+        slug: c.slug,
+        product: normalizeProduct(p.fields),
+        seoTitle: c.seo_title || c.slug,
+        metaDescription: c.meta_description || '',
+        blogDraft: c.blog_draft || '',
+        faq: c.faq || '',
+        buyingGuide: c.buying_guide || '',
+        tags: (c.tags || '').split(',').map(s => s.trim()).filter(Boolean),
+        createdAt: c.generated_at || null,
+        updatedAt: p.fields.updated_at || c.generated_at || null,
+        authorId: c.reviewer_id || c.author_id || null,
+        category: p.fields.category || null,
+        // ⭐ คำแปลหมวดภาษาไทยจาก AI pipeline (ถ้ามี) ต้นทางเดียวกับ
+        // category (EN) แต่เป็นคนละคอลัมน์ใน PRODUCTS. ตั้งแต่ 2026-08-22
+        // import.js สั่งให้ AI เขียนคอลัมน์นี้คู่กับ category ทุกครั้งที่
+        // import สินค้าใหม่ (ดู import.js) — สินค้าเก่าก่อนหน้านั้นอาจยังว่าง
+        // อยู่ ซึ่ง pickField() คืน null เฉยๆ ไม่ throw ตัวรับ (homepage.js)
+        // จะ fallback เป็น dictionary hardcode หรือ EN เองเวลาค่านี้เป็น null
+        categoryTh: pickField(p.fields, ['category_th', 'category_thai', 'categorythai']) || null,
+        // Surfaced mainly for admin/debug use — not currently read by
+        // homepage.js, but useful if you want to show a "quality" badge
+        // later without another Grist round-trip.
+        qualityTier: c.quality_tier || null,
+        qualityScore: c.quality_score != null ? Number(c.quality_score) : null,
+        analysis: analysisByProduct.get(String(p.id)) || null
+      });
     }
 
-    articles.push({
-      id: p.id,
-      slug: c.slug,
-      product: normalizeProduct(p.fields),
-      seoTitle: c.seo_title || c.slug,
-      metaDescription: c.meta_description || '',
-      blogDraft: c.blog_draft || '',
-      faq: c.faq || '',
-      buyingGuide: c.buying_guide || '',
-      tags: (c.tags || '').split(',').map(s => s.trim()).filter(Boolean),
-      createdAt: c.generated_at || null,
-      updatedAt: p.fields.updated_at || c.generated_at || null,
-      authorId: c.reviewer_id || c.author_id || null,
-      category: p.fields.category || null,
-      // ⭐ คำแปลหมวดภาษาไทยจาก AI pipeline (ถ้ามี) ต้นทางเดียวกับ
-      // category (EN) แต่เป็นคนละคอลัมน์ใน PRODUCTS. ตั้งแต่ 2026-08-22
-      // import.js สั่งให้ AI เขียนคอลัมน์นี้คู่กับ category ทุกครั้งที่
-      // import สินค้าใหม่ (ดู import.js) — สินค้าเก่าก่อนหน้านั้นอาจยังว่าง
-      // อยู่ ซึ่ง pickField() คืน null เฉยๆ ไม่ throw ตัวรับ (homepage.js)
-      // จะ fallback เป็น dictionary hardcode หรือ EN เองเวลาค่านี้เป็น null
-      categoryTh: pickField(p.fields, ['category_th', 'category_thai', 'categorythai']) || null,
-      // Surfaced mainly for admin/debug use — not currently read by
-      // homepage.js, but useful if you want to show a "quality" badge
-      // later without another Grist round-trip.
-      qualityTier: c.quality_tier || null,
-      qualityScore: c.quality_score != null ? Number(c.quality_score) : null,
-      analysis: analysisByProduct.get(String(p.id)) || null
-    });
+    articles.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  } catch (liveError) {
+    // Grist ล้ม (429/quota/network/ฯลฯ) — ก่อนยอม throw ให้ homepage.js
+    // เห็น error ลองดึงสำเนาล่าสุดที่เคยดึงสำเร็จจาก D1 มาโชว์แทนก่อนเสมอ
+    const fallback = await readFallbackArticles(env, lang);
+    if (fallback) {
+      console.error(
+        `getLiveArticles: live fetch failed (${liveError.message}), serving D1 fallback from ${fallback.updatedAt}`
+      );
+      return fallback.articles;
+    }
+    throw liveError;
   }
-
-  articles.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
 
   const cacheResp = new Response(JSON.stringify(articles), {
     headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
   });
   await cache.put(cacheKey, cacheResp);
+
+  // ดึงสำเร็จรอบนี้ -> เก็บสำเนาไว้ใน D1 ทับของเก่า เผื่อรอบถัดไป Grist ล่ม
+  await writeFallbackArticles(env, lang, articles);
 
   return articles;
 }
