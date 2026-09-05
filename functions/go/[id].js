@@ -17,10 +17,6 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
     );
   }
 
-  // GRAVITY FIX (2026-08-14): ตัดช่องว่าง/ขึ้นบรรทัดใหม่ที่อาจติดมาจาก
-  // ฟิลด์ Grist ก่อนเช็คค่าว่าง — เดิม `!buyUrl` ปล่อยผ่าน string ที่มี
-  // แต่ whitespace ("  \n") เพราะ truthy ทำให้ไปถึง Response.redirect()
-  // แล้ว throw ข้างล่างแทน
   const cleanedUrl = typeof buyUrl === 'string' ? buyUrl.trim() : buyUrl;
 
   if (!cleanedUrl) {
@@ -34,13 +30,6 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
     );
   }
 
-  // GRAVITY FIX (2026-08-14): validate ว่าเป็น absolute URL ที่ใช้ได้จริง
-  // ก่อน — Response.redirect() ของ Cloudflare Workers จะ throw TypeError
-  // ทันทีถ้า url ไม่ valid (เช่น ขาด https:// นำหน้า) ซึ่งเดิมไม่มีอะไร
-  // ดักไว้ ทำให้ function throw แบบ unhandled แล้ว Cloudflare ตอบกลับ
-  // เป็น text/plain error → browser (โดยเฉพาะ Safari บนมือถือ ตอน path
-  // ไม่มีนามสกุลไฟล์) เข้าใจผิดว่าเป็นไฟล์ให้ดาวน์โหลด ตั้งชื่อจาก
-  // product id เช่น "152.txt" — อาการตรงกับที่ผู้ใช้เจอ
   let validatedUrl;
   try {
     validatedUrl = new URL(cleanedUrl).href;
@@ -63,7 +52,6 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
   const userAgent = request.headers.get('User-Agent') || null;
   const ip = request.headers.get('CF-Connecting-IP') || null;
 
-  // บันทึกคลิกลง D1 (ของเดิม)
   waitUntil(
     env.DB.prepare(`
       INSERT INTO clicks (product_id, event_type, referrer, utm_source, utm_medium, user_agent, ip)
@@ -80,7 +68,6 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
     })
   );
 
-  // ยิง event ไป GA4 ผ่าน Measurement Protocol (เพิ่มใหม่)
   if (env.GA4_MEASUREMENT_ID && env.GA4_API_SECRET) {
     const cookie = request.headers.get('Cookie') || '';
     const gaCookieMatch = cookie.match(/_ga=GA\d\.\d\.(\d+\.\d+)/);
@@ -113,9 +100,6 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
     );
   }
 
-  // GRAVITY FIX (2026-08-14): ห่อด้วย try/catch เผื่อ edge case อื่นที่
-  // ยังไม่คาดคิด — กัน unhandled exception ไม่ให้ไปตอบเป็น text/plain
-  // download อีก (เดิมบรรทัดนี้ไม่มี try/catch เลย)
   try {
     return Response.redirect(validatedUrl, 302);
   } catch (e) {
