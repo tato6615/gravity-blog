@@ -2,7 +2,7 @@
 // Resend version — replaces Mailchimp campaign flow with a simple direct-send API.
 // Env vars needed: RESEND_API_KEY, RESEND_FROM_EMAIL (optional, defaults to onboarding@resend.dev)
 
-import { getProductNamesByIds } from '../../_lib/grist.js';
+   import { getProductNamesByIds } from '../../_lib/d1-products.js';
 
 export async function onRequest(context) {
   const { env, request } = context;
