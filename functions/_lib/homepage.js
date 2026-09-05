@@ -1,4 +1,4 @@
-import { getLiveArticles } from './grist.js';
+import { getLiveArticles } from './d1-articles.js';
 import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo } from './layout.js';
 import { renderCommunityHub } from './community-hub.js';
 
