@@ -44,11 +44,6 @@ const STRINGS = {
   }
 };
 
-/**
- * NEW: Builds a better Product + Review JSON-LD with author context.
- * Uses the new generateProductJsonLd from layout.js which includes
- * author information and proper schema structure.
- */
 function buildProductJsonLd(article, canonicalUrl, authorId = 'gravity-os-team') {
   return `<script type="application/ld+json">${generateProductJsonLd(article, canonicalUrl, authorId)}</script>`;
 }
@@ -65,10 +60,6 @@ function renderFaq(faqText, t) {
   return items ? `<hr class="hairline"><h3>${escapeHtml(t.faqTitle)}</h3>${items}` : '';
 }
 
-/**
- * NEW: Renders a "not approved for" section if analysis includes target audience
- * indicating who this product is NOT suitable for.
- */
 function renderNotApprovedFor(analysis, t) {
   if (!analysis || !analysis.not_approved_for) return '';
   const items = toListItems(analysis.not_approved_for);
@@ -79,9 +70,6 @@ function renderNotApprovedFor(analysis, t) {
   </div>`;
 }
 
-/**
- * NEW: Renders product specifications if available from AI analysis
- */
 function renderSpecifications(analysis, t) {
   if (!analysis || !analysis.specifications) return '';
   const specs = toListItems(analysis.specifications);
@@ -92,14 +80,6 @@ function renderSpecifications(analysis, t) {
   </div>`;
 }
 
-/**
- * Renders the article/product page for the given slug and language.
- * UPDATED: Includes author section, better schema, improved verdict box
- * @param {object} env
- * @param {string} slug
- * @param {'th'|'en'} lang
- * @returns {Promise<Response>}
- */
 export async function renderArticlePage(env, slug, lang = 'th') {
   const t = STRINGS[lang] || STRINGS.th;
   const prefix = lang === 'en' ? '/en' : '';
@@ -128,10 +108,8 @@ export async function renderArticlePage(env, slug, lang = 'th') {
     const cons = article.analysis ? toListItems(article.analysis.cons) : [];
     const audience = article.analysis?.target_audience || '';
     
-    // Get author ID from Grist (if available), fallback to default
     const authorId = article.analysis?.reviewer_id || 'gravity-os-team';
 
-    // Build verdict box with improved structure
     const verdict = (pros.length || cons.length || audience)
       ? `<div class="verdict">
           <h3>${escapeHtml(t.whoFor)}</h3>
@@ -155,16 +133,13 @@ export async function renderArticlePage(env, slug, lang = 'th') {
     const canonicalPath = `${prefix}/product/${encodeURIComponent(article.slug)}`;
     const galleryHtml = renderGallery(article.product.gallery, article.seoTitle);
 
-    // Use absolute URL for canonical/og:image
     const absoluteUrl = `https://gravity-blog.pages.dev${canonicalPath}`;
     const jsonLd = buildProductJsonLd(article, canonicalPath, authorId);
 
-    // Render price with currency if available
     const priceHtml = article.product.priceAmount && article.product.priceCurrency
       ? formatPriceWithCurrency(article.product.priceAmount, article.product.priceCurrency, lang)
       : '';
 
-    // Render rating with stars
     const ratingHtml = article.product.rating
       ? renderStars(article.product.rating)
       : '';
