@@ -46,6 +46,9 @@ const STRINGS = {
     searchNoResults: 'ไม่พบสินค้าที่ตรงกับคำค้นหา',
     filterAll: 'ทั้งหมด',
     filterSubcategory: 'หมวดย่อย',
+    pagePrev: '← ก่อนหน้า',
+    pageNext: 'ถัดไป →',
+    pageOf: (p, total) => `หน้า ${p} จาก ${total}`,
   },
   en: {
     pageTitle: 'GRAVITY OS — Curated product reviews',
@@ -69,8 +72,94 @@ const STRINGS = {
     searchNoResults: 'No products match your search.',
     filterAll: 'All',
     filterSubcategory: 'Subcategory',
+    pagePrev: '← Previous',
+    pageNext: 'Next →',
+    pageOf: (p, total) => `Page ${p} of ${total}`,
   }
 };
+
+// ── Pagination ──────────────────────────────────────────────────────────
+// หน้าแรกเดิมโหลดสินค้า "ทั้งหมด" มา render เป็น <div class="card-grid"> เดียว
+// ไม่มี limit เลย — ยิ่งสินค้าในระบบโตขึ้นเรื่อยๆ (ตอนนี้หลักร้อยแล้ว) ยิ่งทำให้
+// หน้าแรกหนักขึ้นเรื่อยๆ ทั้ง initial HTML payload และเวลา render รูปทั้งหมด
+// พร้อมกัน ต่อไปนี้ตัดเป็นหน้าละ PAGE_SIZE ชิ้น โดยยังคง final_score ranking
+// เดิมทั้งชุดไว้ก่อน แล้วค่อย slice เฉพาะหน้าที่ขอมา (ranking ต้องคำนวณจาก
+// สินค้าทั้งหมดเสมอ ตัดหลัง sort ไม่ใช่ตัดก่อน ไม่งั้นอันดับจะผิด)
+const PAGE_SIZE = 24;
+
+function buildPageHref(base, { selectedCategory, page }) {
+  const params = new URLSearchParams();
+  if (selectedCategory) params.set('category', selectedCategory);
+  if (page && page > 1) params.set('page', String(page));
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+function buildPaginationHtml({ page, totalPages, lang, t, selectedCategory }) {
+  if (totalPages <= 1) return '';
+  const base = homePath(lang);
+
+  const prevHref = page > 1 ? buildPageHref(base, { selectedCategory, page: page - 1 }) : null;
+  const nextHref = page < totalPages ? buildPageHref(base, { selectedCategory, page: page + 1 }) : null;
+
+  // แสดงเลขหน้าแบบย่อ: หน้าปัจจุบัน ± 2 เสมอ บวกหน้าแรก/หน้าสุดท้าย พร้อม "…"
+  // คั่นตรงจุดที่ข้าม กันไม่ให้แถวเลขหน้ายาวเกินไปเวลาสินค้าเยอะมากๆ
+  const windowSize = 2;
+  const pageNums = new Set([1, totalPages]);
+  for (let p = page - windowSize; p <= page + windowSize; p++) {
+    if (p >= 1 && p <= totalPages) pageNums.add(p);
+  }
+  const sortedPages = [...pageNums].sort((a, b) => a - b);
+
+  let numbersHtml = '';
+  let prevNum = 0;
+  for (const p of sortedPages) {
+    if (prevNum && p - prevNum > 1) {
+      numbersHtml += `<span class="pg-ellipsis">…</span>`;
+    }
+    const isActive = p === page;
+    const href = buildPageHref(base, { selectedCategory, page: p });
+    numbersHtml += isActive
+      ? `<span class="pg-num pg-active" aria-current="page">${p}</span>`
+      : `<a class="pg-num" href="${escapeHtml(href)}">${p}</a>`;
+    prevNum = p;
+  }
+
+  const css = `
+<style id="pg-style">
+.pg-wrap{
+  display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
+  gap:6px; margin:32px 0 8px;
+}
+.pg-num, .pg-nav{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:36px; height:36px; padding:0 10px; border-radius:8px;
+  border:1px solid var(--hairline); font-size:14px; color:var(--ink);
+  text-decoration:none; -webkit-tap-highlight-color:transparent;
+}
+.pg-num:hover, .pg-nav:hover{ border-color:var(--accent); color:var(--accent); }
+.pg-active{
+  background:var(--ink); border-color:var(--ink); color:#fff !important;
+  font-weight:600;
+}
+.pg-ellipsis{ color:var(--ink-muted); padding:0 4px; user-select:none; }
+.pg-nav.is-disabled{
+  opacity:.35; pointer-events:none;
+}
+.pg-status{
+  width:100%; text-align:center; font-size:12px; color:var(--ink-muted);
+  margin-top:6px;
+}
+</style>`;
+
+  return `${css}
+<nav class="pg-wrap" aria-label="Pagination">
+  ${prevHref ? `<a class="pg-nav" href="${escapeHtml(prevHref)}">${escapeHtml(t.pagePrev)}</a>` : `<span class="pg-nav is-disabled">${escapeHtml(t.pagePrev)}</span>`}
+  ${numbersHtml}
+  ${nextHref ? `<a class="pg-nav" href="${escapeHtml(nextHref)}">${escapeHtml(t.pageNext)}</a>` : `<span class="pg-nav is-disabled">${escapeHtml(t.pageNext)}</span>`}
+  <div class="pg-status">${escapeHtml(t.pageOf(page, totalPages))}</div>
+</nav>`;
+}
 
 // ── Category display-name translations (TH) ────────────────────────────────
 // ⭐ ใช้เฉพาะตอน "แสดงผล" (label บนปุ่ม/dropdown) เท่านั้น — ห้ามใช้ค่าที่แปลแล้ว
@@ -583,12 +672,26 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap });
 
+  // ── Pagination: ตัด final_score ranking ทั้งชุด (คำนวณจากสินค้าทั้งหมด
+  // แล้ว) เหลือแค่หน้าที่ขอมา — เดิมตรงนี้ไม่มี slice เลย ส่ง
+  // displayScoredArticles ทั้งชุดเข้า renderCardGrid ตรงๆ ไม่ว่าจะมีกี่ร้อยชิ้น
+  const totalCount = displayScoredArticles.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const requestedPage = request ? parseInt(new URL(request.url).searchParams.get('page'), 10) : 1;
+  const page = Number.isFinite(requestedPage) && requestedPage >= 1
+    ? Math.min(requestedPage, totalPages)
+    : 1;
+  const pageStart = (page - 1) * PAGE_SIZE;
+  const pageArticles = displayScoredArticles.slice(pageStart, pageStart + PAGE_SIZE);
+
   // ── Ranked grid เดียว ─────────────────────────────────────────────────
   // เดิมแยก "Top 3" (ตามคลิก) กับ "Newest arrivals" (ตามวันที่) เป็น 2 ก้อน
   // ตอนนี้ทุกสินค้าเรียงจาก final_score เดียวกันทั้งหน้า (ดู computeFinalScores)
   // สินค้าใหม่ที่ดีจริงจะขึ้นเร็วเอง ไม่ต้องกันโซนพิเศษให้ — badge "🆕 ใหม่"
   // ยังติดอยู่กับการ์ดตามปกติ (ดูจาก newProductIds เหมือนเดิม ไม่เกี่ยวกับ section)
-  const rankedCardsHtml = renderCardGrid(displayScoredArticles, { t, lang, clickCounts, hotThreshold, startRank: 0, newProductIds });
+  // startRank ใช้ pageStart แทน 0 เพื่อให้ป้าย "อันดับ N" นับต่อเนื่องข้ามหน้า
+  const rankedCardsHtml = renderCardGrid(pageArticles, { t, lang, clickCounts, hotThreshold, startRank: pageStart, newProductIds });
+  const paginationHtml = buildPaginationHtml({ page, totalPages, lang, t, selectedCategory });
 
   // ── Search UI ───────────────────────────────────────────────────────────
   // searchButtonHtml — ส่งไปให้ renderCommunityHub() วางเป็น chip ขวาสุด
@@ -662,7 +765,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
         <p><a href="${homePath(lang)}">${t.retry}</a></p>
       </div>`
     : (displayScoredArticles.length
-      ? `${filterHtml}<div class="card-grid">${rankedCardsHtml}</div>`
+      ? `${filterHtml}<div class="card-grid">${rankedCardsHtml}</div>${paginationHtml}`
       : `${filterHtml}<div class="error-page">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
@@ -670,17 +773,28 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const altLangPath = lang === 'en' ? '/' : '/en/';
 
+  // หน้า 2 เป็นต้นไปยังคงมี canonical ชี้กลับไปที่หน้านั้นๆ ของตัวเอง (ไม่ใช่
+  // หน้า 1) ตามแนวทางของ Google สำหรับ paginated series — แต่กัน index เกิน
+  // ความจำเป็นด้วย noindex เฉพาะหน้า >1 (หน้า 1 ยังให้ index ตามปกติ) เพราะ
+  // เนื้อหาหน้าในๆ ของ pagination มักไม่มีค่าต่อ SEO เท่าหน้าแรก และช่วยกัน
+  // duplicate-content signal จากการมีหลาย URL ที่เนื้อหาคาบเกี่ยวกัน
+  const pageCanonicalPath = page > 1
+    ? buildPageHref(homePath(lang), { selectedCategory, page })
+    : homePath(lang);
+  const robotsMeta = page > 1 ? '<meta name="robots" content="noindex,follow">' : '';
+
   // UPDATED: community hub + search now render as headerExtra so they sit
   // inside <header class="site">, on the same row as the GRAVITY OS logo
   // (wraps to its own full-width line under the logo on narrow screens).
   const html = renderPage({
-    title: t.pageTitle,
+    title: page > 1 ? `${t.pageTitle} — ${t.pageOf(page, totalPages)}` : t.pageTitle,
     description: t.pageDescription,
-    canonicalPath: homePath(lang),
+    canonicalPath: pageCanonicalPath,
     lang,
     altLangPath,
     wide: true,
     headerExtra: `${communityHubHtml}${standaloneSearchHtml}`,
+    extraHead: robotsMeta,
     bodyHtml: `${searchStylesAndScript}
 ${body}`
   });
