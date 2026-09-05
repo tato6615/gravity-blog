@@ -451,6 +451,61 @@ export async function getAvailableLanguages(env, productId) {
   }
   return result;
 }
+// ─── GRAVITY FIX (2026-09-05): cache + D1 fallback for the raw PRODUCTS
+// table, shared by getProductBuyUrlById() and getProductNamesByIds() ───────
+// Both functions used to call findProductsTableId() + fetchTableRecords()
+// fresh on EVERY call — with zero caching, unlike getLiveArticles() which
+// already cached its (bigger) join for 5 minutes. That meant:
+//   1. Every single affiliate-link click (/go/[id]) burned 2 Grist API
+//      calls, all day, every day — the single biggest per-visit driver of
+//      API usage on the whole site, and pure waste since PRODUCTS barely
+//      changes minute-to-minute.
+//   2. When Grist was down (429/quota), /go/[id] had NO fallback at all —
+//      it just threw, and the visitor got a raw 500 error page instead of
+//      being redirected to the merchant. That's worse than the homepage
+//      going down, because it silently costs real affiliate commission on
+//      every single click during any Grist outage, not just page views.
+//
+// getCachedProducts() below adds the same 5-min edge-cache pattern
+// getLiveArticles() already uses. getProductBuyUrlById() now also falls
+// back to the D1 articles_fallback_cache (same table getLiveArticles()
+// already maintains) when the live PRODUCTS fetch itself fails, so a
+// Grist outage degrades to "maybe slightly stale buy link" instead of
+// "broken link, lost commission".
+async function getCachedProducts(env) {
+  const cache = caches.default;
+  const cacheKey = new Request('https://cache.internal/products-raw');
+  const cached = await cache.match(cacheKey);
+  if (cached) return await cached.json();
+
+  const productsTableId = await findProductsTableId(env);
+  const products = await fetchTableRecords(env, productsTableId);
+
+  const cacheResp = new Response(JSON.stringify(products), {
+    headers: { 'Cache-Control': 'max-age=300', 'content-type': 'application/json' }
+  });
+  await cache.put(cacheKey, cacheResp);
+
+  return products;
+}
+
+// Best-effort search through whichever D1 fallback languages exist
+// (see readFallbackArticles() above — same table getLiveArticles() writes
+// to on every successful live fetch) for a product's buyUrl. Used only
+// when the live PRODUCTS fetch itself fails (network/429/etc), not when
+// a product is simply genuinely absent from a successful live fetch.
+async function getBuyUrlFromFallbackCache(env, productId) {
+  for (const lang of ['th', 'en']) {
+    const fallback = await readFallbackArticles(env, lang);
+    if (!fallback) continue;
+    const match = fallback.articles.find(a => Number(a.id) === Number(productId));
+    if (match && match.product && match.product.buyUrl) {
+      return match.product.buyUrl;
+    }
+  }
+  return null;
+}
+
 /**
  * Looks up a single product's buyUrl by its Grist row id — used by the
  * /go/[id] redirect function. Doesn't require the product to have live
@@ -460,11 +515,19 @@ export async function getAvailableLanguages(env, productId) {
  * @param {number|string} productId
  */
 export async function getProductBuyUrlById(env, productId) {
-  const productsTableId = await findProductsTableId(env);
-  const products = await fetchTableRecords(env, productsTableId);
-  const row = products.find(p => Number(p.id) === Number(productId));
-  if (!row) return null;
-  return normalizeProduct(row.fields).buyUrl;
+  try {
+    const products = await getCachedProducts(env);
+    const row = products.find(p => Number(p.id) === Number(productId));
+    // Genuinely not present in a successful live fetch — that's a real
+    // "no such product" answer, not an outage. Don't fall back to D1 here;
+    // trust the live result.
+    return row ? normalizeProduct(row.fields).buyUrl : null;
+  } catch (liveError) {
+    console.error(
+      `getProductBuyUrlById: live fetch failed (${liveError.message}), trying D1 fallback for product ${productId}`
+    );
+    return await getBuyUrlFromFallbackCache(env, productId);
+  }
 }
 
 /**
@@ -477,8 +540,7 @@ export async function getProductBuyUrlById(env, productId) {
  * @returns {Promise<Map<string, string>>} id (as string) -> name
  */
 export async function getProductNamesByIds(env, productIds) {
-  const productsTableId = await findProductsTableId(env);
-  const products = await fetchTableRecords(env, productsTableId);
+  const products = await getCachedProducts(env);
   const wanted = new Set(productIds.map(String));
   const map = new Map();
   for (const p of products) {
