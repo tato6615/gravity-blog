@@ -1,4 +1,4 @@
-import { getProductBuyUrlById } from '../_lib/grist.js';
+import { getProductBuyUrlById } from '../_lib/d1-products.js';
 
 export async function onRequestGet({ params, env, waitUntil, request }) {
   const productId = params.id;
