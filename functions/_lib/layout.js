@@ -63,11 +63,23 @@ export const TOKENS = {
 // field (or whatever you call it). When AI generates content, it should
 // always fill this field with one of these IDs.
 export const AUTHOR_REGISTRY = {
+  // GRAVITY FIX (2026-09-05): bios rewritten to stop overclaiming human
+  // authorship. Original copy ("Product experts who test and verify every
+  // recommendation") reads as a claim of human hands-on review, but content
+  // on this site is produced by an AI pipeline (see AI_DISCLOSURE in
+  // UI_STRINGS below) — leaving the old wording in place alongside author
+  // avatars/names risks misattributing AI output to human reviewers, which
+  // is exactly what AI-content transparency rules (e.g. EU AI Act Art. 50)
+  // care about. New copy is honest about the AI + human-oversight process
+  // without pretending nobody automated is involved.
   'gravity-os-team': {
     id: 'gravity-os-team',
     name: 'GRAVITY OS Editorial Team',
     short: 'GRAVITY OS',
-    bio: 'Product experts who test and verify every recommendation before it goes live.',
+    bio: {
+      th: 'บทความนี้จัดทำโดยระบบ AI ของทีมงาน โดยมีการตรวจสอบข้อมูลเบื้องต้นก่อนเผยแพร่',
+      en: 'This article was produced by our AI content system, with baseline checks by our team before publishing.'
+    },
     avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Editorial Director'
   },
@@ -75,7 +87,10 @@ export const AUTHOR_REGISTRY = {
     id: 'expert-tech',
     name: 'Tech Experts',
     short: 'Tech Team',
-    bio: 'Specialists in consumer tech and gadgets.',
+    bio: {
+      th: 'บทความหมวดเทคโนโลยี จัดทำโดยระบบ AI ตรวจสอบข้อมูลเบื้องต้นโดยทีมงานก่อนเผยแพร่',
+      en: 'Technology articles produced by our AI content system, with baseline checks by our team before publishing.'
+    },
     avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Technology Reviewer'
   },
@@ -83,7 +98,10 @@ export const AUTHOR_REGISTRY = {
     id: 'expert-lifestyle',
     name: 'Lifestyle Curators',
     short: 'Lifestyle Team',
-    bio: 'Focused on home, wellness, and everyday products.',
+    bio: {
+      th: 'บทความหมวดไลฟ์สไตล์ จัดทำโดยระบบ AI ตรวจสอบข้อมูลเบื้องต้นโดยทีมงานก่อนเผยแพร่',
+      en: 'Lifestyle articles produced by our AI content system, with baseline checks by our team before publishing.'
+    },
     avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Lifestyle Reviewer'
   }
@@ -95,15 +113,30 @@ export function getAuthorInfo(authorId = 'gravity-os-team') {
     id: 'gravity-os-team',
     name: 'GRAVITY OS Editorial Team',
     short: 'GRAVITY OS',
-    bio: 'Product verification and research team.',
+    bio: {
+      th: 'บทความนี้จัดทำโดยระบบ AI โดยมีการตรวจสอบข้อมูลเบื้องต้นก่อนเผยแพร่',
+      en: 'This article was produced by our AI content system, with baseline checks before publishing.'
+    },
     avatar: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232F6B5E'/><text x='32' y='44' text-anchor='middle' font-family='Georgia, serif' font-weight='700' font-size='30' fill='%23FFFFFF'>G</text></svg>",
     role: 'Reviewer'
   };
 }
 
+// GRAVITY FIX (2026-09-05): added AI-content disclosure strings.
+// Previously the only disclosure on the whole site was the affiliate-link
+// one below — nothing anywhere told visitors the articles themselves are
+// AI-generated. That's a separate disclosure obligation from "we may earn
+// a commission" (which is about money, not authorship), and matters for
+// audiences in jurisdictions with AI-content transparency rules (e.g. EU
+// AI Act Art. 50 on labelling AI-generated content). aiDisclosureFull is
+// shown as its own line in the site footer (renderPage) on every page;
+// aiDisclosureShort is the fallback used in renderAuthorSection() if an
+// author entry is ever missing a bio.
 const UI_STRINGS = {
   th: {
     footerDisclaimer: 'บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ',
+    aiDisclosureFull: 'เนื้อหาบทความ รูปภาพประกอบ และคำแนะนำในเว็บไซต์นี้จัดทำขึ้นโดยระบบปัญญาประดิษฐ์ (AI) เป็นหลัก โดยมีทีมงานตรวจสอบข้อมูลเบื้องต้นก่อนเผยแพร่',
+    aiDisclosureShort: 'บทความนี้จัดทำโดยระบบ AI',
     shareLabel: 'แชร์:',
     shareAriaPrefix: 'แชร์ไป',
     langSwitchLabel: 'EN',
@@ -113,6 +146,8 @@ const UI_STRINGS = {
   },
   en: {
     footerDisclaimer: 'This article may contain affiliate links. If you buy through a link here, we may earn a small commission at no extra cost to you.',
+    aiDisclosureFull: 'Article content, images, and recommendations on this site are primarily generated by an AI system, with baseline checks by our team before publishing.',
+    aiDisclosureShort: 'This article was produced by an AI system.',
     shareLabel: 'Share:',
     shareAriaPrefix: 'Share to',
     langSwitchLabel: 'TH',
@@ -386,7 +421,7 @@ const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="
 export function renderPage({
   title, description, canonicalPath = '/', image, lang = 'th',
   altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false,
-  headerExtra = ''
+  headerExtra = '', extraHead = ''
 }) {
   const t = uiStrings(lang);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
@@ -455,6 +490,7 @@ ${GA_SNIPPET}
 ${jsonLdScript}
 ${FONT_LINK}
 <style>${BASE_CSS}</style>
+${extraHead}
 </head>
 <body>
 <header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
@@ -463,7 +499,10 @@ ${FONT_LINK}
   ${langSwitchHtml}
 </div></header>
 <main class="${wide ? 'wrap-wide' : 'wrap'}">${breadcrumbHtml}${bodyHtml}</main>
-<footer class="site">${escapeHtml(t.footerDisclaimer)}</footer>
+<footer class="site">
+  <p style="margin:0 0 6px;">${escapeHtml(t.aiDisclosureFull)}</p>
+  <p style="margin:0;">${escapeHtml(t.footerDisclaimer)}</p>
+</footer>
 </body>
 </html>`;
 }
@@ -473,13 +512,20 @@ export function renderAuthorSection(authorId, lang = 'th') {
   const author = getAuthorInfo(authorId);
   const t = uiStrings(lang);
   if (!author) return '';
-  
+
+  // GRAVITY FIX (2026-09-05): author.bio is now { th, en } (was a single
+  // English-only string rendered on both TH and EN pages regardless of
+  // `lang`). Fall back to th then en then a generic AI-disclosure line so
+  // this never renders blank if a future registry entry forgets a locale.
+  const bioText = (author.bio && (author.bio[lang] || author.bio.th || author.bio.en))
+    || uiStrings(lang).aiDisclosureShort;
+
   return `<div class="author-section">
     <img class="author-avatar" src="${escapeHtml(author.avatar)}" alt="${escapeHtml(author.name)}" loading="lazy">
     <div class="author-info">
       <h4>${escapeHtml(author.name)}</h4>
       <p><span class="author-role">${escapeHtml(author.role)}</span></p>
-      <p>${escapeHtml(author.bio)}</p>
+      <p>${escapeHtml(bioText)}</p>
     </div>
   </div>`;
 }
