@@ -277,3 +277,38 @@ export async function getArticleBySlug(env, slug, lang = 'th') {
   const articles = await getLiveArticles(env, lang);
   return articles.find(a => a.slug === slug) || null;
 }
+
+/**
+ * Returns which languages a given product has published CONTENT for,
+ * mapped to that language's slug — e.g. { th: 'my-slug-th', en: 'my-slug-en' }.
+ * Used by article.js to build the TH/EN switcher link.
+ *
+ * D1 replacement for grist.js's getAvailableLanguages() — same shape,
+ * same behavior. Picks the LATEST row per language (same
+ * ROW_NUMBER()-per-partition pattern getLiveArticles() above uses),
+ * since `content` is append-only in D1 (unlike Grist's CONTENT table
+ * where each product+language pair had exactly one row).
+ * @param {object} env
+ * @param {number|string} productId
+ */
+export async function getAvailableLanguages(env, productId) {
+  const result = {};
+  if (!env.DB) return result;
+  try {
+    const { results } = await env.DB.prepare(`
+      SELECT language, slug FROM (
+        SELECT language, slug, ROW_NUMBER() OVER (
+          PARTITION BY language ORDER BY generated_at DESC, id DESC
+        ) AS rn
+        FROM content
+        WHERE product_id = ? AND slug IS NOT NULL AND slug != ''
+      ) WHERE rn = 1
+    `).bind(productId).all();
+    for (const r of results) {
+      if (r.language && r.slug) result[r.language] = r.slug;
+    }
+  } catch (e) {
+    console.error(`getAvailableLanguages: D1 query failed for product ${productId}:`, e.message);
+  }
+  return result;
+}
