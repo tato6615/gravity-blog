@@ -1,4 +1,4 @@
-import { getArticleBySlug, getAvailableLanguages } from './grist.js';
+import { getArticleBySlug, getAvailableLanguages } from './d1-articles.js';
 import { 
   renderPage, renderShareButtons, renderGallery, renderAuthorSection,
   escapeHtml, formatArticleBody, toListItems, renderStars, 
