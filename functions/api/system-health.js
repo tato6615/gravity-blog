@@ -6,6 +6,12 @@
 // automatic LINE alert whenever overall status = "error". Get a token at
 // https://notify-bot.line.me/my/ → generate token → paste as secret.
 // If not set, alerting is skipped silently (no error, no crash).
+//
+// GRAVITY UPDATE (D1 migration complete): checkGrist() removed — Grist is
+// no longer part of this system (grist.js deleted from functions/_lib/,
+// all callers migrated to D1). This check would only ever report an error
+// now that GRIST_API_KEY/GRIST_DOC_ID are gone, which isn't a real problem —
+// so it's removed entirely rather than left to show a permanent false alarm.
 
 const CONFIG = {
   D1_BINDING: "DB",
@@ -61,17 +67,6 @@ async function checkGoRedirect(env) {
     const res = await withTimeout((s) => fetch(url.toString(), { method: "GET", redirect: "manual", signal: s }), 6000);
     if (res.status >= 300 && res.status < 400) { c.status = "ok"; c.detail = `HTTP ${res.status} redirect`; }
     else { c.status = "warn"; c.detail = `Expected 3xx, got HTTP ${res.status}`; }
-  } catch (e) { c.status = "error"; c.detail = e.message; }
-  return c;
-}
-
-async function checkGrist(env) {
-  const c = check("grist_api", "Grist API", "conversion");
-  if (!env.GRIST_API_KEY || !env.GRIST_DOC_ID) { c.status = "error"; c.detail = "GRIST_API_KEY/GRIST_DOC_ID not set."; return c; }
-  try {
-    const res = await withTimeout((s) => fetch(`https://docs.getgrist.com/api/docs/${env.GRIST_DOC_ID}/tables`, { headers: { Authorization: `Bearer ${env.GRIST_API_KEY}` }, signal: s }), 6000);
-    if (res.ok) { const d = await res.json(); c.status = "ok"; c.detail = `Reachable — ${d.tables?.length ?? "?"} tables`; }
-    else { c.status = "error"; c.detail = `HTTP ${res.status}`; }
   } catch (e) { c.status = "error"; c.detail = e.message; }
   return c;
 }
@@ -294,7 +289,6 @@ export async function onRequestGet({ env }) {
     checkClickEndpoint(env),
     checkTrackEndpoint(env),
     checkArticlePage(env),
-    checkGrist(env),
     checkGA4Config(env),
     checkEmailEndpoint(env),
     checkMailchimpConfig(env),
