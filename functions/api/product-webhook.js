@@ -18,14 +18,13 @@
  *   D1 binding: env.DB - ⚠️ เช็คชื่อ binding จริงใน wrangler.toml / d1-products.js
  *                          ถ้าไม่ใช่ "DB" ต้องแก้ทุกจุดที่ env.DB ในไฟล์นี้
  *
- * D1 schema ที่ต้องมี (ALTER TABLE ถ้ายังไม่มี):
- *   ALTER TABLE products ADD COLUMN shotstack_render_id TEXT;
- *   ALTER TABLE products ADD COLUMN video_url TEXT;
- *   ALTER TABLE products ADD COLUMN video_status TEXT;
- *   ALTER TABLE products ADD COLUMN video_updated_at TEXT;
+ * D1 schema — ยืนยันแล้วจาก PRAGMA table_info(products) จริง (6 ก.ย. 2569):
+ *   คอลัมน์ที่ใช้: product_name, image_url, shotstack_render_id, video_url,
+ *                    video_status, video_updated_at (4 ตัวหลังเพิ่งเพิ่มเข้าไป ยืนยันมีแล้ว)
  *
- * ⚠️ คอลัมน์ `name` / `image_url` ด้านล่างเป็นชื่อที่ "เดา" ตาม pattern ทั่วไป
- *    ต้องเช็คกับผล PRAGMA table_info(products) จริง แล้วแก้ชื่อคอลัมน์ในควรี SELECT ด้านล่างให้ตรง
+ * ⚠️ ยังไม่ได้เชื่อมกับ pipeline_status/pipeline_step ที่มีอยู่แล้วในตาราง (ดูเหมือนเป็นระบบ
+ *    ขั้นตอนของ Worker "af") — ถ้าอยากให้การสร้างวิดีโอนับเป็นขั้นหนึ่งใน pipeline นั้นด้วย
+ *    ต้องคุยเรื่อง schema/flow ของ pipeline_step เพิ่มก่อนแก้
  */
 
 export async function onRequestPost({ request, env }) {
@@ -47,23 +46,23 @@ export async function onRequestPost({ request, env }) {
 
       // ดึงข้อมูลสินค้าจาก D1 — แหล่งความจริงเดียว แทนที่จะเชื่อ field จาก webhook body
       const product = await env.DB.prepare(
-        "SELECT id, name, image_url FROM products WHERE id = ?"
+        "SELECT id, product_name, image_url FROM products WHERE id = ?"
       )
         .bind(productId)
         .first();
 
-      if (!product || !product.name || !product.image_url) {
+      if (!product || !product.product_name || !product.image_url) {
         results.push({
           productId,
           skipped: true,
-          reason: "product not found in D1, or missing name/image_url",
+          reason: "product not found in D1, or missing product_name/image_url",
         });
         continue;
       }
 
       // 1) สร้าง Shotstack render job
       const renderId = await triggerShotstackRender({
-        productName: product.name,
+        productName: product.product_name,
         imageUrl: product.image_url,
         env,
       });
