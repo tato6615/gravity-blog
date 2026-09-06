@@ -1,4 +1,4 @@
-import { getLiveArticles } from './_lib/grist.js';
+   import { getLiveArticles } from './_lib/d1-articles.js';
 
 const SITE_URL = 'https://gravity-blog.pages.dev';
 
