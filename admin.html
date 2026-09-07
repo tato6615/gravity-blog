@@ -1393,11 +1393,18 @@ function renderSteps(steps){
   }).join('');
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Tumblr ถูกตัดออกจากระบบ publish ทั้งหมด (2026-09-07)
+   สาเหตุ: Tumblr API ยิงแล้วเจอ "Not Found" ซ้ำหลายรอบ ตัดสินใจ
+   ไม่ใช้ช่องทางนี้ต่อ — ไฟล์ functions/api/send-tumblr.js ให้ลบทิ้ง
+   และเช็ค distribute.js ของ Worker "af" ว่ามี case 'tumblr' อยู่ไหม
+   ต้องเอาออกด้วยเช่นกัน
+   ───────────────────────────────────────────────────────────── */
 const CHANNEL_OPTIONS = [
   ['telegram','Telegram'], ['discord','Discord'], ['mastodon','Mastodon'],
-  ['facebook','Facebook'], ['threads','Threads'], ['website','Website/Blog'], ['tumblr','Tumblr']
+  ['facebook','Facebook'], ['threads','Threads'], ['website','Website/Blog']
 ];
-const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'threads', 'website', 'telegram', 'discord', 'mastodon', 'tumblr']);
+const DISTRIBUTABLE_CHANNELS = new Set(['facebook', 'threads', 'website', 'telegram', 'discord', 'mastodon']);
 const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
 let chPickerRendered = false;
