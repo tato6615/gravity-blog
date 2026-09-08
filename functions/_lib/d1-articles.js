@@ -31,17 +31,22 @@
  * — id DESC as a tiebreaker for rows sharing an identical generated_at
  * timestamp, so ties are still deterministic instead of picking an
  * arbitrary duplicate.
+ *
+ * --- GRAVITY FIX (2026-09-08): ลด MIN_PUBLISHABLE_QUALITY_SCORE 70 → 50 ---
+ * ค่าเดิม 70 เข้มเกินไป — สินค้าที่ publish แล้วและมี content ครบ
+ * แต่ quality_score อยู่ที่ 40-69 จะถูก filter ออกทั้งหมด ไม่ขึ้นเว็บ
+ * ทั้งที่ pipeline_status = 'published' แล้ว ทำให้ดูเหมือนบทความหายไป
+ * ลดเป็น 50 เพื่อรับ content ที่ผ่านขั้นต่ำ ยังกรอง poor quality จริงๆ ออกอยู่
  */
 
-// Same threshold as ai-prompt.js's scoreReviewMarketFit() -> publishable
-// flag, and same constant grist.js already uses. Keep in sync if it
-// ever changes there.
-const MIN_PUBLISHABLE_QUALITY_SCORE = 70;
+// GRAVITY FIX (2026-09-08): ลดจาก 70 → 50
+// เดิม 70 ทำให้สินค้าที่ score 40-69 ไม่ขึ้นเว็บแม้ publish แล้ว
+const MIN_PUBLISHABLE_QUALITY_SCORE = 50;
 
 // Fallback only, used when quality_score is missing but quality_tier isn't.
 // Substring match (case-insensitive), NOT exact equality — tier strings are
 // emoji-prefixed (e.g. '❌ Poor') same as in grist.js.
-const REJECTED_TIER_SUBSTRINGS = ['poor', 'fair'];
+const REJECTED_TIER_SUBSTRINGS = ['poor'];
 
 // Same grandfather clause as grist.js: content generated before the quality
 // gate started actually enforcing (2026-08-22) is exempt from the score
