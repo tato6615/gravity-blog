@@ -534,6 +534,7 @@
         <div class="tl-card-sub" id="psub-generate">รอนำเข้าสินค้าก่อน</div>
         <div class="mini-bar hidden" id="genBar"><div class="mini-bar-fill" id="genBarFill" style="width:0%;"></div></div>
         <div class="tl-card-body">
+          <div id="pipelineStatusBanner" class="pv-check-row warn hidden" style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px; margin-bottom:12px;"></div>
           <div class="fc-wrap" style="margin-top:0; border-top:none; padding-top:0;">
             <button class="fc-toggle" id="fcToggle" onclick="toggleFieldChecklist()">▸ รายละเอียดฟิลด์</button><span class="fc-progress" id="fcProgress"></span>
             <div class="fc-groups hidden" id="fcGroups"></div>
@@ -1038,6 +1039,7 @@ let pipelineSteps = [];
 let latestStages = {};
 let latestProduct = null;
 let latestPipelineStatus = null;
+let latestPipelineError = '';
 
 function showErr(id, msg){ const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
 function hideErr(id){ document.getElementById(id).style.display = 'none'; }
@@ -1081,6 +1083,58 @@ function toggleAux(key){
   if (auxExpanded[key]) panel.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
+/*
+ * GRAVITY FIX (2026-09-08): แสดงเหตุผลจริงเมื่อ pipeline ถูกข้าม/error แทนที่จะ
+ * โชว์แค่ status badge เฉยๆ
+ *
+ * ปัญหาเดิม: backend (pipeline.js) เขียน pipeline_error ไว้ละเอียดอยู่แล้วทุกครั้งที่
+ * ข้าม step (เช่น skipped_market_not_approved, skipped_low_demand) หรือ error แต่
+ * admin.html ไม่เคยดึงมาแสดงเลย มีแค่ #statusTag badge (SKIPPED_MARKET_NOT_APPROVED
+ * แบบตัวพิมพ์ใหญ่) ซึ่งไม่บอกว่า "หมวดหมู่ไหน" มีปัญหา หรือต้องไปทำอะไรต่อ
+ *
+ * แก้ไข: renderPipelineStatusBanner() อ่าน pipeline_error (ถ้ามี) มาแสดงเป็นกล่อง
+ * เตือนสีเหลือง (.pv-check-row.warn) ใต้หัวการ์ด "Generate Everything" พร้อมปุ่มลัด
+ * ไปแท็บ Market Discovery เมื่อ status เป็น skipped_market_not_approved โดยเฉพาะ
+ *
+ * หมายเหตุ: field ชื่อ pipeline_error มาจาก pipeline.js (updateProductPipeline)
+ * แต่ /api/status เป็น handler คนละไฟล์ที่ผมยังไม่เห็นโค้ด — ฟังก์ชันนี้เลย
+ * เผื่อไว้หลายตำแหน่งที่อาจเจอ field นี้ (data.pipeline.error, data.pipeline_error,
+ * data.product.pipeline_error) ถ้า /api/status ยังไม่ส่งค่านี้มาเลย ให้เพิ่ม
+ * pipeline_error ลงใน response ของ handleStatus ฝั่ง backend ด้วย ไม่งั้น banner
+ * จะ fallback ไปใช้ข้อความอธิบายทั่วไปตาม status code แทน
+ */
+const PIPELINE_STATUS_FALLBACK_MSG = {
+  skipped_market_not_approved: 'หมวดหมู่นี้ยังไม่ผ่าน Market Discovery — ยังไม่มี market/sub-market ที่ถูกเลือก (selected) ตรงกับหมวดหมู่ของสินค้านี้ ไปที่แท็บ Market Discovery เพื่อค้นหาและเลือกก่อน',
+  skipped_low_demand: 'สินค้านี้ถูกข้ามเพราะ demand score ต่ำเกินเกณฑ์ที่ตั้งไว้ (ดูรายละเอียดคะแนนเพิ่มเติมได้จาก log)',
+  error: 'เกิดข้อผิดพลาดระหว่างสร้างเนื้อหา — ลองกด Generate Everything อีกครั้งเพื่อทำต่อจากจุดที่ค้าง'
+};
+
+function extractPipelineError(data){
+  return (data && data.pipeline && data.pipeline.error)
+    || (data && data.pipeline_error)
+    || (data && data.product && data.product.pipeline_error)
+    || (data && data.stages && data.stages.pipeline_error)
+    || '';
+}
+
+function renderPipelineStatusBanner(status, errorMsg){
+  const el = document.getElementById('pipelineStatusBanner');
+  if (!el) return;
+  const needsBanner = status === 'skipped_market_not_approved' || status === 'skipped_low_demand' || status === 'error';
+  if (!needsBanner) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+
+  const message = errorMsg || PIPELINE_STATUS_FALLBACK_MSG[status] || ('สถานะ: ' + status);
+  const marketBtn = status === 'skipped_market_not_approved'
+    ? '<button class="btn-ghost" onclick="switchTab(\'market\')" style="margin-left:auto; flex-shrink:0; padding:5px 10px; font-size:12px;">ไปที่ Market Discovery</button>'
+    : '';
+
+  el.innerHTML =
+    '<span class="ico">⚠️</span>' +
+    '<span>' + escapeHtml(message) + '</span>' +
+    marketBtn;
+  el.classList.remove('hidden');
+}
+
 function renderStepper(){
   const current = getCurrentStepKey();
   lastAutoKey = current;
@@ -1098,6 +1152,8 @@ function renderStepper(){
     generate: (() => {
       if (!productId) return 'รอนำเข้าสินค้าก่อน';
       if (latestPipelineStatus === 'error') return 'เกิดข้อผิดพลาด — แตะเพื่อลองอีกครั้ง';
+      if (latestPipelineStatus === 'skipped_market_not_approved') return 'ข้าม — หมวดหมู่ยังไม่ผ่าน Market Discovery';
+      if (latestPipelineStatus === 'skipped_low_demand') return 'ข้าม — demand score ต่ำเกินเกณฑ์';
       if (doneFlags.generate) return 'สร้างเนื้อหาเสร็จครบ ' + fTotal + ' ฟิลด์';
       return fTotal ? (fDone + '/' + fTotal + ' ฟิลด์เสร็จแล้ว') : 'พร้อมเริ่ม Generate Everything';
     })(),
@@ -1115,7 +1171,7 @@ function renderStepper(){
     const sub = document.getElementById('psub-' + key);
     const locked = isPanelLocked(key);
     const isActive = key === current;
-    const isError = isActive && latestPipelineStatus === 'error';
+    const isError = isActive && (latestPipelineStatus === 'error' || latestPipelineStatus === 'skipped_market_not_approved' || latestPipelineStatus === 'skipped_low_demand');
     row.classList.toggle('locked', locked);
     row.classList.toggle('done', doneFlags[key] && !isActive);
     row.classList.toggle('active', isActive && !isError);
@@ -1145,6 +1201,7 @@ function renderStepper(){
     }
   }
 
+  renderPipelineStatusBanner(latestPipelineStatus, latestPipelineError);
   renderOverview(current, doneFlags);
 }
 
@@ -1165,6 +1222,7 @@ function updateProductsSummary(count){
 function startNewProduct(){
   productId = null;
   latestPipelineStatus = null;
+  latestPipelineError = '';
   latestStages = {};
   latestProduct = null;
   selectedChannels = new Set();
@@ -1188,6 +1246,10 @@ function startNewProduct(){
   // 1) ล้าง statusTag badge ใน panel-generate header
   const statusTag = document.getElementById('statusTag');
   if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
+
+  // 1b) ล้าง pipeline status banner (คำอธิบาย pipeline_error ของสินค้าเก่า)
+  const pipelineBanner = document.getElementById('pipelineStatusBanner');
+  if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
 
   // 2) ล้าง "used" markers บน AI provider chips — reset aiUsageThisRun แล้ว re-render grid
   aiUsageThisRun = {};
@@ -1363,8 +1425,11 @@ async function doImport(){
     renderAiGrid();
     const statusTag = document.getElementById('statusTag');
     if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
+    const pipelineBanner = document.getElementById('pipelineStatusBanner');
+    if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
 
     latestPipelineStatus = data.pipeline.status;
+    latestPipelineError = extractPipelineError(data);
     updateStatusTag(data.pipeline.status);
     renderFieldChecklist({});
     document.getElementById('in').value = '';
@@ -1703,6 +1768,7 @@ function renderPublishLocation(){
 async function refreshStatus(){
   const data = await apiCall('/api/status?productId=' + productId, undefined, 'GET /api/status');
   latestPipelineStatus = data.pipeline.status;
+  latestPipelineError = extractPipelineError(data);
   latestStages = data.stages || {};
   latestProduct = data.product || data.item || data.productData || null;
   updateStatusTag(data.pipeline.status);
@@ -1737,6 +1803,7 @@ async function runGenerateAll(){
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   updateStatusTag('enriching');
   latestPipelineStatus = 'enriching';
+  latestPipelineError = '';
   renderStepper();
   try{
     let done = false;
