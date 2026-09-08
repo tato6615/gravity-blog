@@ -1,3 +1,5 @@
+
+
 # GRAVITY_OS Picks — เว็บบล็อกอ่านอย่างเดียว (Cloudflare Pages)
 
 โปรเจกต์นี้แยกจาก `worker.js` เดิมโดยสิ้นเชิง — ไม่เขียนอะไรลง Grist เลย
