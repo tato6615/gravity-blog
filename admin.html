@@ -1379,46 +1379,79 @@ async function checkDemandAfterImport(){
   const el = document.getElementById('demandCard');
   if (!el) return;
   latestDemand = null;
-  try{
+
+  try {
     const data = await apiCall('/api/demand-check', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId })
     }, 'POST /api/demand-check');
+
+    // โชว์การ์ดเสมอ ทุกกรณี
+    if (!data.available) {
+      // ไม่มีข้อมูลเลย
+      el.innerHTML =
+        '<div style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px;">' +
+        '<div style="display:flex; align-items:center; gap:8px;">' +
+        '<span>⚠️</span>' +
+        '<span><strong>ไม่มีข้อมูลให้ประเมิน demand</strong> — ไม่พบ rating/รีวิว/ราคา</span>' +
+        '</div>' +
+        '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">แนะนำเปิดลิงก์สินค้าดูด้วยตาก่อนกด Generate Everything</div>' +
+        '</div>';
+      el.classList.remove('hidden');
+      return;
+    }
 
     const d = data.demand;
     latestDemand = d;
 
-    // โชว์การ์ดเสมอ ไม่ว่า available จะเป็น true/false
-    // และไม่ว่า score จะสูงหรือต่ำ
-    let icon, cls, scoreText, partialNote;
+    // ใช้ normalizedScore ถ้ามี (เทียบกับ maxScore จริง ไม่ใช่ 100)
+    const displayScore = d.normalizedScore ?? d.score;
+    const isPartial = d.partial || (d.maxScore && d.maxScore < 100);
 
-    if (!data.available) {
-      icon = '⚠️'; cls = 'warn';
-      scoreText = 'ไม่มีข้อมูลให้ประเมิน demand เลย';
-    } else {
-      icon = d.score >= 70 ? '🎯' : d.score >= 50 ? '⚠️' : '⛔';
-      cls  = d.score >= 70 ? 'ok' : 'warn';
-      scoreText = 'Demand Score: ' + d.score + '/100 — ' + escapeHtml(d.recommendation);
-    }
+    const icon  = displayScore >= 70 ? '🎯' : displayScore >= 50 ? '⚠️' : '⛔';
+    const color = displayScore >= 70
+      ? 'rgba(79,209,197,0.35)'
+      : 'rgba(232,163,61,0.35)';
+    const scoreLabel = displayScore >= 70
+      ? 'Demand ดี — พร้อม Generate'
+      : displayScore >= 50
+        ? 'Demand ปานกลาง — Generate ได้แต่ระวัง'
+        : 'Demand ต่ำ — ควรเช็คก่อน Generate';
 
-    // ถ้าข้อมูลไม่ครบ โชว์หมายเหตุด้วย
-    partialNote = (data.available && d.partial)
-      ? '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">⚠️ ข้อมูลไม่ครบ (reviewCount/price ไม่พบ) — score อาจเปลี่ยนได้หลัง Generate step แรก</div>'
+    const partialNote = isPartial
+      ? '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">⚠️ ข้อมูลไม่ครบทุก signal (เช่น Amazon block scraping) — score อาจต่ำกว่าความเป็นจริง</div>'
+      : '';
+
+    const reasonsHtml = (d.reasons && d.reasons.length)
+      ? '<div style="margin-top:8px; font-size:12px; color:var(--text-faint);">' +
+        d.reasons.map(r => '<div>' + escapeHtml(r) + '</div>').join('') +
+        '</div>'
       : '';
 
     el.innerHTML =
-      '<div class="pv-check-row ' + cls + '" style="background:var(--panel-2); border-radius:8px; padding:10px 12px; flex-direction:column; align-items:flex-start;">' +
-      '<div style="display:flex; align-items:center; gap:8px;"><span class="ico">' + icon + '</span>' +
-      '<span><strong>' + scoreText + '</strong></span></div>' +
+      '<div style="background:var(--panel-2); border:1px solid ' + color + '; border-radius:8px; padding:10px 12px;">' +
+      '<div style="display:flex; align-items:center; gap:8px;">' +
+      '<span style="font-size:18px;">' + icon + '</span>' +
+      '<div>' +
+      '<div style="font-weight:700; font-size:14px;">Demand Score: ' + displayScore + '/100</div>' +
+      '<div style="font-size:12px; color:var(--text-dim); margin-top:2px;">' + escapeHtml(scoreLabel) + '</div>' +
+      '</div></div>' +
       partialNote +
+      reasonsHtml +
       '</div>';
     el.classList.remove('hidden');
 
-  }catch(e){
-    // error ก็โชว์การ์ดด้วย ไม่ซ่อน
+  } catch(e) {
+    // error ก็โชว์ ไม่ซ่อน
     el.innerHTML =
-      '<div class="pv-check-row warn" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
-      '<span class="ico">⚠️</span><span>เช็ค demand ไม่สำเร็จ (' + escapeHtml(e.message) + ')</span></div>';
+      '<div style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px;">' +
+      '<div style="display:flex; align-items:center; gap:8px;">' +
+      '<span>⚠️</span>' +
+      '<span>เช็ค demand ไม่สำเร็จ — ' + escapeHtml(e.message) + '</span>' +
+      '</div>' +
+      '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">ลองรีเฟรชหน้าหรือเช็คสินค้าด้วยตาก่อน Generate</div>' +
+      '</div>';
     el.classList.remove('hidden');
   }
 }
