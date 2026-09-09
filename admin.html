@@ -1041,6 +1041,8 @@ let latestStages = {};
 let latestProduct = null;
 let latestPipelineStatus = null;
 let latestPipelineError = '';
+let latestDemand = null; // 🔧 GRAVITY FIX (2026-09-09): เก็บผล demand-check ล่าสุดไว้
+                          // ใช้เช็คตอนกด Generate Everything ด้วย (เตือนก่อนเสีย credit)
 
 function showErr(id, msg){ const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
 function hideErr(id){ document.getElementById(id).style.display = 'none'; }
@@ -1084,26 +1086,6 @@ function toggleAux(key){
   if (auxExpanded[key]) panel.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
-/*
- * GRAVITY FIX (2026-09-08): แสดงเหตุผลจริงเมื่อ pipeline ถูกข้าม/error แทนที่จะ
- * โชว์แค่ status badge เฉยๆ
- *
- * ปัญหาเดิม: backend (pipeline.js) เขียน pipeline_error ไว้ละเอียดอยู่แล้วทุกครั้งที่
- * ข้าม step (เช่น skipped_market_not_approved, skipped_low_demand) หรือ error แต่
- * admin.html ไม่เคยดึงมาแสดงเลย มีแค่ #statusTag badge (SKIPPED_MARKET_NOT_APPROVED
- * แบบตัวพิมพ์ใหญ่) ซึ่งไม่บอกว่า "หมวดหมู่ไหน" มีปัญหา หรือต้องไปทำอะไรต่อ
- *
- * แก้ไข: renderPipelineStatusBanner() อ่าน pipeline_error (ถ้ามี) มาแสดงเป็นกล่อง
- * เตือนสีเหลือง (.pv-check-row.warn) ใต้หัวการ์ด "Generate Everything" พร้อมปุ่มลัด
- * ไปแท็บ Market Discovery เมื่อ status เป็น skipped_market_not_approved โดยเฉพาะ
- *
- * หมายเหตุ: field ชื่อ pipeline_error มาจาก pipeline.js (updateProductPipeline)
- * แต่ /api/status เป็น handler คนละไฟล์ที่ผมยังไม่เห็นโค้ด — ฟังก์ชันนี้เลย
- * เผื่อไว้หลายตำแหน่งที่อาจเจอ field นี้ (data.pipeline.error, data.pipeline_error,
- * data.product.pipeline_error) ถ้า /api/status ยังไม่ส่งค่านี้มาเลย ให้เพิ่ม
- * pipeline_error ลงใน response ของ handleStatus ฝั่ง backend ด้วย ไม่งั้น banner
- * จะ fallback ไปใช้ข้อความอธิบายทั่วไปตาม status code แทน
- */
 const PIPELINE_STATUS_FALLBACK_MSG = {
   skipped_market_not_approved: 'หมวดหมู่นี้ยังไม่ผ่าน Market Discovery — ยังไม่มี market/sub-market ที่ถูกเลือก (selected) ตรงกับหมวดหมู่ของสินค้านี้ ไปที่แท็บ Market Discovery เพื่อค้นหาและเลือกก่อน',
   skipped_low_demand: 'สินค้านี้ถูกข้ามเพราะ demand score ต่ำเกินเกณฑ์ที่ตั้งไว้ (ดูรายละเอียดคะแนนเพิ่มเติมได้จาก log)',
@@ -1226,41 +1208,25 @@ function startNewProduct(){
   latestPipelineError = '';
   latestStages = {};
   latestProduct = null;
+  latestDemand = null;
   selectedChannels = new Set();
   chPickerRendered = false;
   window._captionOverrides = {};
   window._lastDistributeResults = null;
   distributeResultsRestoredFor = null;
 
-  // ─────────────────────────────────────────────────────────────
-  // FIX Bug 2: ล้าง stale UI ที่ค้างจากสินค้าก่อนหน้า
-  //
-  // ปัญหาเดิม: resetตัวแปรครบ แต่ไม่ได้สั่งล้าง DOM ที่ render
-  // จากค่าเหล่านั้น ทำให้:
-  //   • #statusTag badge ยังแสดง PUBLISHED (badge ใน panel-generate)
-  //   • AI provider chips ยังมีสถานะ "ใช้อยู่" (amber border) ค้างอยู่
-  //   • ผลลัพธ์/preview ในแต่ละ panel ยังแสดงข้อมูลของสินค้าเก่า
-  //
-  // แก้ไข: reset UI ทุกชิ้นก่อน renderStepper() ใหม่
-  // ─────────────────────────────────────────────────────────────
-
-  // 1) ล้าง statusTag badge ใน panel-generate header
   const statusTag = document.getElementById('statusTag');
   if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
 
-  // 1b) ล้าง pipeline status banner (คำอธิบาย pipeline_error ของสินค้าเก่า)
   const pipelineBanner = document.getElementById('pipelineStatusBanner');
   if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
 
-  // 1c) ล้าง demand score card ของสินค้าเก่า
   const demandCard = document.getElementById('demandCard');
   if (demandCard) { demandCard.classList.add('hidden'); demandCard.innerHTML = ''; }
 
-  // 2) ล้าง "used" markers บน AI provider chips — reset aiUsageThisRun แล้ว re-render grid
   aiUsageThisRun = {};
   renderAiGrid();
 
-  // 3) ล้าง content ของ panel-results ทั้งหมด
   const resultTable = document.getElementById('resultTable');
   if (resultTable) resultTable.innerHTML = '';
   const dr = document.getElementById('distributeResults');
@@ -1268,7 +1234,6 @@ function startNewProduct(){
   const plc = document.getElementById('publishLocationCard');
   if (plc) plc.innerHTML = '';
 
-  // 4) ล้าง publish panel UI
   const cc = document.getElementById('categoryCheck');
   if (cc) cc.innerHTML = '';
   const pvWrap = document.getElementById('pvWrap');
@@ -1276,16 +1241,11 @@ function startNewProduct(){
   const chPicker = document.getElementById('chPicker');
   if (chPicker) chPicker.innerHTML = '';
 
-  // 5) ล้าง generate panel UI
   const stepsList = document.getElementById('stepsList');
   if (stepsList) stepsList.innerHTML = '';
 
-  // 6) ล้าง field checklist และ progress text
   renderFieldChecklist({});
 
-  // ─────────────────────────────────────────────────────────────
-  // (ยังเหมือนเดิม) ล้าง input field และ reset stepper state
-  // ─────────────────────────────────────────────────────────────
   document.getElementById('in').value = '';
   lastAutoKey = null;
   renderStepper();
@@ -1408,26 +1368,45 @@ async function apiCall(path, options, label){
 
 // GRAVITY FIX (2026-09-08): เรียก /api/demand-check ทันทีหลัง import สำเร็จ
 // เพื่อโชว์ demand score ก่อนที่ user จะกด Generate Everything (ก่อนเสีย AI call)
+//
+// 🔧 GRAVITY FIX (2026-09-09): เดิมเมื่อ available:false (ไม่มีข้อมูลพอ)
+// จะซ่อนการ์ดไปเงียบๆ ทำให้ user ไม่รู้เลยว่าสินค้านี้ไม่มีข้อมูลให้ประเมิน
+// demand แล้วอาจเผลอกด Generate Everything ต่อ เสีย AI credit ไปกับสินค้า
+// ที่ไม่รู้เลยว่า demand ดีไหม — ตอนนี้โชว์คำเตือนแทนการซ่อนเสมอ ไม่ว่าจะ
+// มีข้อมูลหรือไม่ก็ตาม และเก็บผลไว้ใน latestDemand ให้ runGenerateAll()
+// เอาไปเช็คก่อนเริ่ม generate จริงด้วย (ถามยืนยันถ้า demand ต่ำ/ไม่มีข้อมูล)
 async function checkDemandAfterImport(){
   const el = document.getElementById('demandCard');
   if (!el) return;
+  latestDemand = null;
   try{
     const data = await apiCall('/api/demand-check', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ productId })
     }, 'POST /api/demand-check');
 
-    if (!data.available) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    if (!data.available) {
+      el.innerHTML =
+        '<div class="pv-check-row warn" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
+        '<span class="ico">⚠️</span><span><strong>ไม่มีข้อมูลพอประเมิน demand</strong> — ไม่มี rating/จำนวนรีวิว/ราคาให้เช็คเลย ' +
+        'แนะนำให้เปิดลิงก์สินค้าดูด้วยตาก่อนกด Generate Everything เพื่อไม่ให้เสีย AI credit โดยเปล่าประโยชน์</span></div>';
+      el.classList.remove('hidden');
+      return;
+    }
 
+    latestDemand = data.demand;
     const d = data.demand;
-    const cls = d.score >= 60 ? 'ok' : 'warn';
+    const cls = d.score >= 70 ? 'ok' : 'warn';
+    const icon = d.score >= 70 ? '🎯' : '⚠️';
     el.innerHTML =
       '<div class="pv-check-row ' + cls + '" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
-      '<span class="ico">🎯</span><span><strong>Demand Score: ' + d.score + '/100</strong> — ' + escapeHtml(d.recommendation) + '</span></div>';
+      '<span class="ico">' + icon + '</span><span><strong>Demand Score: ' + d.score + '/100</strong> — ' + escapeHtml(d.recommendation) + '</span></div>';
     el.classList.remove('hidden');
   }catch(e){
-    el.classList.add('hidden');
-    el.innerHTML = '';
+    el.innerHTML =
+      '<div class="pv-check-row warn" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
+      '<span class="ico">⚠️</span><span>เช็ค demand ไม่สำเร็จ (' + escapeHtml(e.message) + ') — ลองรีเฟรชหรือเช็คด้วยตัวเองก่อน Generate</span></div>';
+    el.classList.remove('hidden');
   }
 }
 
@@ -1446,11 +1425,6 @@ async function doImport(){
     window._lastDistributeResults = null;
     distributeResultsRestoredFor = null;
 
-    // ─────────────────────────────────────────────────────────────
-    // FIX Bug 2 (doImport path): ล้าง stale UI เหมือนกัน
-    // เผื่อกรณีที่ user กด Import สินค้าใหม่ภายใน session เดิม
-    // โดยไม่ได้กด "+ Import สินค้าใหม่" ก่อน
-    // ─────────────────────────────────────────────────────────────
     aiUsageThisRun = {};
     renderAiGrid();
     const statusTag = document.getElementById('statusTag');
@@ -1459,6 +1433,7 @@ async function doImport(){
     if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
     const demandCard = document.getElementById('demandCard');
     if (demandCard) { demandCard.classList.add('hidden'); demandCard.innerHTML = ''; }
+    latestDemand = null;
 
     latestPipelineStatus = data.pipeline.status;
     latestPipelineError = extractPipelineError(data);
@@ -1491,13 +1466,6 @@ function renderSteps(steps){
   }).join('');
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Tumblr ถูกตัดออกจากระบบ publish ทั้งหมด (2026-09-07)
-   สาเหตุ: Tumblr API ยิงแล้วเจอ "Not Found" ซ้ำหลายรอบ ตัดสินใจ
-   ไม่ใช้ช่องทางนี้ต่อ — ไฟล์ functions/api/send-tumblr.js ให้ลบทิ้ง
-   และเช็ค distribute.js ของ Worker "af" ว่ามี case 'tumblr' อยู่ไหม
-   ต้องเอาออกด้วยเช่นกัน
-   ───────────────────────────────────────────────────────────── */
 const CHANNEL_OPTIONS = [
   ['telegram','Telegram'], ['discord','Discord'], ['mastodon','Mastodon'],
   ['facebook','Facebook'], ['threads','Threads'], ['website','Website/Blog']
@@ -1507,15 +1475,6 @@ const CHANNEL_LABELS = Object.fromEntries(CHANNEL_OPTIONS);
 let selectedChannels = new Set();
 let chPickerRendered = false;
 
-/**
- * GRAVITY FIX (2026-08-23): ผลการเผยแพร่แต่ละช่องทาง (window._lastDistributeResults)
- * เดิมเก็บไว้ใน memory ของหน้าเว็บเท่านั้น — พอ refreshStatus() ถูกเรียกใหม่ (เช่น
- * รีเฟรชหน้า, กลับมาเปิดดูสินค้าที่ publish ไปแล้ว) ค่านี้จะหายไปทันที เพราะ
- * refreshStatus() ไม่เคยเรียก renderDistributeResults() ด้วยข้อมูลเก่าเลย
- * ตอนนี้บันทึกผลลัพธ์ลง localStorage ผูกกับ productId ทุกครั้งที่อัปเดต และ
- * ให้ refreshStatus() ดึงกลับมาแสดงอัตโนมัติเมื่อ pipeline status เป็น 'published'
- * และยังไม่มีผลลัพธ์อยู่ใน memory ของ session ปัจจุบัน
- */
 const DISTRIBUTE_RESULTS_STORAGE_PREFIX = 'gravity_distribute_results_';
 let distributeResultsRestoredFor = null;
 
@@ -1526,7 +1485,7 @@ function saveDistributeResults(pid, results){
   if (!pid) return;
   try{
     localStorage.setItem(getDistributeResultsStorageKey(pid), JSON.stringify(results));
-  }catch(e){ /* localStorage ใช้ไม่ได้ (private mode ฯลฯ) — ไม่ critical ข้ามไปเงียบๆ */ }
+  }catch(e){ }
 }
 function loadDistributeResults(pid){
   if (!pid) return null;
@@ -1572,28 +1531,10 @@ const PLATFORM_LIMITS = {
 };
 window._captionOverrides = window._captionOverrides || {};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX Bug 1: Auto-rehost image เมื่อ renderPrePublishPreview() ตรวจพบว่ารูปยัง
-// ไม่ถูก re-host ไป GitHub
-//
-// ปัญหาเดิม: renderPrePublishPreview() ตรวจสอบ rehosted flag แล้วแค่วาด
-// ปุ่ม "ลองรี-โฮสต์อีกครั้ง" โดยไม่ได้ลองอัตโนมัติเลย ทำให้ user ต้องกดเอง
-// ทุกครั้ง และไม่มีกลไกกันลองซ้ำอนันต์
-//
-// แก้ไข:
-//   • เพิ่ม rehostAttemptedForProduct — จำว่าเราลองอัตโนมัติให้ productId นี้
-//     แล้วหรือยัง (reset เมื่อ productId เปลี่ยน)
-//   • autoRetryRehostIfNeeded() — ถ้ายังไม่เคยลองและยังไม่ได้ rehost → ลองเลย
-//     (เรียกจาก renderPrePublishPreview ตอนที่ตรวจพบว่า rehosted = false)
-//   • retryRehostImage() รองรับ mode 'auto' (ไม่ต้องการ DOM button) นอกจาก
-//     mode 'manual' (มี button ให้กด) เหมือนเดิม
-// ─────────────────────────────────────────────────────────────────────────────
-let rehostAttemptedForProduct = null; // productId ที่เคยลอง auto-rehost ไปแล้ว
-let rehostInProgress = false; // true ระหว่างที่ retryRehostImage() กำลังยิง request อยู่จริง (auto หรือ manual)
-                               // ใช้แยก label "กำลังลองอยู่" ออกจาก "ลองอัตโนมัติไปแล้วแต่ไม่สำเร็จ รอ user กด"
+let rehostAttemptedForProduct = null;
+let rehostInProgress = false;
 
 async function autoRetryRehostIfNeeded(){
-  // ลองได้ครั้งเดียวต่อสินค้า — ถ้าลองแล้วยังไม่สำเร็จ จะยังโชว์ปุ่มให้ user กดเอง
   if (!productId || rehostAttemptedForProduct === productId) return;
   rehostAttemptedForProduct = productId;
   logEvent('pending', 'auto-rehost: รูปยังไม่ถูก re-host — ลองอัตโนมัติ...');
@@ -1658,7 +1599,7 @@ function renderPrePublishPreview(){
   const isScreenshotFallback = !!(product.is_screenshot || product.fields?.is_screenshot);
 
   if (!rehosted && sourceUrl) {
-    autoRetryRehostIfNeeded(); // fire-and-forget; refreshStatus() จะ re-render เองเมื่อเสร็จ
+    autoRetryRehostIfNeeded();
   }
 
   const rehostLabel = rehosted
@@ -1830,7 +1771,29 @@ async function refreshStatus(){
   return data;
 }
 
+// 🔧 GRAVITY FIX (2026-09-09): เพิ่มการเช็ค/ถามยืนยันก่อนเริ่ม generate จริง
+// ถ้า demand score ต่ำ (< 70) หรือยังไม่มีข้อมูล demand เลย (latestDemand
+// เป็น null เพราะ checkDemandAfterImport() หาข้อมูลไม่เจอ) — เพื่อไม่ให้
+// เผลอกดแล้วเสีย AI credit ไปกับสินค้าที่รู้อยู่แล้วว่า demand ไม่ดี/ไม่รู้เลย
+// หมายเหตุ: แม้ user จะกด "ตกลง" ฝืนทำต่อ ฝั่ง backend (pipeline.js ->
+// handleEnrich) ก็ยังมี gate ซ้ำอีกชั้นอยู่ดี ถ้า demand ต่ำเกินเกณฑ์จริง
+// (canGenerate:false) จะ skip step แรกให้อัตโนมัติโดยไม่เรียก AI เลย
+// (ไม่เสีย credit) — คำเตือนตรงนี้คือให้ user รู้ล่วงหน้าเฉยๆ ไม่ใช่ gate เดียว
 async function runGenerateAll(){
+  if (latestDemand && latestDemand.score < 70) {
+    const proceed = confirm(
+      'Demand Score ของสินค้านี้ค่อนข้างต่ำ (' + latestDemand.score + '/100 — ' + latestDemand.recommendation + ')\n\n' +
+      'ถ้า demand ต่ำเกินเกณฑ์ ระบบจะข้าม step แรกให้อัตโนมัติ (ไม่เสีย AI credit) แต่ถ้าต้องการดำเนินการต่อ กด OK\nถ้าต้องการยกเลิกไปเช็คสินค้านี้ก่อน กด Cancel'
+    );
+    if (!proceed) return;
+  } else if (!latestDemand) {
+    const proceed = confirm(
+      'ยังไม่มีข้อมูล demand (rating/จำนวนรีวิว/ราคา) ให้ประเมินสินค้านี้เลย\n\n' +
+      'แนะนำให้เปิดลิงก์สินค้าดูด้วยตาก่อน — ถ้าต้องการดำเนินการต่อ กด OK, ถ้าต้องการยกเลิก กด Cancel'
+    );
+    if (!proceed) return;
+  }
+
   const btn = document.getElementById('generateBtn');
   hideErr('generateErr');
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
