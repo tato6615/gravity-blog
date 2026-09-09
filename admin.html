@@ -1385,27 +1385,40 @@ async function checkDemandAfterImport(){
       body: JSON.stringify({ productId })
     }, 'POST /api/demand-check');
 
+    const d = data.demand;
+    latestDemand = d;
+
+    // โชว์การ์ดเสมอ ไม่ว่า available จะเป็น true/false
+    // และไม่ว่า score จะสูงหรือต่ำ
+    let icon, cls, scoreText, partialNote;
+
     if (!data.available) {
-      el.innerHTML =
-        '<div class="pv-check-row warn" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
-        '<span class="ico">⚠️</span><span><strong>ไม่มีข้อมูลพอประเมิน demand</strong> — ไม่มี rating/จำนวนรีวิว/ราคาให้เช็คเลย ' +
-        'แนะนำให้เปิดลิงก์สินค้าดูด้วยตาก่อนกด Generate Everything เพื่อไม่ให้เสีย AI credit โดยเปล่าประโยชน์</span></div>';
-      el.classList.remove('hidden');
-      return;
+      icon = '⚠️'; cls = 'warn';
+      scoreText = 'ไม่มีข้อมูลให้ประเมิน demand เลย';
+    } else {
+      icon = d.score >= 70 ? '🎯' : d.score >= 50 ? '⚠️' : '⛔';
+      cls  = d.score >= 70 ? 'ok' : 'warn';
+      scoreText = 'Demand Score: ' + d.score + '/100 — ' + escapeHtml(d.recommendation);
     }
 
-    latestDemand = data.demand;
-    const d = data.demand;
-    const cls = d.score >= 70 ? 'ok' : 'warn';
-    const icon = d.score >= 70 ? '🎯' : '⚠️';
+    // ถ้าข้อมูลไม่ครบ โชว์หมายเหตุด้วย
+    partialNote = (data.available && d.partial)
+      ? '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">⚠️ ข้อมูลไม่ครบ (reviewCount/price ไม่พบ) — score อาจเปลี่ยนได้หลัง Generate step แรก</div>'
+      : '';
+
     el.innerHTML =
-      '<div class="pv-check-row ' + cls + '" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
-      '<span class="ico">' + icon + '</span><span><strong>Demand Score: ' + d.score + '/100</strong> — ' + escapeHtml(d.recommendation) + '</span></div>';
+      '<div class="pv-check-row ' + cls + '" style="background:var(--panel-2); border-radius:8px; padding:10px 12px; flex-direction:column; align-items:flex-start;">' +
+      '<div style="display:flex; align-items:center; gap:8px;"><span class="ico">' + icon + '</span>' +
+      '<span><strong>' + scoreText + '</strong></span></div>' +
+      partialNote +
+      '</div>';
     el.classList.remove('hidden');
+
   }catch(e){
+    // error ก็โชว์การ์ดด้วย ไม่ซ่อน
     el.innerHTML =
       '<div class="pv-check-row warn" style="background:var(--panel-2); border-radius:8px; padding:10px 12px;">' +
-      '<span class="ico">⚠️</span><span>เช็ค demand ไม่สำเร็จ (' + escapeHtml(e.message) + ') — ลองรีเฟรชหรือเช็คด้วยตัวเองก่อน Generate</span></div>';
+      '<span class="ico">⚠️</span><span>เช็ค demand ไม่สำเร็จ (' + escapeHtml(e.message) + ')</span></div>';
     el.classList.remove('hidden');
   }
 }
