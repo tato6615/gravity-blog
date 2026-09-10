@@ -297,6 +297,21 @@
       <span id="stat-status" class="an-status"></span>
     </div>
 
+    <div class="an-table-wrap">
+      <table id="stat-table">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Clicks</th>
+            <th>Conversions</th>
+            <th>CVR %</th>
+            <th>Commission</th>
+            <th>Comm/Click</th>
+          </tr>
+        </thead>
+        <tbody id="stat-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="stepper" style="margin-top:14px;">
@@ -348,12 +363,42 @@
   const startInput = document.getElementById('stat-start');
   const endInput = document.getElementById('stat-end');
   const statusEl = document.getElementById('stat-status');
+  const tbody = document.getElementById('stat-tbody');
   let lastProducts = [];
 
   const today = new Date();
   const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   endInput.value = today.toISOString().slice(0, 10);
   startInput.value = monthAgo.toISOString().slice(0, 10);
+
+  function sortByProduct(products) {
+    return [...products].sort((a, b) => {
+      const idA = Number(a.product_id);
+      const idB = Number(b.product_id);
+      if (!Number.isNaN(idA) && !Number.isNaN(idB)) return idA - idB;
+      return String(a.product_id).localeCompare(String(b.product_id));
+    });
+  }
+
+  function renderTable(products) {
+    tbody.innerHTML = '';
+    if (!products.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-faint);">ไม่มีข้อมูลในช่วงนี้</td></tr>';
+      return;
+    }
+    for (const p of products) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.product_id}</td>
+        <td>${p.total_clicks}</td>
+        <td>${p.conversions}</td>
+        <td>${p.conversion_rate ?? 0}%</td>
+        <td class="an-commission">$${p.total_commission ?? 0}</td>
+        <td>$${p.commission_per_click ?? 0}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
 
   async function loadStats() {
     statusEl.textContent = 'กำลังโหลด...';
@@ -366,7 +411,9 @@
       if (!data.ok) throw new Error(data.error || 'unknown error');
 
       lastProducts = data.products;
-      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
+      const sorted = sortByProduct(lastProducts);
+      renderTable(sorted);
+      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม Product ID`;
     } catch (err) {
       statusEl.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
     }
