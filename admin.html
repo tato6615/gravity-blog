@@ -297,29 +297,6 @@
       <span id="stat-status" class="an-status"></span>
     </div>
 
-    <div class="an-chart-wrap">
-      <div class="an-chart-toggle" id="stat-chart-toggle">
-        <button data-metric="clicks" class="active">Clicks</button>
-        <button data-metric="commission">Commission ($)</button>
-      </div>
-      <canvas id="stat-chart" height="90"></canvas>
-    </div>
-
-    <div class="an-table-wrap">
-      <table id="stat-table">
-        <thead>
-          <tr>
-            <th>Product ID</th>
-            <th>Clicks</th>
-            <th>Conversions</th>
-            <th>CVR %</th>
-            <th>Commission</th>
-            <th>Comm/Click</th>
-          </tr>
-        </thead>
-        <tbody id="stat-tbody"></tbody>
-      </table>
-    </div>
   </div>
 
   <div class="stepper" style="margin-top:14px;">
@@ -366,38 +343,17 @@
   </div>
 </section>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function () {
   const startInput = document.getElementById('stat-start');
   const endInput = document.getElementById('stat-end');
   const statusEl = document.getElementById('stat-status');
-  const tbody = document.getElementById('stat-tbody');
-  const toggleWrap = document.getElementById('stat-chart-toggle');
-  let chart = null;
   let lastProducts = [];
-  let activeMetric = 'clicks'; // GRAVITY FIX (2026-08-23): เดิม hardcode เป็น commission เท่านั้น
-                                // ทำให้กราฟแบนราบเป็น 0 ตอนยังไม่มี conversion แม้จะมีคลิกเข้ามาเยอะแล้วก็ตาม
-                                // ตอนนี้ default เป็น clicks เพื่อให้เห็นข้อมูลจริงตั้งแต่วันแรก
-                                // และมีปุ่มสลับไปดู Commission ได้เมื่อพร้อม
 
   const today = new Date();
   const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   endInput.value = today.toISOString().slice(0, 10);
   startInput.value = monthAgo.toISOString().slice(0, 10);
-
-  function sortProducts(products, metric) {
-    return [...products].sort((a, b) => {
-      if (metric === 'clicks') {
-        const clickDiff = (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
-        if (clickDiff !== 0) return clickDiff;
-        return (Number(b.total_commission) || 0) - (Number(a.total_commission) || 0);
-      }
-      const commDiff = (Number(b.total_commission) || 0) - (Number(a.total_commission) || 0);
-      if (commDiff !== 0) return commDiff;
-      return (Number(b.total_clicks) || 0) - (Number(a.total_clicks) || 0);
-    });
-  }
 
   async function loadStats() {
     statusEl.textContent = 'กำลังโหลด...';
@@ -410,86 +366,11 @@
       if (!data.ok) throw new Error(data.error || 'unknown error');
 
       lastProducts = data.products;
-      const sorted = sortProducts(lastProducts, activeMetric);
-      renderTable(sorted);
-      renderChart(sorted.slice(0, 15), activeMetric);
-      const metricLabel = activeMetric === 'clicks' ? 'Clicks มาก→น้อย' : 'Commission มาก→น้อย';
-      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม ${metricLabel}`;
+      statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
     } catch (err) {
       statusEl.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
     }
   }
-
-  function renderTable(products) {
-    tbody.innerHTML = '';
-    if (!products.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-faint);">ไม่มีข้อมูลในช่วงนี้</td></tr>';
-      return;
-    }
-    for (const p of products) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${p.product_id}</td>
-        <td>${p.total_clicks}</td>
-        <td>${p.conversions}</td>
-        <td>${p.conversion_rate ?? 0}%</td>
-        <td class="an-commission">$${p.total_commission ?? 0}</td>
-        <td>$${p.commission_per_click ?? 0}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-  }
-
-  function renderChart(products, metric) {
-    const canvas = document.getElementById('stat-chart');
-    const ctx = canvas.getContext('2d');
-    const labels = products.map(p => `Product ${p.product_id}`);
-    const isClicks = metric === 'clicks';
-    const values = products.map(p => (isClicks ? p.total_clicks : p.total_commission) || 0);
-    const color = isClicks ? '#4fd1c5' : '#e8a33d';
-
-    const existing = Chart.getChart(canvas);
-    if (existing) existing.destroy();
-    if (chart) chart.destroy();
-
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: isClicks ? 'Clicks' : 'Total Commission ($)',
-          data: values,
-          borderColor: color,
-          backgroundColor: isClicks ? 'rgba(79, 209, 197, 0.15)' : 'rgba(232, 163, 61, 0.15)',
-          fill: true,
-          tension: 0.3,
-          pointBackgroundColor: color,
-          pointRadius: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, ticks: { color: '#8a90a0' }, grid: { color: '#2a2f3b' } },
-          x: { ticks: { color: '#8a90a0' }, grid: { display: false } }
-        }
-      }
-    });
-  }
-
-  toggleWrap.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-metric]');
-    if (!btn || btn.classList.contains('active')) return;
-    activeMetric = btn.dataset.metric;
-    toggleWrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
-    if (!lastProducts.length) return;
-    const sorted = sortProducts(lastProducts, activeMetric);
-    renderTable(sorted);
-    renderChart(sorted.slice(0, 15), activeMetric);
-    const metricLabel = activeMetric === 'clicks' ? 'Clicks มาก→น้อย' : 'Commission มาก→น้อย';
-    statusEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} · เรียงตาม ${metricLabel}`;
-  });
 
   document.getElementById('stat-load').addEventListener('click', loadStats);
   loadStats();
@@ -1991,113 +1872,6 @@ function renderDistributeResults(results){
       rows + retryAllBtn +
     '</div>';
 
-  renderStepper();
-}
-
-const FIELD_SCHEMA = [
-  { table: 'AI_ANALYSIS', tableLabel: 'AI Analysis', fields: [
-    ['summary','Product Summary'], ['brand','Brand'], ['category','Category'],
-    ['specifications','Specifications'], ['features','Features'], ['pros','Pros'],
-    ['cons','Cons'], ['target_audience','Target Audience'], ['estimated_commission','Estimated Commission']
-  ]},
-  { table: 'KEYWORDS', tableLabel: 'Keywords', fields: [
-    ['keywords','Keywords (100-300)'], ['search_intent','Search Intent'], ['long_tail','Long Tail'],
-    ['comparison_keywords','Comparison Keywords'], ['problem_keywords','Problem Keywords'],
-    ['best_keywords','Best Keywords'], ['review_keywords','Review Keywords'], ['price_keywords','Price Keywords'],
-    ['alternative_keywords','Alternative Keywords'], ['faq_keywords','FAQ Keywords']
-  ]},
-  { table: 'CONTENT', tableLabel: 'Content (TH)', langKey: 'th', fields: [
-    ['faq','FAQ'], ['comparison','Comparison'], ['alternatives','Alternatives'],
-    ['review','Review'], ['buying_guide','Buying Guide'], ['seo_title','SEO Title'],
-    ['meta_description','Meta Description'], ['slug','Slug'], ['tags','Tags'],
-    ['blog_outline','Blog Outline'], ['blog_draft','Blog Draft'],
-    ['quality_score','Quality Score'], ['quality_tier','Quality Tier'], ['quality_warnings','Quality Warnings']
-  ]},
-  { table: 'SOCIAL', tableLabel: 'Social (TH)', langKey: 'th', fields: [
-    ['facebook_post','Facebook Post'], ['threads_post','Threads Post'], ['x_post','X Post'],
-    ['pinterest_post','Pinterest Post'], ['youtube_script','YouTube Script'], ['shorts_script','Shorts Script'],
-    ['cta','CTA'], ['affiliate_cta','Affiliate CTA']
-  ]},
-  { table: 'AI_MEDIA', tableLabel: 'AI Media', fields: [
-    ['image_prompt','Image Prompt'], ['thumbnail_prompt','Thumbnail Prompt']
-  ]},
-  { table: 'AI_PUBLISH', tableLabel: 'AI Publish', fields: [
-    ['status','Status'], ['published_at','Published At'], ['channels','Channels']
-  ]},
-  { table: 'AI_ANALYTICS', tableLabel: 'AI Analytics', fields: [
-    ['views','Views'], ['clicks','Clicks'], ['conversions','Conversions'], ['last_updated','Last Updated']
-  ]}
-];
-
-let fcExpanded = false;
-function toggleFieldChecklist(){
-  fcExpanded = !fcExpanded;
-  document.getElementById('fcGroups').classList.toggle('hidden', !fcExpanded);
-  document.getElementById('fcToggle').textContent = (fcExpanded ? '▾' : '▸') + ' รายละเอียดฟิลด์';
-}
-
-function renderFieldChecklist(stages){
-  stages = stages || {};
-  let doneCount = 0, totalCount = 0;
-  const groupsHtml = FIELD_SCHEMA.map(group => {
-    const tableData = stages[group.table] || null;
-    const row = group.langKey ? (tableData && tableData[group.langKey]) : tableData;
-    const rowsHtml = group.fields.map(([key, label]) => {
-      totalCount++;
-      const isDone = !!(row && row[key] !== undefined && row[key] !== null && row[key] !== '');
-      if (isDone) doneCount++;
-      return '<div class="fc-row' + (isDone ? ' done' : '') + '">' +
-        '<span class="fc-check">' + (isDone ? '✓' : '') + '</span>' +
-        '<span class="fc-label">' + label + '</span></div>';
-    }).join('');
-    const groupDone = group.fields.filter(([key]) => row && row[key]).length;
-    return '<div class="fc-group">' +
-      '<div class="fc-group-title">' + group.tableLabel +
-      '<span class="fc-group-count">' + groupDone + '/' + group.fields.length + '</span></div>' +
-      rowsHtml + '</div>';
-  }).join('');
-  document.getElementById('fcGroups').innerHTML = groupsHtml;
-  document.getElementById('fcProgress').textContent = doneCount + ' / ' + totalCount + ' ฟิลด์เสร็จแล้ว';
-  renderStepper();
-}
-
-const STAGE_LABELS = {
-  'AI_ANALYSIS': 'AI Analysis', 'KEYWORDS': 'Keywords', 'CONTENT': 'Content',
-  'SOCIAL': 'Social', 'AI_MEDIA': 'Media', 'AI_PUBLISH': 'Publish', 'AI_ANALYTICS': 'Analytics'
-};
-
-function renderResults(stages){
-  const el = document.getElementById('resultTable');
-  el.innerHTML = Object.entries(stages).map(([tableId, fields]) => {
-    if (!fields) return '';
-    return '<div class="rt-row"><div class="rt-label">' + (STAGE_LABELS[tableId] || tableId) + '</div>' +
-      '<div class="rt-val">บันทึกแล้ว ✓</div></div>';
-  }).join('');
-}
-
-const LEGACY_SYNC_LABELS = {
-  keywords: '09_KEYWORDS', content: '04_CONTENT_ENGINE', affiliate: '08_AFFILIATE_SYSTEM',
-  brand: '02_BRANDS', project: '01_PROJECTS', assets: '12_ASSETS',
-  knowledge_base: '10_KNOWLEDGE_BASE', tasks: '11_TASKS', traffic: '05_TRAFFIC_OS',
-  relations: '14_RELATION_MAP'
-};
-
-function renderSyncSummary(sync){
-  const el = document.getElementById('resultTable');
-  const rows = Object.entries(LEGACY_SYNC_LABELS).map(([key, label]) => {
-    const r = sync[key];
-    let val;
-    if (!r) val = 'ไม่มีข้อมูล';
-    else if (r.skipped) val = 'ข้าม (' + (r.reason || 'ไม่พบตาราง') + ')';
-    else if (r.created !== undefined && typeof r.created === 'number') val = 'บันทึก ' + r.created + ' แถว ✓';
-    else if (r.created || r.updated) val = 'บันทึกแล้ว ✓';
-    else val = 'บันทึกแล้ว ✓';
-    return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
-  });
-  if (sync.errors && sync.errors.length) {
-    rows.push('<div class="rt-row"><div class="rt-label">Sync Errors</div><div class="rt-val">' + sync.errors.join('\n') + '</div></div>');
-  }
-  el.innerHTML = rows.join('');
   renderStepper();
 }
 
