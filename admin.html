@@ -1461,38 +1461,61 @@ async function doImport(){
   const val = document.getElementById('in').value.trim();
   hideErr('importErr');
   if(!val){ showErr('importErr', 'ใส่ลิงก์หรือรายละเอียดก่อนครับ'); return; }
+
+  // ✅ reset state ทันทีก่อนเรียก API (กัน bug หน้าจอค้างข้อมูลสินค้าเก่า)
+  productId = null;
+  latestPipelineStatus = null;
+  latestPipelineError = '';
+  latestStages = {};
+  latestProduct = null;
+  latestDemand = null;
+  selectedChannels = new Set();
+  chPickerRendered = false;
+  window._captionOverrides = {};
+  window._lastDistributeResults = null;
+  distributeResultsRestoredFor = null;
+  aiUsageThisRun = {};
+  renderAiGrid();
+  renderFieldChecklist({});
+  renderTableGrid({});
+
+  // เคลียร์ UI ที่แสดงข้อมูลสินค้าเก่า
+  const statusTag = document.getElementById('statusTag');
+  if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
+  const pipelineBanner = document.getElementById('pipelineStatusBanner');
+  if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
+  const demandCard = document.getElementById('demandCard');
+  if (demandCard) { demandCard.classList.add('hidden'); demandCard.innerHTML = ''; }
+  const resultTable = document.getElementById('resultTable');
+  if (resultTable) resultTable.innerHTML = '';
+  const dr = document.getElementById('distributeResults');
+  if (dr) dr.innerHTML = '';
+  const plc = document.getElementById('publishLocationCard');
+  if (plc) plc.innerHTML = '';
+  const pvWrap = document.getElementById('pvWrap');
+  if (pvWrap) { pvWrap.classList.add('hidden'); pvWrap.innerHTML = ''; }
+  const chPicker = document.getElementById('chPicker');
+  if (chPicker) chPicker.innerHTML = '';
+  const cc = document.getElementById('categoryCheck');
+  if (cc) cc.innerHTML = '';
+  document.getElementById('stepsList').innerHTML = '';
+
+  renderStepper(); // อัปเดตหน้าจอทันที — จะเห็น "ยังไม่มีสินค้า" แทนข้อมูลเก่า
+
   btn.disabled = true; btn.textContent = 'กำลังนำเข้า...';
   try{
     const data = await apiCall('/api/import', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ input: val })
     }, 'POST /api/import');
     productId = data.productId;
-    window._captionOverrides = {};
-    window._lastDistributeResults = null;
-    distributeResultsRestoredFor = null;
-
-    aiUsageThisRun = {};
-    renderAiGrid();
-    const statusTag = document.getElementById('statusTag');
-    if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
-    const pipelineBanner = document.getElementById('pipelineStatusBanner');
-    if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
-    const demandCard = document.getElementById('demandCard');
-    if (demandCard) { demandCard.classList.add('hidden'); demandCard.innerHTML = ''; }
-    latestDemand = null;
-
-    latestPipelineStatus = data.pipeline.status;
-    latestPipelineError = extractPipelineError(data);
-    updateStatusTag(data.pipeline.status);
-    renderFieldChecklist({});
-    document.getElementById('in').value = '';
-    renderStepper();
     await refreshStatus();
-    await checkDemandAfterImport();
+    checkDemandAfterImport();
+    btn.textContent = 'Import สำเร็จ ✓';
   }catch(e){
     showErr('importErr', e.message);
+    btn.textContent = 'Import';
   }finally{
-    btn.disabled = false; btn.textContent = 'Import';
+    btn.disabled = false;
   }
 }
 
