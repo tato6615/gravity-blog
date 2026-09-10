@@ -2012,6 +2012,132 @@ async function deleteProductRow(id){
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   🔧 GRAVITY FIX (2026-09-10): เพิ่มฟังก์ชันที่หายไป 4 ตัว —
+   renderFieldChecklist, toggleFieldChecklist, renderResults,
+   renderSyncSummary — ถูกเรียกใช้อยู่หลายจุดในโค้ด (รวมถึงใน doImport()
+   บรรทัดแรกๆ ก่อนเรียก API) แต่ไม่เคยถูก define ไว้เลย ทำให้เกิด
+   "ReferenceError: ... is not defined" แบบไม่มี error โชว์ให้เห็น
+   (เพราะเกิดนอก try/catch) ผลคือกดปุ่ม Import แล้วฟังก์ชันทั้งหมดหยุด
+   ทำงานทันทีตั้งแต่บรรทัดแรกๆ — ไม่เคย disable ปุ่ม, ไม่เคยยิง fetch
+   ไป /api/import เลย เหมือนปุ่มไม่ทำงานอะไรเลย นี่คือสาเหตุหลักของบั๊ก
+   "วางลิงก์แล้วกดปุ่มไม่มีอะไรเกิดขึ้น"
+   ═══════════════════════════════════════════════════════════════════ */
+const FIELD_GROUPS = {
+  AI_ANALYSIS: { label: 'AI Analysis', fields: [
+    { key: 'category', label: 'หมวดหมู่สินค้า' },
+    { key: 'summary', label: 'สรุปวิเคราะห์สินค้า' },
+    { key: 'pros_cons', label: 'จุดเด่น / จุดด้อย' }
+  ]},
+  KEYWORDS: { label: 'Keywords', fields: [
+    { key: 'primary_keyword', label: 'คีย์เวิร์ดหลัก' },
+    { key: 'related_keywords', label: 'คีย์เวิร์ดที่เกี่ยวข้อง' }
+  ]},
+  CONTENT: { label: 'Content', fields: [
+    { key: 'seo_title', label: 'SEO Title' },
+    { key: 'meta_description', label: 'Meta Description' },
+    { key: 'slug', label: 'Slug / URL บทความ' },
+    { key: 'body', label: 'เนื้อหาบทความเต็ม' }
+  ]},
+  SOCIAL: { label: 'Social', fields: [
+    { key: 'facebook_post', label: 'Facebook Post' },
+    { key: 'threads_post', label: 'Threads Post' },
+    { key: 'x_post', label: 'X Post' },
+    { key: 'pinterest_post', label: 'Pinterest Post' }
+  ]},
+  AI_MEDIA: { label: 'Media', fields: [
+    { key: 'image_url', label: 'รูปสินค้า (re-host แล้ว)' }
+  ]},
+  AI_PUBLISH: { label: 'Publish', fields: [
+    { key: 'published_url', label: 'ลิงก์ที่เผยแพร่' }
+  ]},
+  AI_ANALYTICS: { label: 'Analytics', fields: [
+    { key: 'tracking_id', label: 'Tracking ID' }
+  ]}
+};
+
+function toggleFieldChecklist(){
+  const groups = document.getElementById('fcGroups');
+  const toggle = document.getElementById('fcToggle');
+  if (!groups || !toggle) return;
+  const willShow = groups.classList.contains('hidden');
+  groups.classList.toggle('hidden', !willShow);
+  toggle.textContent = (willShow ? '▾' : '▸') + ' รายละเอียดฟิลด์';
+}
+
+function renderFieldChecklist(stages){
+  stages = stages || {};
+  const groupsEl = document.getElementById('fcGroups');
+  const progressEl = document.getElementById('fcProgress');
+  if (!groupsEl || !progressEl) return;
+
+  let totalFields = 0, doneFields = 0;
+
+  const groupsHtml = ALL_TABLE_IDS.map(tableId => {
+    const groupDef = FIELD_GROUPS[tableId];
+    if (!groupDef) return '';
+    const row = stages[tableId];
+    const data = row ? (row.th !== undefined ? (row.th || row.en || {}) : row) : {};
+
+    let groupDone = 0;
+    const rowsHtml = groupDef.fields.map(f => {
+      totalFields++;
+      const isDone = !!(data && data[f.key]);
+      if (isDone) { doneFields++; groupDone++; }
+      return '<div class="fc-row' + (isDone ? ' done' : '') + '">' +
+        '<span class="fc-check">' + (isDone ? '✓' : '') + '</span>' +
+        '<span class="fc-label">' + escapeHtml(f.label) + '</span>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="fc-group">' +
+      '<div class="fc-group-title">' + escapeHtml(groupDef.label) +
+        '<span class="fc-group-count">' + groupDone + '/' + groupDef.fields.length + '</span>' +
+      '</div>' + rowsHtml +
+    '</div>';
+  }).join('');
+
+  groupsEl.innerHTML = groupsHtml;
+  progressEl.textContent = doneFields + ' / ' + totalFields + ' ฟิลด์เสร็จแล้ว';
+}
+
+function renderResults(stages){
+  stages = stages || {};
+  const el = document.getElementById('resultTable');
+  if (!el) return;
+
+  const analysis = stages.AI_ANALYSIS || {};
+  const content = (stages.CONTENT && stages.CONTENT.th) || {};
+  const social = (stages.SOCIAL && stages.SOCIAL.th) || {};
+
+  const rows = [
+    { label: 'หมวดหมู่', val: analysis.category || '-' },
+    { label: 'SEO Title', val: content.seo_title || '-' },
+    { label: 'Meta Description', val: content.meta_description || '-' },
+    { label: 'Slug', val: content.slug || '-' },
+    { label: 'Facebook Post', val: social.facebook_post || '-' },
+    { label: 'Threads Post', val: social.threads_post || '-' }
+  ];
+
+  el.innerHTML = rows.map(r =>
+    '<div class="rt-row"><div class="rt-label">' + escapeHtml(r.label) + '</div>' +
+    '<div class="rt-val">' + escapeHtml(r.val) + '</div></div>'
+  ).join('');
+  el.classList.remove('hidden');
+}
+
+function renderSyncSummary(sync){
+  // ไม่มี UI element เฉพาะสำหรับสรุปผล sync — เก็บไว้ใน activity log แบบ
+  // best-effort เท่านั้น ห่อด้วย try/catch เผื่อ backend ส่งรูปแบบข้อมูล
+  // มาไม่ตรงที่คาดไว้ จะได้ไม่ทำให้ doPublish() พังอีกรอบเหมือนเดิม
+  if (!sync) return;
+  try {
+    if (typeof sync === 'string') { logEvent('ok', 'Sync: ' + sync); return; }
+    const parts = Object.entries(sync).map(([k, v]) => k + ': ' + (v === true ? '✓' : v));
+    if (parts.length) logEvent('ok', 'Sync status → ' + parts.join(', '));
+  } catch(e) { /* best-effort only */ }
+}
+
 /* ---------- boot ---------- */
 renderTableGrid({});
 renderFieldChecklist({});
