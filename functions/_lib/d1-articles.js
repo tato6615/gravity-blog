@@ -37,23 +37,29 @@
  * แต่ quality_score อยู่ที่ 40-69 จะถูก filter ออกทั้งหมด ไม่ขึ้นเว็บ
  * ทั้งที่ pipeline_status = 'published' แล้ว ทำให้ดูเหมือนบทความหายไป
  * ลดเป็น 50 เพื่อรับ content ที่ผ่านขั้นต่ำ ยังกรอง poor quality จริงๆ ออกอยู่
+ *
+ * --- GRAVITY_OS (2026-09-10): quality-score gate ถูกตัดออกทั้งก้อน ---
+ * เหตุผลเดียวกับที่ publish.js (Worker "af") ตัด quality gate ออกไปแล้วเมื่อ
+ * 2026-09-09c: quality_score ที่ AI ให้เป็นแค่คะแนน "ความสมบูรณ์ของ prose"
+ * (มี spec ตัวเลขกี่ตัว, ระบุกลุ่มเป้าหมายเจาะจงแค่ไหน ฯลฯ) ไม่ใช่ตัวชี้วัด
+ * ว่าสินค้า/บทความนี้ควรอยู่บนเว็บหรือไม่ ใช้ threshold ตายตัวบล็อกจริงจึง
+ * หยาบเกินไป — สินค้าที่ pipeline_status='published' แล้ว (ผ่าน manual/
+ * business decision มาแล้วว่าจะลงจริง) กลับถูกเว็บสาธารณะซ่อนเงียบๆ อีกชั้น
+ * โดยที่ /api/publish และ /api/distribute (ฝั่ง Worker "af") ไม่รู้เรื่องนี้
+ * เลยด้วยซ้ำ ทำให้เกิด "publish สำเร็จ + โพสต์โซเชียลไปแล้ว แต่หน้าเว็บ 404"
+ * ซ้ำรอยเดิมกับ product 233/250 ที่เคยเจอปัญหานี้จากอีกจุดหนึ่งมาก่อน
+ *
+ * Fix: getLiveArticles() ไม่เรียก isBelowPublishableQuality() อีกต่อไป —
+ * เงื่อนไขเดียวที่ยังคงกรองคือ pipeline_status IN ('enriched','published')
+ * + มี slug/blog_draft จริง (เหมือนเดิม) qualityTier/qualityScore ยังคง
+ * ถูก return กลับไปใน article object ตามเดิมทุกประการ เผื่ออยากเอาไปแสดง
+ * เป็น badge เตือนที่หน้าเว็บ (เช่น "เนื้อหานี้กำลังปรับปรุง") แทนการซ่อน
+ * บทความไปเลยแบบ hard gate — แค่ไม่ใช้ตัดสินใจ include/exclude อีกต่อไป
+ *
+ * isBelowPublishableQuality()/MIN_PUBLISHABLE_QUALITY_SCORE/
+ * REJECTED_TIER_SUBSTRINGS/QUALITY_GATE_ENFORCED_SINCE ถูกลบทิ้งทั้งหมด
+ * เพราะไม่มีจุดเรียกใช้เหลืออยู่แล้วหลังจากนี้
  */
-
-// GRAVITY FIX (2026-09-08): ลดจาก 70 → 50
-// เดิม 70 ทำให้สินค้าที่ score 40-69 ไม่ขึ้นเว็บแม้ publish แล้ว
-const MIN_PUBLISHABLE_QUALITY_SCORE = 50;
-
-// Fallback only, used when quality_score is missing but quality_tier isn't.
-// Substring match (case-insensitive), NOT exact equality — tier strings are
-// emoji-prefixed (e.g. '❌ Poor') same as in grist.js.
-const REJECTED_TIER_SUBSTRINGS = ['poor'];
-
-// Same grandfather clause as grist.js: content generated before the quality
-// gate started actually enforcing (2026-08-22) is exempt from the score
-// check entirely — same fail-open behavior. Content with no generated_at at
-// all is grandfathered too, matching grist.js exactly. Remove this + its use
-// below once all old content has been reviewed/backfilled.
-const QUALITY_GATE_ENFORCED_SINCE = new Date('2026-08-22T00:00:00Z');
 
 const LIVE_STATUSES = ['enriched', 'published'];
 
@@ -118,23 +124,6 @@ function normalizeProductRow(row) {
     // product_url columns — those were Grist-doc-shape fallbacks only.)
     buyUrl: row.affiliate_link || row.source_url || null
   };
-}
-
-// GRAVITY-FIX PARITY (same rule as grist.js's isBelowPublishableQuality()):
-// prefer quality_score (threshold-comparable, immune to string/emoji
-// drift). Fall back to substring-matching quality_tier only if score is
-// missing but tier isn't. Neither present -> fail-open (not rejected).
-function isBelowPublishableQuality(contentRow) {
-  const score = contentRow.quality_score;
-  if (score != null && score !== '' && !isNaN(Number(score))) {
-    return Number(score) < MIN_PUBLISHABLE_QUALITY_SCORE;
-  }
-  const tier = contentRow.quality_tier;
-  if (tier) {
-    const tierLower = String(tier).toLowerCase();
-    return REJECTED_TIER_SUBSTRINGS.some(s => tierLower.includes(s));
-  }
-  return false;
 }
 
 /**
@@ -217,12 +206,10 @@ export async function getLiveArticles(env, lang = 'th') {
 
   const articles = [];
   for (const row of results) {
-    // Same grandfather-clause quality gate as grist.js — see file header.
-    const generatedAt = row.content_generated_at ? new Date(row.content_generated_at) : null;
-    const isGrandfathered = !generatedAt || generatedAt < QUALITY_GATE_ENFORCED_SINCE;
-    if (!isGrandfathered && isBelowPublishableQuality(row)) {
-      continue;
-    }
+    // GRAVITY_OS (2026-09-10): quality-score gate removed — see file
+    // header. Every row that passed the SQL WHERE above (pipeline_status
+    // published/enriched + has slug + has blog_draft) is included now,
+    // regardless of quality_score/quality_tier.
 
     // LEFT JOIN means every a.* column comes back null when a product has
     // no ai_analysis row at all — treat that as analysis: null, same as
@@ -247,6 +234,9 @@ export async function getLiveArticles(env, lang = 'th') {
       authorId: null,
       category: row.category || null,
       categoryTh: row.category_th || null,
+      // Kept for potential future use as a non-blocking UI badge (e.g. a
+      // "content being improved" notice) — no longer used to include/
+      // exclude articles. See file header, GRAVITY_OS 2026-09-10.
       qualityTier: row.quality_tier || null,
       qualityScore: row.quality_score != null ? Number(row.quality_score) : null,
       analysis: hasAnalysis ? {
