@@ -1,5 +1,16 @@
 import { getProductBuyUrlById } from '../_lib/d1-products.js';
 
+// รายชื่อ known bot / crawler / preview-fetcher ที่พบบ่อยที่สุด — เหมือนกับ
+// ตัวที่ใช้ใน analytics.js -> handleTrackClick (ตั้งใจให้สอดคล้องกัน เพราะ
+// endpoint นี้คือปลายทางจริงที่ลิงก์แชร์ทั้งหมดชี้มา ถ้ามี social preview
+// bot หรือ crawler ตามลิงก์เข้ามา ไม่ควรถูกนับเป็นคลิกซื้อ)
+const KNOWN_BOT_UA = /bot|crawl|spider|facebookexternalhit|telegrambot|discordbot|slackbot|whatsapp|preview|python-requests|curl\/|wget|headlesschrome|phantomjs|linkedinbot|pinterest(bot)?|redditbot|embedly|quora link preview|vkshare|w3c_validator|bytespider/i;
+
+function isLikelyBot(userAgent) {
+  if (!userAgent) return true; // ไม่มี User-Agent เลย = น่าสงสัยว่าไม่ใช่ browser จริง
+  return KNOWN_BOT_UA.test(userAgent);
+}
+
 export async function onRequestGet({ params, env, waitUntil, request }) {
   const productId = params.id;
 
@@ -52,23 +63,34 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
   const userAgent = request.headers.get('User-Agent') || null;
   const ip = request.headers.get('CF-Connecting-IP') || null;
 
-  waitUntil(
-    env.DB.prepare(`
-      INSERT INTO clicks (product_id, event_type, referrer, utm_source, utm_medium, user_agent, ip)
-      VALUES (?, 'click', ?, ?, ?, ?, ?)
-    `).bind(
-      String(productId),
-      referrer,
-      utmSource,
-      utmMedium,
-      userAgent,
-      ip
-    ).run().catch((err) => {
-      console.error('click tracking failed:', err.message);
-    })
-  );
+  // 🐛 GRAVITY FIX (2026-09-10): ก่อนหน้านี้ INSERT เข้าตาราง clicks
+  // แบบไม่มีเงื่อนไขเลย — ทุก GET ที่เข้ามา (รวมถึง social preview bot ที่
+  // เปิดลิงก์เพื่อ generate thumbnail, search crawler, หรือ http client
+  // อัตโนมัติอื่นๆ) จะถูกนับเป็นคลิกจริงหมด เคสจริงที่เจอ: Product 104
+  // ขึ้นไป 193 คลิกทั้งที่ conversion = 0 ตัวเดียว ตอนนี้กรอง known bot
+  // ออกก่อน insert — ยังคง redirect ให้ผู้ใช้ (หรือบอท) ไปหน้าต้นทางตามปกติ
+  // ทุกกรณี แค่ไม่นับเป็นคลิกถ้า User-Agent ตรงกับ known bot pattern
+  const isBot = isLikelyBot(userAgent);
 
-  if (env.GA4_MEASUREMENT_ID && env.GA4_API_SECRET) {
+  if (!isBot) {
+    waitUntil(
+      env.DB.prepare(`
+        INSERT INTO clicks (product_id, event_type, referrer, utm_source, utm_medium, user_agent, ip)
+        VALUES (?, 'click', ?, ?, ?, ?, ?)
+      `).bind(
+        String(productId),
+        referrer,
+        utmSource,
+        utmMedium,
+        userAgent,
+        ip
+      ).run().catch((err) => {
+        console.error('click tracking failed:', err.message);
+      })
+    );
+  }
+
+  if (!isBot && env.GA4_MEASUREMENT_ID && env.GA4_API_SECRET) {
     const cookie = request.headers.get('Cookie') || '';
     const gaCookieMatch = cookie.match(/_ga=GA\d\.\d\.(\d+\.\d+)/);
     const clientId = gaCookieMatch ? gaCookieMatch[1] : crypto.randomUUID();
