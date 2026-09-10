@@ -1272,10 +1272,23 @@ function renderTableGrid(stages){
   updateSysSummary();
 }
 
-async function apiCall(path, options, label){
+/* ═══════════════════════════════════════════════════════════════════
+   ✅ FIXED (2026-09-10): apiCall() ตอนนี้มี timeout (45 วินาที) ผ่าน
+   AbortController — เดิม fetch() ไม่มี timeout เลย ถ้า backend ไม่ตอบ
+   (เช่น scrape ลิงก์ amzn.to ค้าง) โค้ดจะรอตลอดกาล และเพราะ btn.disabled
+   ถูกตั้งเป็น true ไปแล้วก่อน await แต่ finally{ btn.disabled=false }
+   ไม่มีวันทำงานถ้า fetch ไม่มีวัน resolve/reject → ปุ่ม Import ค้าง
+   disabled ถาวรจนกว่าจะ refresh หน้า ตอนนี้ถ้าไม่ตอบภายใน 45 วิ จะ throw
+   error ออกมาให้เห็นชัดเจน แทนที่จะค้างเงียบๆ
+   ═══════════════════════════════════════════════════════════════════ */
+async function apiCall(path, options, label, timeoutMs = 45000){
   const logId = logEvent('pending', label + ' — กำลังเรียก...');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try{
-    const res = await fetch(API + path, options);
+    const res = await fetch(API + path, { ...(options || {}), signal: controller.signal });
+    clearTimeout(timeoutId);
     const data = await res.json();
     if (data.error) {
       updateLogEntry(logId, 'error', label + ' → HTTP ' + res.status + ': ' + data.error);
@@ -1289,6 +1302,15 @@ async function apiCall(path, options, label){
     updateLogEntry(logId, 'ok', label + ' → HTTP ' + res.status + ' สำเร็จ' + okDetail);
     return data;
   }catch(e){
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      const timeoutErr = new Error(
+        'เซิร์ฟเวอร์ไม่ตอบกลับภายใน ' + Math.round(timeoutMs / 1000) + ' วินาที (timeout) — ' +
+        'ถ้าเป็นตอน Import ลองใช้ลิงก์เต็มแทนลิงก์ย่อ (amzn.to) เพราะบางทีดึงข้อมูลจากลิงก์ย่อไม่สำเร็จแล้วค้าง'
+      );
+      updateLogEntry(logId, 'error', label + ' → Timeout: ไม่มี response ภายในเวลาที่กำหนด');
+      throw timeoutErr;
+    }
     if (!e.data) updateLogEntry(logId, 'error', label + ' → ล้มเหลว: ' + e.message);
     throw e;
   }
