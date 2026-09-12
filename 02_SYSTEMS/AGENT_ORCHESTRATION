@@ -1,0 +1,134 @@
+# SYSTEM — GRAVITY ARS (Multi-Agent Foundation) — STEP 1
+
+**อยู่ใน repo `gravity-blog` นี้เอง (Cloudflare Pages Functions) — ไม่ใช่ Worker `af`**
+
+---
+
+## สถานะ
+
+✅ STEP 1 เสร็จแล้ว: foundation เท่านั้น (registry, communication, memory,
+status, failure handling, Admin monitoring)
+🚧 STEP 2+ (ยังไม่ทำ): agent แต่ละตัวยังไม่ execute งานจริงสักตัว, ไม่มีการ
+เรียก AI provider, ไม่มี revenue automation ใดๆ ทั้งสิ้น
+
+---
+
+## ทำไมถึงอยู่ใน gravity-blog ไม่ใช่ Worker af
+
+Worker `af` ไม่มี git — แก้ได้แค่ผ่าน Cloudflare Dashboard Quick Edit
+เท่านั้น (ดู `02_SYSTEMS/WORKER_AF.md`) ส่วน `gravity-blog` เป็น Cloudflare
+Pages project ที่ deploy อัตโนมัติจาก git push และมี D1 binding ชื่อ `DB`
+ชี้ไปที่ฐานข้อมูลเดียวกัน (`gravity_affiliate`) กับที่ Worker af ใช้อยู่
+แล้ว (ยืนยันจาก `wrangler.toml` ทั้งสองฝั่ง และจาก
+`functions/_lib/d1-products.js`/`d1-articles.js` ที่อ่าน D1 ตรงๆ อยู่แล้ว)
+
+เพราะฉะนั้น foundation นี้เขียนเป็นโค้ดที่ commit ได้จริง ตรวจสอบได้จริง
+โดยไม่ต้องแก้ Worker af เลยแม้แต่บรรทัดเดียว — สอดคล้องกับกฎ "foundation
+only" ของสเปค (ห้ามสร้าง revenue engine เต็มรูปแบบใน Step 1)
+
+---
+
+## ไฟล์ที่เพิ่มเข้ามา
+
+```
+functions/_lib/agents/
+  db.js              — D1 access layer: agents / agent_tasks / agent_memory / agent_logs
+  registry.js         — identity ของ 13 agents (id, name, role) — ไม่มี capabilities ปนอยู่
+  capabilities.js      — capabilities ของแต่ละ agent แยกจาก identity
+  model-config.js       — provider/model config แยกจาก agent logic (ยังไม่ได้ต่อ AI จริง)
+  control-agent.js      — reconcileRegistry() + detectStale()
+
+functions/api/agents/
+  status.js  — GET  /api/agents/status   (Admin: SYSTEM / MONEY / AGENTS / ALERTS)
+  tasks.js   — GET/POST /api/agents/tasks (shared task/message bus)
+  logs.js    — GET  /api/agents/logs      (technical log, แยกจาก alerts)
+
+admin.html — เพิ่มแท็บ "🤖 Multi-Agent" หนึ่งแท็บ (ไม่แตะแท็บ/โค้ดเดิม)
+
+13_DATA/SCHEMA.md — schema ของจริงทั้งระบบ (business tables + agent tables)
+```
+
+## Database (D1 `gravity_affiliate`, binding `DB`)
+
+ตารางใหม่ 4 ตาราง สร้างตรงเข้า D1 แล้ว (ไม่ใช่แค่ไฟล์ migration ที่ยังไม่รัน)
+ดู column ทั้งหมดที่ `functions/_lib/agents/db.js` หรือ `13_DATA/SCHEMA.md`:
+
+- **`agents`** — identity (id/name/role/capabilities) + live status
+  (`IDLE / WORKING / WAITING / SUCCESS / FAILED / BLOCKED / DISABLED`) +
+  ตัวนับ (execution/success/failure count) + model config ต่อ agent
+- **`agent_tasks`** — task/message bus: sender_agent, receiver_agent,
+  message_type, priority, payload, status, result, error, retry_count
+- **`agent_memory`** — shared persistent key/value เก็บเป็น namespace (ไม่ใช้
+  conversation history เป็น memory ตามที่สเปคห้ามไว้)
+- **`agent_logs`** — activity/error log แบบ append-only ต่อ agent
+
+13 agent ถูก seed ไว้ใน `agents` แล้ว (`control`, `market`, `opportunity`,
+`offer`, `audience`, `content`, `media`, `distribution`, `traffic`,
+`conversion`, `revenue`, `experiment`, `growth`) ทุกตัวเริ่มที่สถานะ `IDLE`
+— `reconcileRegistry()` (เรียกทุกครั้งที่ Admin โหลด `/api/agents/status`)
+sync identity/capabilities ให้ตรงกับ `registry.js`/`capabilities.js` เสมอ
+โดยไม่แตะ status/counter ที่มีอยู่แล้ว
+
+## Agent-to-agent communication
+
+Agent ไม่เรียกกันตรงๆ — สื่อสารผ่าน `agent_tasks` เท่านั้น:
+
+1. ใครก็ตาม (Control Agent ในอนาคต, หรือ Admin ตอนนี้) `POST
+   /api/agents/tasks` ระบุ `receiverAgent` + `payload`
+2. Agent ที่รับงาน (Step 2+) เรียก `claimNextTask()` แบบ atomic (compare-
+   and-swap บน `status`) เพื่อกันสองฝั่งแย่งงานเดียวกัน
+3. เสร็จแล้วเรียก `completeTask()` หรือ `failTask()` — `failTask()` เช็ค
+   `retry_count` เทียบ `max_retries` เอง ถ้ายังไม่เกินจะ reset กลับเป็น
+   `pending` ให้อัตโนมัติ (ตรงกับกฎ "retry when appropriate")
+
+**Step 1 ยังไม่มี agent ไหน claim/complete task จริง** — endpoint พร้อมใช้
+แล้ว แต่ไม่มี worker loop ที่ execute อยู่เบื้องหลัง (นั่นคืองาน Step 2)
+
+## Control Agent
+
+`control-agent.js` ทำแค่ 2 อย่างใน Step 1:
+
+- `reconcileRegistry(env)` — sync 13 agent เข้า D1 (idempotent)
+- `detectStale(agents)` — ธง agent ที่ `WORKING` มานานเกิน 30 นาทีโดยไม่มี
+  activity ใหม่ ให้ขึ้นเป็น alert ใน Admin (ยังไม่ auto-recover ให้ — แค่
+  แจ้งเตือน)
+
+ยังไม่มี business logic ตัดสินใจว่า "ควรสั่ง agent ไหนทำอะไรต่อ" — นั่นคือ
+สมองของระบบที่ต้องมาใน Step 2 เมื่อ agent มีงานจริงให้ทำ
+
+## Admin monitoring
+
+แท็บ **🤖 Multi-Agent** ใหม่ใน `admin.html` (ไม่แตะแท็บเดิมเลย) แสดง:
+
+- **SYSTEM** — จำนวน agent ทั้งหมด/working/failed/blocked/idle
+- **MONEY** — ดึงจาก `conversions` table ตรงๆ (commission/count รวม + 30
+  วันล่าสุด) — ไม่มีตัวเลขประมาณการใดๆ ทั้งสิ้น ตรงกับกฎ Revenue Agent
+- **AGENTS** — การ์ดต่อ agent หนึ่งใบ กดขยายดู role/capabilities/last
+  activity/error ได้
+- **ALERTS** — เฉพาะ agent ที่ `FAILED`/`BLOCKED`/ค้างนาน — log ละเอียด
+  แยกไปที่ `/api/agents/logs` ต่างหาก ไม่ยัดรวมกับ alert
+
+## ความเสี่ยง / ข้อจำกัดที่เจอระหว่างทำ
+
+1. **`markets` table ซ้อนทับกับ Market/Opportunity Agent ในอนาคต** — Worker
+   af's `market-discovery.js` (ไม่มี git) implement การให้คะแนน
+   sub-market ไว้แล้วจริง (9 มิติคะแนน, ตรงกับ spec ของ Market/Opportunity
+   Agent เป๊ะ) Step 2 ควรตัดสินใจว่าจะ "ห่อ" logic เดิมนี้เป็น Market
+   Agent เลย หรือ Migrate โค้ดจาก af มาไว้ที่ git-managed repo นี้ก่อน
+2. **Worker af ไม่มี git** — ถ้า Step 2 ต้องแก้ pipeline.js/import.js ใน af
+   (เช่น ให้เขียนลง `agent_tasks`/`agent_logs` ตอนรัน pipeline) ต้อง copy-
+   paste โค้ดผ่าน Cloudflare Dashboard เอง ไม่มีทาง automate จากที่นี่
+3. **เอกสารเดิมคลาดเคลื่อนกับของจริง** — แก้ไปแล้วใน `13_DATA/SCHEMA.md`
+   (ดู note ด้านบนของไฟล์นั้น) แต่ `PROJECT-STATUS.md` และ
+   `12_AI_CONTEXT/ONBOARDING.md` เองยังไม่ได้อัปเดตให้ตรง — ควรทำใน task
+   แยกต่างหาก ไม่ใช่ Step 1 ของ ARS
+4. **`detectStale()` เป็นแค่การแจ้งเตือน** — ยังไม่มี auto-recovery จริง
+   (เช่น เอา task คืน queue ให้อัตโนมัติเมื่อ agent ค้าง) ตามกฎ "escalate
+   only when the system cannot recover automatically" ต้องเพิ่มใน Step 2
+
+## พร้อมสำหรับ STEP 2
+
+- Schema/endpoint ของ task bus พร้อมให้ agent จริงมา claim/complete ได้เลย
+- Identity/capabilities/model-config แยกกันชัดเจน — เพิ่ม/เปลี่ยน agent ใหม่
+  ไม่ต้องแตะโค้ด orchestration
+- Admin เห็นภาพรวมได้แล้ววันนี้ แม้ยังไม่มี agent ไหนทำงานจริงสักตัว
