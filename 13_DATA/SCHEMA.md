@@ -1,3 +1,4 @@
+[Uploading SCHEMA.md…]()
 # 13_DATA / SCHEMA.md
 
 Live schema of the `gravity_affiliate` D1 database, pulled directly from
