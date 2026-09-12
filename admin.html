@@ -967,6 +967,7 @@ switchTab = function(tab) {
   <div style="display:flex; align-items:center; justify-content:space-between; margin:20px 0 4px;">
     <h2 style="margin:0; color:var(--text);">🤖 Multi-Agent Foundation</h2>
     <div style="display:flex; gap:8px;">
+      <button class="btn-ghost" id="ag-runall-btn" onclick="runAllAgents()" style="width:auto; padding:8px 14px; font-size:12.5px; font-weight:700;">▶ รันทั้งหมด</button>
       <button class="btn-ghost" id="ag-refresh-btn" onclick="loadAgentsPanel()" style="width:auto; padding:8px 14px; font-size:12.5px;">↻ รีเฟรช</button>
     </div>
   </div>
@@ -1158,6 +1159,26 @@ async function loadAgentsPanel() {
     listEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">❌ โหลด Multi-Agent status ไม่สำเร็จ: ${e.message}</div>`;
   } finally {
     btn.disabled = false; btn.textContent = '↻ รีเฟรช';
+  }
+}
+
+async function runAllAgents() {
+  const btn = document.getElementById('ag-runall-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ กำลังรันทั้งหมด...';
+  try {
+    const res = await fetch('/api/agents/run-all', { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'รันไม่สำเร็จ');
+    const failed = Object.entries(data.results || {}).filter(([, r]) => !r.ok);
+    await loadAgentsPanel();
+    if (failed.length) {
+      alert('รันเสร็จ แต่บาง agent ล้มเหลว: ' + failed.map(([id, r]) => `${id} (${r.error})`).join(', '));
+    }
+  } catch (e) {
+    alert('รันทั้งหมดไม่สำเร็จ: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = originalText;
   }
 }
 

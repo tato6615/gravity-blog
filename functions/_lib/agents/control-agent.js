@@ -54,6 +54,10 @@ const AGENT_HANDLERS = {
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' }
 };
+// Order matters for runFullCycle: revenue+traffic first (evaluateSystemPriority
+// needs both), conversion last (its own value doesn't block the base decision,
+// but its report enriches the REVENUE_LEAKAGE reasoning if traffic+revenue landed first).
+const ORDERED_IMPLEMENTED_IDS = ['revenue', 'traffic', 'conversion'];
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 
@@ -151,4 +155,32 @@ export async function evaluateSystemPriority(env) {
   const record = { evaluatedAt: new Date().toISOString(), ...decision };
   await writeMemory(env, 'control_decisions', 'latest', record, 'control');
   return record;
+}
+
+// Single-click orchestration (Step 2, slice 4): runs every implemented
+// report agent in sequence, then evaluates the resulting decision — this
+// is the "one button" entry point instead of clicking each agent one by
+// one. A failure in one agent does NOT stop the others (partial data is
+// still useful, and hiding a later agent's result because an earlier one
+// failed would violate the "never pretend nothing happened" rule) — each
+// agent's outcome is reported individually in `results`.
+export async function runFullCycle(env) {
+  const results = {};
+  for (const agentId of ORDERED_IMPLEMENTED_IDS) {
+    try {
+      const r = await runAgentOnce(env, agentId, { messageType: `${agentId}_report` });
+      results[agentId] = { ok: true, taskId: r.taskId };
+    } catch (err) {
+      results[agentId] = { ok: false, error: err.message || String(err) };
+    }
+  }
+
+  let decision = null;
+  try {
+    decision = await evaluateSystemPriority(env);
+  } catch (err) {
+    decision = { status: 'ERROR', reasoning: err.message || String(err), recommendedNextAction: null };
+  }
+
+  return { results, decision };
 }
