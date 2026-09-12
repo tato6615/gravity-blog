@@ -33,4 +33,8 @@ change. Stale schema docs are worse than no schema docs — they actively
 mislead future AI agents.
 
 ## Status
-🟡 Newly created — needs current schema documented from the live system.
+✅ `SCHEMA.md` documents the live D1 schema as of 2026-09-12 (pulled
+directly from `sqlite_master`), including the correction that D1 — not
+Grist — is now the source of truth for products/content/analysis (see
+`SCHEMA.md`'s note at the top). `MODELS.md`, `DATA_FLOW.md`, and
+`RETENTION.md` are still not written.
