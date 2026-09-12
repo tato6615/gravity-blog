@@ -995,6 +995,12 @@ switchTab = function(tab) {
   </div>
   <div id="ag-traffic-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
+  <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+    <span>CONVERSION AGENT — รายงานล่าสุด</span>
+    <button class="btn-ghost" onclick="runAgent('conversion', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+  </div>
+  <div id="ag-conversion-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
+
   <div class="sh-phase-title" style="margin-top:16px;">AGENTS (13)</div>
   <div class="sh-card-grid" id="ag-agent-list"></div>
 </section>
@@ -1112,6 +1118,26 @@ async function loadAgentsPanel() {
           <thead><tr style="color:var(--text-faint); text-align:left;"><th style="padding:4px 8px;">Source</th><th style="padding:4px 8px; text-align:right;">Click</th></tr></thead>
           <tbody>${bySourceRows || '<tr><td colspan="2" style="padding:8px; color:var(--text-faint);">ยังไม่มี click เลย</td></tr>'}</tbody>
         </table>
+      `;
+    }
+
+    const conversionEl = document.getElementById('ag-conversion-report');
+    const cv = data.conversionReport;
+    if (cv) {
+      const topRows = cv.byProduct.slice(0, 10).map(p =>
+        `<tr><td style="padding:4px 8px;">${p.productName}</td><td style="padding:4px 8px; text-align:right;">${p.clickCount}</td><td style="padding:4px 8px; text-align:right;">${p.conversionCount}</td><td style="padding:4px 8px; text-align:right;">${p.conversionRate != null ? p.conversionRate + '%' : '-'}</td></tr>`
+      ).join('');
+      conversionEl.innerHTML = `
+        <div style="color:var(--text-faint); font-size:11px; margin-bottom:8px;">
+          รันล่าสุด ${new Date(cv.generatedAt).toLocaleString('th-TH')} · 30 วันล่าสุด: ${cv.last30d.clickCount} click → ${cv.last30d.conversionCount} conversion (${cv.last30d.overallConversionRate != null ? cv.last30d.overallConversionRate + '%' : 'N/A'})
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+          <thead><tr style="color:var(--text-faint); text-align:left;"><th style="padding:4px 8px;">สินค้า</th><th style="padding:4px 8px; text-align:right;">Click</th><th style="padding:4px 8px; text-align:right;">Conversion</th><th style="padding:4px 8px; text-align:right;">Rate</th></tr></thead>
+          <tbody>${topRows || '<tr><td colspan="4" style="padding:8px; color:var(--text-faint);">ยังไม่มีข้อมูลเลย</td></tr>'}</tbody>
+        </table>
+        <div style="color:var(--text-faint); font-size:11px; margin-top:8px;">
+          Leakage: <strong>${cv.leakage.status}</strong> — ${cv.leakage.note}
+        </div>
       `;
     }
 

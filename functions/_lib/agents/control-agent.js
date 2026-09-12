@@ -19,6 +19,7 @@ import { getCapabilities } from './capabilities.js';
 import { registerAgent, listAgents, createTask, updateAgentStatus, completeTask, failTask, writeLog, readMemory, writeMemory } from './db.js';
 import { executeRevenueReport } from './handlers/revenue-agent.js';
 import { executeTrafficReport } from './handlers/traffic-agent.js';
+import { executeConversionReport } from './handlers/conversion-agent.js';
 
 export async function reconcileRegistry(env) {
   for (const identity of AGENT_REGISTRY) {
@@ -50,7 +51,8 @@ export function detectStale(agents) {
 
 const AGENT_HANDLERS = {
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' },
-  traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' }
+  traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
+  conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' }
 };
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
@@ -121,10 +123,15 @@ export async function evaluateSystemPriority(env) {
       recommendedNextAction: null
     };
   } else if (traffic.last30d.clickCount > 0 && revenue.last30d.conversionCount === 0) {
+    const conversion = await readMemory(env, 'conversion_reports', 'latest');
     decision = {
       status: 'REVENUE_LEAKAGE',
       reasoning: `มี click ${traffic.last30d.clickCount} ครั้งใน 30 วันล่าสุด แต่ conversion = 0 — ตรงกับกฎ "traffic สูงแต่ไม่เกิด revenue ต้องหาสาเหตุ ไม่ใช่ประกาศว่าสำเร็จ"`,
-      recommendedNextAction: 'ต้องมี Conversion Agent วิเคราะห์ funnel/landing/CTA (ยังไม่ implement — นี่คือ agent ที่ควร implement ถัดไป)',
+      recommendedNextAction: conversion
+        ? (conversion.leakage.status === 'ISSUES_FOUND'
+            ? `Conversion Agent วิเคราะห์แล้ว: พบ ${conversion.leakage.productsWithClicksNoConversion.length} สินค้าที่มี click แต่ conversion=0 — ควรดู CTA/ราคา/landing ของสินค้ากลุ่มนี้ก่อน (ต้องใช้ข้อมูลเชิงคุณภาพเพิ่ม เช่น heatmap เพื่อหาสาเหตุจริง)`
+            : 'Conversion Agent วิเคราะห์แล้วยังไม่พบ pattern ชัดเจนจากข้อมูลที่มี')
+        : 'ต้องรัน Conversion Agent ก่อนเพื่อดูรายละเอียดว่าสินค้าไหนมีปัญหา',
       productsWithClicksNoConversion: traffic.revenueLink.productsWithClicksNoConversion
     };
   } else if (traffic.last30d.clickCount > 0 && revenue.last30d.conversionCount > 0) {
