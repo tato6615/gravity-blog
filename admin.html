@@ -967,7 +967,6 @@ switchTab = function(tab) {
   <div style="display:flex; align-items:center; justify-content:space-between; margin:20px 0 4px;">
     <h2 style="margin:0; color:var(--text);">🤖 Multi-Agent Foundation</h2>
     <div style="display:flex; gap:8px;">
-      <button class="btn-ghost" id="ag-run-btn" onclick="runRevenueAgent()" style="width:auto; padding:8px 14px; font-size:12.5px;">▶ รัน Revenue Agent</button>
       <button class="btn-ghost" id="ag-refresh-btn" onclick="loadAgentsPanel()" style="width:auto; padding:8px 14px; font-size:12.5px;">↻ รีเฟรช</button>
     </div>
   </div>
@@ -975,14 +974,26 @@ switchTab = function(tab) {
 
   <div id="ag-alerts" style="margin-bottom:16px;"></div>
 
-  <div class="sh-phase-title">SYSTEM</div>
+  <div class="sh-phase-title">🧠 CONTROL DECISION</div>
+  <div id="ag-control-decision" style="font-size:12.5px; margin-bottom:8px; padding:10px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--line); color:var(--text-faint);">ยังไม่มี decision — ต้องรอ Traffic Agent + Revenue Agent รันครบทั้งคู่ก่อน (ผ่าน tick อัตโนมัติทุกชั่วโมง หรือกด "▶" ด้านล่างเอง)</div>
+
+  <div class="sh-phase-title" style="margin-top:16px;">SYSTEM</div>
   <div class="sh-stat-card total" id="ag-system-cards" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
 
   <div class="sh-phase-title" style="margin-top:16px;">MONEY (real conversions only — never estimated)</div>
   <div id="ag-money-cards" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
 
-  <div class="sh-phase-title" style="margin-top:16px;">REVENUE AGENT — รายงานล่าสุด</div>
-  <div id="ag-revenue-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน — กด "▶ รัน Revenue Agent" ด้านบน</div>
+  <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+    <span>REVENUE AGENT — รายงานล่าสุด</span>
+    <button class="btn-ghost" onclick="runAgent('revenue', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+  </div>
+  <div id="ag-revenue-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
+
+  <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+    <span>TRAFFIC AGENT — รายงานล่าสุด</span>
+    <button class="btn-ghost" onclick="runAgent('traffic', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+  </div>
+  <div id="ag-traffic-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
   <div class="sh-phase-title" style="margin-top:16px;">AGENTS (13)</div>
   <div class="sh-card-grid" id="ag-agent-list"></div>
@@ -995,6 +1006,9 @@ switchTab = function(tab) {
   .ag-alert{ border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:12.5px; }
   .ag-alert.error{ background:rgba(231,76,60,0.12); color:#e74c3c; }
   .ag-alert.warn{ background:rgba(245,166,35,0.12); color:var(--amber); }
+  .ag-decision.leak{ background:rgba(231,76,60,0.12); border-color:rgba(231,76,60,0.4); color:#e74c3c; }
+  .ag-decision.converting{ background:rgba(46,204,113,0.12); border-color:rgba(46,204,113,0.4); color:#2ecc71; }
+  .ag-decision.notraffic, .ag-decision.insufficient{ background:var(--panel); }
 </style>
 
 <script>
@@ -1083,6 +1097,37 @@ async function loadAgentsPanel() {
         </div>
       `;
     }
+
+    const trafficEl = document.getElementById('ag-traffic-report');
+    const t = data.trafficReport;
+    if (t) {
+      const bySourceRows = t.bySource.map(s =>
+        `<tr><td style="padding:4px 8px;">${s.source}</td><td style="padding:4px 8px; text-align:right;">${s.count}</td></tr>`
+      ).join('');
+      trafficEl.innerHTML = `
+        <div style="color:var(--text-faint); font-size:11px; margin-bottom:8px;">
+          รันล่าสุด ${new Date(t.generatedAt).toLocaleString('th-TH')} · 30 วันล่าสุด: ${t.last30d.clickCount} click
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+          <thead><tr style="color:var(--text-faint); text-align:left;"><th style="padding:4px 8px;">Source</th><th style="padding:4px 8px; text-align:right;">Click</th></tr></thead>
+          <tbody>${bySourceRows || '<tr><td colspan="2" style="padding:8px; color:var(--text-faint);">ยังไม่มี click เลย</td></tr>'}</tbody>
+        </table>
+      `;
+    }
+
+    const decisionEl = document.getElementById('ag-control-decision');
+    const d = data.controlDecision;
+    if (d) {
+      const cls = { REVENUE_LEAKAGE: 'leak', CONVERTING: 'converting', NO_TRAFFIC: 'notraffic', INSUFFICIENT_DATA: 'insufficient' }[d.status] || 'insufficient';
+      const icon = { REVENUE_LEAKAGE: '🔴', CONVERTING: '🟢', NO_TRAFFIC: '⚪', INSUFFICIENT_DATA: '⚪' }[d.status] || '⚪';
+      decisionEl.className = `ag-decision ${cls}`;
+      decisionEl.innerHTML = `
+        <div style="font-weight:700; margin-bottom:4px;">${icon} ${d.status}</div>
+        <div style="margin-bottom:6px;">${d.reasoning}</div>
+        ${d.recommendedNextAction ? `<div style="opacity:0.85;">➡ ${d.recommendedNextAction}</div>` : ''}
+        <div style="color:var(--text-faint); font-size:10.5px; margin-top:6px;">ประเมินล่าสุด ${new Date(d.evaluatedAt).toLocaleString('th-TH')}</div>
+      `;
+    }
   } catch (e) {
     listEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">❌ โหลด Multi-Agent status ไม่สำเร็จ: ${e.message}</div>`;
   } finally {
@@ -1090,22 +1135,22 @@ async function loadAgentsPanel() {
   }
 }
 
-async function runRevenueAgent() {
-  const btn = document.getElementById('ag-run-btn');
-  btn.disabled = true; btn.textContent = '⏳ กำลังรัน...';
+async function runAgent(agentId, btnEl) {
+  const originalText = btnEl.textContent;
+  btnEl.disabled = true; btnEl.textContent = '⏳ กำลังรัน...';
   try {
     const res = await fetch('/api/agents/run', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ agentId: 'revenue' })
+      body: JSON.stringify({ agentId })
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'รันไม่สำเร็จ');
     await loadAgentsPanel();
   } catch (e) {
-    alert('รัน Revenue Agent ไม่สำเร็จ: ' + e.message);
+    alert(`รัน ${agentId} agent ไม่สำเร็จ: ` + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '▶ รัน Revenue Agent';
+    btnEl.disabled = false; btnEl.textContent = originalText;
   }
 }
 
