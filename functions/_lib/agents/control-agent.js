@@ -51,6 +51,8 @@ const AGENT_HANDLERS = {
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' }
 };
 
+export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
+
 // The system's first real autonomous execution path (Step 2, slice 1).
 // Runs one agent's real handler once, end-to-end: creates a task on the
 // shared bus, marks the agent WORKING, executes the handler, then marks
@@ -95,3 +97,4 @@ export async function runAgentOnce(env, agentId, { messageType } = {}) {
     throw err;
   }
 }
+

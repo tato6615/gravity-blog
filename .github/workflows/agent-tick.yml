@@ -1,0 +1,19 @@
+name: Agent Tick (Control Agent Heartbeat)
+
+# Cloudflare Pages Functions have no native cron trigger, so scheduling
+# lives here instead — same pattern this repo already uses for
+# check-buy-url-health.yml and sync-reddit-queue.yml.
+on:
+  schedule:
+    - cron: '0 * * * *'   # every hour, on the hour
+  workflow_dispatch: {}    # allow manual trigger from the Actions tab too
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/agents/tick
+        run: |
+          curl -sf -X POST https://gravity-blog.pages.dev/api/agents/tick \
+            -H "content-type: application/json" \
+            -w "\nHTTP %{http_code}\n"
