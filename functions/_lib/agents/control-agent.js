@@ -25,6 +25,7 @@ import { executeGrowthCycle } from './handlers/growth-agent.js';
 import { executeMarketScan } from './handlers/market-agent.js';
 import { executeOpportunityReview } from './handlers/opportunity-agent.js';
 import { executeAudienceAnalysis } from './handlers/audience-agent.js';
+import { executeOfferMatching } from './handlers/offer-agent.js';
 
 export async function reconcileRegistry(env) {
   for (const identity of AGENT_REGISTRY) {
@@ -58,6 +59,7 @@ const AGENT_HANDLERS = {
   market: { execute: executeMarketScan, taskMessageType: 'market_scan' },
   opportunity: { execute: executeOpportunityReview, taskMessageType: 'opportunity_review' },
   audience: { execute: executeAudienceAnalysis, taskMessageType: 'audience_analysis' },
+  offer: { execute: executeOfferMatching, taskMessageType: 'offer_matching' },
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' },
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' },
@@ -68,9 +70,12 @@ const AGENT_HANDLERS = {
 // reads market_reports/latest from agent_memory, written by market's own run in
 // this same cycle); audience runs right after opportunity so it can claim the
 // agent_tasks rows opportunity just created in the same cycle (same reasoning);
+// offer runs right after audience so it can claim the agent_tasks rows audience
+// just created in the same cycle (same reasoning again — offer-agent.js claims
+// tasks addressed to 'offer', which only exist once audience has run);
 // revenue+traffic before conversion (evaluateSystemPriority needs both,
 // conversion's report enriches the REVENUE_LEAKAGE reasoning).
-const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
+const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 
