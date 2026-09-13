@@ -1008,6 +1008,12 @@ switchTab = function(tab) {
   </div>
   <div id="ag-experiment-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
+  <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+    <span>🚀 GROWTH AGENT — ขยายผลสูตรที่พิสูจน์แล้ว</span>
+    <button class="btn-ghost" onclick="runAgent('growth', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+  </div>
+  <div id="ag-growth-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
+
   <div class="sh-phase-title" style="margin-top:16px;">AGENTS (13)</div>
   <div class="sh-card-grid" id="ag-agent-list"></div>
 </section>
@@ -1171,6 +1177,31 @@ async function loadAgentsPanel() {
         ${evaluatedList ? `<div style="margin-bottom:8px;"><strong>ผลประเมินรอบนี้:</strong><ul style="margin:6px 0 0; padding-left:1.2em;">${evaluatedList}</ul></div>` : ''}
         ${createdList ? `<div><strong>สร้างใหม่รอบนี้:</strong><ul style="margin:6px 0 0; padding-left:1.2em;">${createdList}</ul></div>` : ''}
       `;
+    }
+
+    const growthEl = document.getElementById('ag-growth-report');
+    const gr = data.growthReport;
+    if (gr) {
+      if (gr.status === 'NO_PROVEN_PATTERN_YET') {
+        growthEl.innerHTML = `<div style="color:var(--text-faint);">${gr.note}</div>`;
+      } else {
+        const rows = gr.recentActions.map(a =>
+          `<tr><td style="padding:4px 8px;">${a.productName}</td><td style="padding:4px 8px; text-align:right;">${new Date(a.appliedAt).toLocaleDateString('th-TH')}</td></tr>`
+        ).join('');
+        const appliedList = gr.applied.map(a =>
+          `<li style="margin-bottom:6px;"><strong>${a.productName}</strong>: "${a.beforeSeoTitle}" → "${a.afterSeoTitle}"</li>`
+        ).join('');
+        growthEl.innerHTML = `
+          <div style="color:var(--text-faint); font-size:11px; margin-bottom:8px;">
+            รันล่าสุด ${new Date(gr.generatedAt).toLocaleString('th-TH')} · ${gr.note}
+          </div>
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:8px;">
+            <thead><tr style="color:var(--text-faint); text-align:left;"><th style="padding:4px 8px;">สินค้าที่ขยายผลแล้ว</th><th style="padding:4px 8px; text-align:right;">เมื่อ</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="2" style="padding:8px; color:var(--text-faint);">ยังไม่เคยขยายผล</td></tr>'}</tbody>
+          </table>
+          ${appliedList ? `<div><strong>ขยายผลรอบนี้:</strong><ul style="margin:6px 0 0; padding-left:1.2em;">${appliedList}</ul></div>` : ''}
+        `;
+      }
     }
 
     const decisionEl = document.getElementById('ag-control-decision');

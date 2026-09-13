@@ -65,6 +65,7 @@ export async function onRequestGet({ env }) {
     const trafficReport = env.DB ? await readMemory(env, 'traffic_reports', 'latest') : null;
     const conversionReport = env.DB ? await readMemory(env, 'conversion_reports', 'latest') : null;
     const experimentReport = env.DB ? await readMemory(env, 'experiment_reports', 'latest') : null;
+    const growthReport = env.DB ? await readMemory(env, 'growth_reports', 'latest') : null;
     const controlDecision = env.DB ? await readMemory(env, 'control_decisions', 'latest') : null;
 
     return new Response(JSON.stringify({
@@ -85,6 +86,7 @@ export async function onRequestGet({ env }) {
       trafficReport,
       conversionReport,
       experimentReport,
+      growthReport,
       controlDecision
     }), { headers: { 'content-type': 'application/json' } });
   } catch (err) {

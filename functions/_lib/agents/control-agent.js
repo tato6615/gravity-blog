@@ -21,6 +21,7 @@ import { executeRevenueReport } from './handlers/revenue-agent.js';
 import { executeTrafficReport } from './handlers/traffic-agent.js';
 import { executeConversionReport } from './handlers/conversion-agent.js';
 import { executeExperimentCycle } from './handlers/experiment-agent.js';
+import { executeGrowthCycle } from './handlers/growth-agent.js';
 
 export async function reconcileRegistry(env) {
   for (const identity of AGENT_REGISTRY) {
@@ -54,12 +55,13 @@ const AGENT_HANDLERS = {
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' },
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' },
-  experiment: { execute: executeExperimentCycle, taskMessageType: 'experiment_cycle' }
+  experiment: { execute: executeExperimentCycle, taskMessageType: 'experiment_cycle' },
+  growth: { execute: executeGrowthCycle, taskMessageType: 'growth_cycle' }
 };
 // Order matters for runFullCycle: revenue+traffic first (evaluateSystemPriority
 // needs both), conversion last (its own value doesn't block the base decision,
 // but its report enriches the REVENUE_LEAKAGE reasoning if traffic+revenue landed first).
-const ORDERED_IMPLEMENTED_IDS = ['revenue', 'traffic', 'conversion', 'experiment'];
+const ORDERED_IMPLEMENTED_IDS = ['revenue', 'traffic', 'conversion', 'experiment', 'growth'];
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 
