@@ -1,19 +1,3 @@
-/**
- * functions/_lib/agents/control-agent.js — GRAVITY ARS STEP 1
- * ---------------------------------------------------------
- * The Control Agent's Step 1 responsibilities, kept deliberately small:
- *   1. reconcileRegistry() — make sure all 13 agents exist in D1 and
- *      their identity/capabilities are current (idempotent, safe to call
- *      on every status request).
- *   2. detectStale() — flag agents that claimed a task and went quiet
- *      (WORKING with no activity for a while) as a system-health signal.
- *
- * What it does NOT do yet (Step 2+): decide what task to run next based
- * on business logic, call any AI provider, or perform any revenue action.
- * That's the "entire revenue engine" the spec explicitly says Step 1
- * should not build.
- */
-
 import { AGENT_REGISTRY } from './registry.js';
 import { getCapabilities } from './capabilities.js';
 import { registerAgent, listAgents, createTask, updateAgentStatus, completeTask, failTask, writeLog, readMemory, writeMemory } from './db.js';
@@ -26,6 +10,7 @@ import { executeMarketScan } from './handlers/market-agent.js';
 import { executeOpportunityReview } from './handlers/opportunity-agent.js';
 import { executeAudienceAnalysis } from './handlers/audience-agent.js';
 import { executeOfferMatching } from './handlers/offer-agent.js';
+import { executeContentGeneration } from './handlers/content-agent.js';
 
 export async function reconcileRegistry(env) {
   for (const identity of AGENT_REGISTRY) {
@@ -41,11 +26,6 @@ export async function reconcileRegistry(env) {
 
 const STALE_WORKING_MINUTES = 30;
 
-// An agent that's been WORKING for longer than this without a fresh
-// last_activity_at is presented to the Admin as an alert (system.
-// staleAgents) — Step 1 only surfaces this; automatic recovery/retry of
-// the underlying task is future work (see spec's "escalate only when the
-// system cannot recover automatically").
 export function detectStale(agents) {
   const cutoff = Date.now() - STALE_WORKING_MINUTES * 60 * 1000;
   return agents.filter(a => {
@@ -60,31 +40,17 @@ const AGENT_HANDLERS = {
   opportunity: { execute: executeOpportunityReview, taskMessageType: 'opportunity_review' },
   audience: { execute: executeAudienceAnalysis, taskMessageType: 'audience_analysis' },
   offer: { execute: executeOfferMatching, taskMessageType: 'offer_matching' },
+  content: { execute: executeContentGeneration, taskMessageType: 'content_generation' },
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' },
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' },
   experiment: { execute: executeExperimentCycle, taskMessageType: 'experiment_cycle' },
   growth: { execute: executeGrowthCycle, taskMessageType: 'growth_cycle' }
 };
-// Order matters for runFullCycle: market must run before opportunity (opportunity
-// reads market_reports/latest from agent_memory, written by market's own run in
-// this same cycle); audience runs right after opportunity so it can claim the
-// agent_tasks rows opportunity just created in the same cycle (same reasoning);
-// offer runs right after audience so it can claim the agent_tasks rows audience
-// just created in the same cycle (same reasoning again — offer-agent.js claims
-// tasks addressed to 'offer', which only exist once audience has run);
-// revenue+traffic before conversion (evaluateSystemPriority needs both,
-// conversion's report enriches the REVENUE_LEAKAGE reasoning).
-const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
+const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', 'content', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 
-// The system's first real autonomous execution path (Step 2, slice 1).
-// Runs one agent's real handler once, end-to-end: creates a task on the
-// shared bus, marks the agent WORKING, executes the handler, then marks
-// SUCCESS/FAILED and completes/fails the task. Agents with no implemented
-// handler yet fail clearly instead of silently doing nothing (per the
-// spec's "never pretend to have done something" rule).
 export async function runAgentOnce(env, agentId, { messageType } = {}) {
   const handlerEntry = AGENT_HANDLERS[agentId];
   const task = await createTask(env, {
@@ -124,15 +90,6 @@ export async function runAgentOnce(env, agentId, { messageType } = {}) {
   }
 }
 
-
-// The system's first real decision (Step 2, slice 2). Deliberately narrow:
-// it implements exactly the spec's section-5 example ("มี Traffic สูงแต่
-// ไม่เกิด Revenue → ระบบต้องหาสาเหตุ ไม่ใช่ประกาศว่าสำเร็จ") using only the
-// two reports that actually exist (revenue, traffic). It does NOT yet
-// implement the full priority formula in section 6 (revenue impact +
-// evidence + urgency + confidence + cost + effort + risk) — that needs
-// more implemented agents to have real signal to weigh against each
-// other. This is honest about ranking two facts, not eleven.
 export async function evaluateSystemPriority(env) {
   const revenue = await readMemory(env, 'revenue_reports', 'latest');
   const traffic = await readMemory(env, 'traffic_reports', 'latest');
@@ -175,13 +132,6 @@ export async function evaluateSystemPriority(env) {
   return record;
 }
 
-// Single-click orchestration (Step 2, slice 4): runs every implemented
-// report agent in sequence, then evaluates the resulting decision — this
-// is the "one button" entry point instead of clicking each agent one by
-// one. A failure in one agent does NOT stop the others (partial data is
-// still useful, and hiding a later agent's result because an earlier one
-// failed would violate the "never pretend nothing happened" rule) — each
-// agent's outcome is reported individually in `results`.
 export async function runFullCycle(env) {
   const results = {};
   for (const agentId of ORDERED_IMPLEMENTED_IDS) {
