@@ -1,48 +1,51 @@
 /**
- * functions/_lib/agents/handlers/distribution-agent.js — GRAVITY ARS STEP 2 (slice 13)
+ * functions/_lib/agents/handlers/distribution-agent.js — GRAVITY ARS STEP 2 (slice 14)
  * ---------------------------------------------------------------------------
- * Distribution Agent's first real capability: claims pending `agent_tasks`
- * rows addressed to `distribution` (created by Media Agent's `media_ready`
+ * Distribution Agent's real capability: claims pending `agent_tasks` rows
+ * addressed to `distribution` (created by Media Agent's `media_ready`
  * handoff) and publishes the product's real content to whichever channels
- * this repo already has a REAL, credentialed way to reach — same
+ * this system already has a REAL, credentialed way to reach — same
  * "never invent facts / never fabricate an action" rule as every other
  * agent in this chain.
  *
- * Two real channels exist already, and this handler reuses both rather
- * than inventing new integrations:
+ * 🔁 GRAVITY CHANGE (slice 14): This handler no longer duplicates any
+ * social-posting logic itself. The AI Product Engine Worker deployed at
+ * https://af.pakpiromjajaja.workers.dev ("Worker af") already has real,
+ * working credentials for Mastodon/Facebook/Threads/Telegram/Discord/
+ * X/Pinterest/YouTube (see its distribute.js) and shares the SAME D1
+ * database (binding "DB", database "gravity_affiliate",
+ * id da05a906-cf21-4717-a96f-c1da3966fd56) that this repo's env.DB also
+ * points at — confirmed by comparing wrangler.toml on both sides. That
+ * means the SAME productId this handler already has is valid input to
+ * Worker af's POST /api/distribute with zero translation/mapping needed.
  *
- *   - Mastodon: functions/api/send-mastodon.js already posts to a real
- *     Mastodon instance via env.MASTODON_INSTANCE_URL / MASTODON_ACCESS_TOKEN.
- *     That logic is duplicated here as `postToMastodon()` (same reasoning
- *     as media-agent.js duplicating Shotstack's call rather than importing
- *     an `api/` route module) and called directly with the product's real
- *     seo_title/meta_description/canonical URL from the `content` table —
- *     never invented ad copy.
- *   - Reddit: scripts/reddit-publish-queue.js + the
- *     sync-reddit-queue.yml cron ALREADY poll `publish_queue` (channel=
- *     'reddit', status='pending') and post for real. This handler does not
- *     call Reddit's API itself (that script runs with GitHub Actions
- *     secrets this Pages Function doesn't have) — it just enqueues a row
- *     into that same real queue, exactly the same async-handoff pattern
+ * Rather than re-implementing 6+ social integrations here (which would
+ * mean requesting a second full set of credentials and maintaining two
+ * copies of logic that can drift apart), this handler now simply CALLS
+ * Worker af's already-working endpoint, once per channel, exactly the
+ * way admin.html's own distributeToChannels() does. See that function
+ * (admin.html, Worker af repo) for the reference implementation this
+ * mirrors.
+ *
+ * Two channel families exist:
+ *
+ *   - AF_CHANNELS (mastodon, facebook, threads, telegram, discord, x,
+ *     pinterest, youtube): posted for real via Worker af's
+ *     POST /api/distribute. This handler does not need any social media
+ *     credentials of its own anymore — Worker af holds them all.
+ *   - Reddit: scripts/reddit-publish-queue.js + the sync-reddit-queue.yml
+ *     cron ALREADY poll `publish_queue` (channel='reddit', status=
+ *     'pending') and post for real. Worker af does not support Reddit,
+ *     so this handler still enqueues a row into that same real queue —
+ *     unchanged from the previous slice, same async-handoff pattern
  *     Media Agent uses with Shotstack (trigger now, real result lands
  *     later via the existing separate worker).
  *
- * Any other channel (facebook/threads/discord/telegram/x/pinterest/...)
- * has no working credential or endpoint anywhere in this repo yet — this
- * handler reports that honestly as a warning (the section-13 "need a
- * credential" case) instead of pretending to post.
- *
- * The canonical URL for every channel is the real `/product/{slug}` page
- * (functions/product/[slug].js), the same URL shape scripts/reddit-
- * publish-queue.js already assumes — so every channel drives traffic
- * through the one page Traffic Agent's click tracking already instruments
- * (functions/go/[id].js), rather than a second, untracked link shape.
- *
  * Every attempt (success or failure) is logged to `publish_log` — a
- * pre-existing table this repo defines but until now nothing wrote to.
- * A channel that's skipped for lack of credential/data is NOT logged as
- * an attempt (nothing was actually attempted) — it only shows up in the
- * task result's warnings, so `publish_log` stays an honest record of real
+ * pre-existing table this repo defines. A channel that's skipped (e.g.
+ * already posted successfully before, per hasSuccessfulLog()) is NOT
+ * logged as a new attempt — it only shows up in the task result's
+ * `skipped` list, so `publish_log` stays an honest record of real
  * publish attempts only.
  *
  * Distribution is the end of THIS task chain (CONTENT → MEDIA →
@@ -56,34 +59,24 @@
 import { claimNextTask, completeTask, failTask, writeMemory, nowIso } from '../db.js';
 
 const MAX_TASKS_PER_RUN = 5;
-const MASTODON_MAX_CHARS = 480;
 
-async function postToMastodon({ text, env }) {
-  const instanceUrl = env.MASTODON_INSTANCE_URL.replace(/\/+$/, '');
-  const res = await fetch(`${instanceUrl}/api/v1/statuses`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.MASTODON_ACCESS_TOKEN}`
-    },
-    body: JSON.stringify({ status: text, visibility: 'public' })
-  });
+// Worker af — the AI Product Engine that already holds real, working
+// credentials for every channel below and shares this repo's D1 database.
+// See header comment for how this was confirmed (same database_id in both
+// wrangler.toml files).
+const AF_API_BASE = 'https://af.pakpiromjajaja.workers.dev';
+const AF_DISTRIBUTE_TIMEOUT_MS = 45000;
 
-  if (!res.ok) {
-    const details = await res.text().catch(() => '');
-    throw new Error(`Mastodon API ปฏิเสธ request (${res.status}): ${details}`);
-  }
+// Every channel Worker af's /api/distribute genuinely knows how to post to
+// for real today. Keep this list in sync with Worker af's own
+// DISTRIBUTABLE_CHANNELS (admin.html) — if Worker af adds a new channel,
+// add it here too so Distribution Agent picks it up automatically.
+const AF_CHANNELS = ['mastodon', 'facebook', 'threads', 'telegram', 'discord', 'x', 'pinterest', 'youtube'];
 
-  const data = await res.json().catch(() => null);
-  return data?.url || null;
-}
-
-function buildMastodonText({ seoTitle, metaDescription, canonicalUrl }) {
-  const fixed = [seoTitle, canonicalUrl].filter(Boolean).join('\n\n');
-  const remaining = MASTODON_MAX_CHARS - fixed.length - 2;
-  const desc = metaDescription && remaining > 20 ? metaDescription.slice(0, remaining) : '';
-  return [seoTitle, desc, canonicalUrl].filter(Boolean).join('\n\n');
-}
+const CHANNEL_LABELS = {
+  mastodon: 'Mastodon', facebook: 'Facebook', threads: 'Threads',
+  telegram: 'Telegram', discord: 'Discord', x: 'X', pinterest: 'Pinterest', youtube: 'YouTube'
+};
 
 async function hasSuccessfulLog(env, productId, channel) {
   const row = await env.DB.prepare(
@@ -97,6 +90,35 @@ async function writePublishLog(env, { productId, channel, status, liveUrl, postI
     INSERT INTO publish_log (product_id, channel, status, live_url, published_at, post_id, note)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).bind(productId, channel, status, liveUrl || null, nowIso(), postId || null, note || null).run();
+}
+
+// Calls Worker af's real POST /api/distribute for one channel. Mirrors
+// admin.html's distributeToChannels() request shape exactly so Worker af
+// treats this the same as a human clicking "Publish" in the admin UI.
+async function postViaWorkerAf({ productId, channel, lang = 'th' }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AF_DISTRIBUTE_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${AF_API_BASE}/api/distribute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId, platform: channel, lang }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.error) {
+      const msg = data?.error || `Worker af ตอบ HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return { postUrl: data.postUrl || data.link || null, postId: data.postId || null };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error(`Worker af ไม่ตอบกลับภายใน ${Math.round(AF_DISTRIBUTE_TIMEOUT_MS / 1000)} วินาที (timeout)`);
+    }
+    throw err;
+  }
 }
 
 async function assembleOneDistribution(env, task) {
@@ -116,7 +138,7 @@ async function assembleOneDistribution(env, task) {
   }
 
   const content = await env.DB.prepare(`
-    SELECT slug, seo_title, meta_description FROM content WHERE id = ?
+    SELECT slug FROM content WHERE id = ?
   `).bind(contentId).first();
 
   if (!content) {
@@ -128,64 +150,42 @@ async function assembleOneDistribution(env, task) {
   const warnings = [];
 
   if (!content.slug) {
-    warnings.push('content row นี้ไม่มี slug — สร้าง canonical URL ไม่ได้ ข้าม channel ทั้งหมดที่ต้องใช้ลิงก์');
-  }
-  if (!env.SITE_URL) {
-    warnings.push('ไม่มี SITE_URL ใน environment — สร้าง canonical URL ไม่ได้');
+    warnings.push('content row นี้ไม่มี slug — Worker af อาจสร้าง canonical URL ให้ไม่ได้ ผลอาจล้มเหลว');
   }
 
-  const canonicalUrl = (content.slug && env.SITE_URL)
-    ? `${env.SITE_URL.replace(/\/+$/, '')}/product/${content.slug}`
-    : null;
-
-  // --- Mastodon: real credentialed endpoint, post directly ---
-  const hasMastodonCreds = Boolean(env.MASTODON_INSTANCE_URL && env.MASTODON_ACCESS_TOKEN);
-  if (!canonicalUrl) {
-    skipped.push({ channel: 'mastodon', reason: 'ไม่มี canonical URL' });
-  } else if (!hasMastodonCreds) {
-    warnings.push('ไม่มี MASTODON_INSTANCE_URL/MASTODON_ACCESS_TOKEN ใน environment — ต้องขอ credential นี้ก่อนถึงจะโพสต์ Mastodon อัตโนมัติได้ (ตามข้อ 13 ของสเปค)');
-    skipped.push({ channel: 'mastodon', reason: 'ไม่มี credential' });
-  } else if (await hasSuccessfulLog(env, productId, 'mastodon')) {
-    skipped.push({ channel: 'mastodon', reason: 'เคยโพสต์สำเร็จไปแล้วสำหรับสินค้านี้ (กัน duplicate post)' });
-  } else {
-    const text = buildMastodonText({
-      seoTitle: content.seo_title || productName,
-      metaDescription: content.meta_description,
-      canonicalUrl
-    });
+  // --- AF_CHANNELS: real posting delegated to Worker af, one call per channel ---
+  for (const channel of AF_CHANNELS) {
+    if (await hasSuccessfulLog(env, productId, channel)) {
+      skipped.push({ channel, reason: 'เคยโพสต์สำเร็จไปแล้วสำหรับสินค้านี้ (กัน duplicate post)' });
+      continue;
+    }
     try {
-      const postUrl = await postToMastodon({ text, env });
-      await writePublishLog(env, { productId, channel: 'mastodon', status: 'success', liveUrl: postUrl, note: 'โพสต์จริงผ่าน Mastodon API' });
-      attempted.push({ channel: 'mastodon', status: 'success', liveUrl: postUrl });
+      const { postUrl, postId } = await postViaWorkerAf({ productId, channel });
+      await writePublishLog(env, {
+        productId, channel, status: 'success', liveUrl: postUrl, postId,
+        note: 'โพสต์จริงผ่าน Worker af (POST /api/distribute)'
+      });
+      attempted.push({ channel, status: 'success', liveUrl: postUrl });
     } catch (err) {
       const msg = err.message || String(err);
-      await writePublishLog(env, { productId, channel: 'mastodon', status: 'failed', note: msg });
-      attempted.push({ channel: 'mastodon', status: 'failed', error: msg });
+      await writePublishLog(env, { productId, channel, status: 'failed', note: msg });
+      attempted.push({ channel, status: 'failed', error: msg });
     }
   }
 
-  // --- Reddit: enqueue into the existing real publish_queue + cron ---
-  if (!canonicalUrl) {
-    skipped.push({ channel: 'reddit', reason: 'ไม่มี canonical URL' });
+  // --- Reddit: Worker af doesn't support it — enqueue into the existing real publish_queue + cron ---
+  const existingQueue = await env.DB.prepare(
+    `SELECT id, status FROM publish_queue WHERE product_id = ? AND channel = 'reddit' ORDER BY id DESC LIMIT 1`
+  ).bind(productId).first();
+
+  if (existingQueue && (existingQueue.status === 'pending' || existingQueue.status === 'done')) {
+    skipped.push({ channel: 'reddit', reason: `มีอยู่ในคิวแล้ว (status=${existingQueue.status}) — ไม่ enqueue ซ้ำ` });
   } else {
-    const existingQueue = await env.DB.prepare(
-      `SELECT id, status FROM publish_queue WHERE product_id = ? AND channel = 'reddit' ORDER BY id DESC LIMIT 1`
-    ).bind(productId).first();
-
-    if (existingQueue && (existingQueue.status === 'pending' || existingQueue.status === 'done')) {
-      skipped.push({ channel: 'reddit', reason: `มีอยู่ในคิวแล้ว (status=${existingQueue.status}) — ไม่ enqueue ซ้ำ` });
-    } else {
-      await env.DB.prepare(
-        `INSERT INTO publish_queue (product_id, channel, status) VALUES (?, 'reddit', 'pending')`
-      ).bind(productId).run();
-      await writePublishLog(env, { productId, channel: 'reddit', status: 'queued', note: 'enqueue เข้า publish_queue จริง รอ sync-reddit-queue.yml cron ไปโพสต์' });
-      attempted.push({ channel: 'reddit', status: 'queued' });
-    }
-  }
-
-  // --- Everything else: no real credential/endpoint exists in this repo yet ---
-  for (const channel of ['facebook', 'threads', 'discord', 'telegram', 'x', 'pinterest']) {
-    skipped.push({ channel, reason: 'ยังไม่มี credential/endpoint จริงสำหรับ channel นี้ในระบบ' });
+    await env.DB.prepare(
+      `INSERT INTO publish_queue (product_id, channel, status) VALUES (?, 'reddit', 'pending')`
+    ).bind(productId).run();
+    await writePublishLog(env, { productId, channel: 'reddit', status: 'queued', note: 'enqueue เข้า publish_queue จริง รอ sync-reddit-queue.yml cron ไปโพสต์ (Worker af ไม่รองรับ Reddit)' });
+    attempted.push({ channel: 'reddit', status: 'queued' });
   }
 
   const successCount = attempted.filter(a => a.status === 'success' || a.status === 'queued').length;
@@ -196,8 +196,8 @@ async function assembleOneDistribution(env, task) {
     status: successCount ? 'DISTRIBUTED' : (failedCount ? 'ERRORS' : 'NO_CHANNEL_AVAILABLE'),
     attempted, skipped, warnings,
     note: successCount
-      ? `เผยแพร่/enqueue สำเร็จ ${successCount} channel (${attempted.filter(a => a.status !== 'failed').map(a => a.channel).join(', ')}) — channel อื่นข้ามเพราะไม่มี credential จริง`
-      : 'ยังไม่มี channel ไหนที่พร้อมเผยแพร่ได้จริงตอนนี้ (ดู warnings)'
+      ? `เผยแพร่/enqueue สำเร็จ ${successCount} channel (${attempted.filter(a => a.status !== 'failed').map(a => CHANNEL_LABELS[a.channel] || a.channel).join(', ')}) ผ่าน Worker af` + (failedCount ? ` — ${failedCount} channel ล้มเหลว (ดู attempted)` : '')
+      : (failedCount ? `ทุก channel ที่ลองล้มเหลว (${failedCount} channel) — ดู attempted` : 'ยังไม่มี channel ไหนที่พร้อมเผยแพร่ได้จริงตอนนี้ (ดู warnings)')
   };
 
   await writeMemory(env, 'distribution_reports', `product_${productId}`, result, 'distribution');
