@@ -18,20 +18,57 @@
  * ("traffic without revenue must be investigated, not declared success")
  * implemented literally, using only the two signals that actually exist.
  *
+ * Step 3 slice 3 (added alongside Media + Distribution Agents): confirmed
+ * by reading every handler that the full task-queue chain — opportunity
+ * → audience → offer → content → media → distribution — already calls
+ * createTask() into the next agent (see each handler's own header
+ * comment), and IMPLEMENTED_AGENT_IDS iterates in that exact pipeline
+ * order (see control-agent.js's AGENT_HANDLERS). That means a single tick
+ * already cascades a product end-to-end (selected opportunity → published
+ * + distributed) in one pass, PROVIDED every stage in the chain is
+ * actually allowed to run on this tick.
+ *
+ * The one thing that was silently defeating that cascade: EVERY agent,
+ * including the queue-draining ones above, shared the same
+ * TICK_COOLDOWN_MINUTES gate meant for expensive/slow-changing REPORT
+ * agents (market/revenue/traffic/conversion/experiment/growth — these
+ * read real external/business data that doesn't change every few minutes,
+ * so re-running them constantly wastes nothing dangerous but adds noise
+ * for no benefit). A queue-draining agent has no such downside: it's
+ * bounded to MAX_TASKS_PER_RUN per handler and is a fast no-op
+ * ('NO_PENDING_TASKS') when its queue is empty — so gating it behind the
+ * same cooldown as a report agent only ever hurts (a backlog of >5 items,
+ * or work created mid-chain by an earlier stage, waits up to
+ * TICK_COOLDOWN_MINUTES for no real reason). QUEUE_DRIVEN_AGENT_IDS below
+ * are exempt from the cooldown — they still get skipped if already
+ * WORKING (that guard stays, to prevent two overlapping ticks from
+ * double-claiming), just not gated by recency.
+ *
  * NOT yet implemented here (future work, not faked):
- *   - Cross-agent handoffs (market → opportunity → ... → revenue)
  *   - Full priority scoring across all 13 agents (revenue impact /
  *     evidence / urgency / confidence / cost / effort / risk — section 6)
+ *     — evaluateSystemPriority() still only compares revenue vs traffic
  *   - Reacting to new data events in real time (this only re-checks the
  *     signal once per tick, not on new-click/new-transaction webhooks)
- *   - Auto-executing the decision's recommendedNextAction — it's
- *     surfaced, not yet acted on (no Conversion/Experiment/Growth
- *     handler exists to hand it to)
+ *   - Auto-executing the decision's recommendedNextAction for the
+ *     REPORT-agent side of the system — it's surfaced in `decision`, not
+ *     yet turned into a new createTask() the way the pipeline side above
+ *     already does for itself
+ *   - Market Agent's own upstream: it only reads what Worker af's
+ *     market-discovery.js already wrote into `markets` — if that external,
+ *     non-agentic process stops running, DISCOVER has no self-refill
+ *     inside this repo (Market Agent reports 'NO_CANDIDATES' honestly
+ *     instead of inventing demand, but nothing here restarts discovery)
  */
 
 import { reconcileRegistry, runAgentOnce, evaluateSystemPriority, IMPLEMENTED_AGENT_IDS } from '../../_lib/agents/control-agent.js';
 
-const TICK_COOLDOWN_MINUTES = 55; // slightly under the 1h schedule interval
+const TICK_COOLDOWN_MINUTES = 55; // slightly under the 1h schedule interval — REPORT agents only, see header comment
+
+// Agents that only ever act on a real pending agent_tasks row addressed to
+// them (claimNextTask, bounded to MAX_TASKS_PER_RUN per handler) — safe
+// and cheap to attempt every tick regardless of how recently they last ran.
+const QUEUE_DRIVEN_AGENT_IDS = new Set(['opportunity', 'audience', 'offer', 'content', 'media', 'distribution']);
 
 async function handleTick({ env }) {
   const startedAt = new Date().toISOString();
@@ -45,12 +82,13 @@ async function handleTick({ env }) {
     for (const agentId of IMPLEMENTED_AGENT_IDS) {
       const agent = agents.find(a => a.id === agentId);
       const lastRun = agent?.last_activity_at ? new Date(agent.last_activity_at).getTime() : 0;
+      const isQueueDriven = QUEUE_DRIVEN_AGENT_IDS.has(agentId);
 
       if (agent?.status === 'WORKING') {
         skipped.push({ agentId, reason: 'ยังอยู่ในสถานะ WORKING (อาจรันค้างจากรอบก่อน)' });
         continue;
       }
-      if (lastRun > cutoff) {
+      if (!isQueueDriven && lastRun > cutoff) {
         skipped.push({ agentId, reason: `รันไปแล้วภายใน ${TICK_COOLDOWN_MINUTES} นาทีที่ผ่านมา` });
         continue;
       }
