@@ -1002,6 +1002,12 @@ switchTab = function(tab) {
   </div>
   <div id="ag-conversion-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
+  <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+    <span>🧪 EXPERIMENT AGENT — การทดลองที่กำลังรัน</span>
+    <button class="btn-ghost" onclick="runAgent('experiment', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+  </div>
+  <div id="ag-experiment-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
+
   <div class="sh-phase-title" style="margin-top:16px;">AGENTS (13)</div>
   <div class="sh-card-grid" id="ag-agent-list"></div>
 </section>
@@ -1139,6 +1145,31 @@ async function loadAgentsPanel() {
         <div style="color:var(--text-faint); font-size:11px; margin-top:8px;">
           Leakage: <strong>${cv.leakage.status}</strong> — ${cv.leakage.note}
         </div>
+      `;
+    }
+
+    const experimentEl = document.getElementById('ag-experiment-report');
+    const ex = data.experimentReport;
+    if (ex) {
+      const activeRows = ex.activeExperiments.map(a =>
+        `<tr><td style="padding:4px 8px;">${a.productName}</td><td style="padding:4px 8px;">${a.status}</td><td style="padding:4px 8px; text-align:right;">${new Date(a.startedAt).toLocaleDateString('th-TH')}</td></tr>`
+      ).join('');
+      const evaluatedList = ex.evaluated.map(e =>
+        `<li style="margin-bottom:6px;"><strong>#${e.productId}</strong> → ${e.status} — ${e.note}</li>`
+      ).join('');
+      const createdList = ex.created.map(c =>
+        `<li style="margin-bottom:6px;"><strong>${c.productName}</strong>: "${c.beforeSeoTitle}" → "${c.afterSeoTitle}"</li>`
+      ).join('');
+      experimentEl.innerHTML = `
+        <div style="color:var(--text-faint); font-size:11px; margin-bottom:8px;">
+          รันล่าสุด ${new Date(ex.generatedAt).toLocaleString('th-TH')} · ${ex.note}
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:8px;">
+          <thead><tr style="color:var(--text-faint); text-align:left;"><th style="padding:4px 8px;">สินค้า</th><th style="padding:4px 8px;">สถานะ</th><th style="padding:4px 8px; text-align:right;">เริ่มเมื่อ</th></tr></thead>
+          <tbody>${activeRows || '<tr><td colspan="3" style="padding:8px; color:var(--text-faint);">ไม่มีการทดลองที่กำลังรัน</td></tr>'}</tbody>
+        </table>
+        ${evaluatedList ? `<div style="margin-bottom:8px;"><strong>ผลประเมินรอบนี้:</strong><ul style="margin:6px 0 0; padding-left:1.2em;">${evaluatedList}</ul></div>` : ''}
+        ${createdList ? `<div><strong>สร้างใหม่รอบนี้:</strong><ul style="margin:6px 0 0; padding-left:1.2em;">${createdList}</ul></div>` : ''}
       `;
     }
 
