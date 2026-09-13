@@ -137,15 +137,3 @@ async function handleTick({ env }) {
 
 export async function onRequestPost(context) { return handleTick(context); }
 export async function onRequestGet(context) { return handleTick(context); }
-
-
-
-
-
-
-
-
-
-
-
-
