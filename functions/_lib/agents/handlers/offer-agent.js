@@ -48,16 +48,12 @@ async function matchOneOpportunity(env, task) {
            affiliate_link, source_url, price, rating
     FROM products
     WHERE pipeline_status IN (${placeholders})
-      AND (
-        LOWER(TRIM(category)) = LOWER(TRIM(?))
-        OR LOWER(TRIM(category_th)) = LOWER(TRIM(?))
-        OR ? = '' OR ? IS NULL OR ? = '(ไม่ระบุ)'
-      )
+
     ORDER BY
       CASE pipeline_status WHEN 'enriched' THEN 0 WHEN 'enriching' THEN 1 ELSE 2 END,
       id DESC
     LIMIT 5
-  `).bind(...BACKLOG_STATUSES, category || '', category || '').all();
+  `).bind(...BACKLOG_STATUSES).all();
 
   if (!matches.length) {
     const result = {
