@@ -80,7 +80,7 @@ function renderSpecifications(analysis, t) {
   </div>`;
 }
 
-export async function renderArticlePage(env, slug, lang = 'th') {
+export async function renderArticlePage(env, slug, lang = 'th', request) {
   const t = STRINGS[lang] || STRINGS.th;
   const prefix = lang === 'en' ? '/en' : '';
 
@@ -119,8 +119,19 @@ export async function renderArticlePage(env, slug, lang = 'th') {
         </div>`
       : '';
 
+    // 🔧 GRAVITY FIX (2026-09-13): ถ้าคนเข้าหน้านี้มาพร้อม utm_source (เช่น
+    // มาจากปุ่มแชร์ที่เพิ่งแก้ให้แปะ utm) ต้อง forward ต่อไปที่ /go/[id]
+    // ด้วย ไม่งั้น click ที่บันทึกจะเห็นเป็น "direct/unknown" อยู่ดี ทั้งที่
+    // รู้ต้นตอจริงจาก URL หน้านี้แล้ว
+    const incomingUrl = request ? new URL(request.url) : null;
+    const incomingUtmSource = incomingUrl?.searchParams.get('utm_source');
+    const incomingUtmMedium = incomingUrl?.searchParams.get('utm_medium');
+    const buyUrlParams = new URLSearchParams();
+    if (incomingUtmSource) buyUrlParams.set('utm_source', incomingUtmSource);
+    if (incomingUtmMedium) buyUrlParams.set('utm_medium', incomingUtmMedium);
+    const buyUrlQuery = buyUrlParams.toString();
     const trackedBuyUrl = article.product.buyUrl
-      ? `/go/${encodeURIComponent(article.id)}`
+      ? `/go/${encodeURIComponent(article.id)}${buyUrlQuery ? `?${buyUrlQuery}` : ''}`
       : '';
     const buyBtn = trackedBuyUrl
       ? `<a class="buy-btn" href="${escapeHtml(trackedBuyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`

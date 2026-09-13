@@ -1,8 +1,8 @@
 import { renderArticlePage } from '../../_lib/article.js';
 
-export async function onRequestGet({ env, params }) {
+export async function onRequestGet({ env, params, request }) {
   try {
-    return await renderArticlePage(env, params.slug, 'en');
+    return await renderArticlePage(env, params.slug, 'en', request);
   } catch (e) {
     console.error(`product/[slug].js (en): render failed`, e.message);
     return new Response(

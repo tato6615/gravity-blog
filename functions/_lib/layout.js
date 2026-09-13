@@ -555,13 +555,20 @@ export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
     instagram: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zm0-2.16C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.31-.79-.72-1.46-1.38-2.13C19.32 1.35 18.65.94 17.86.63c-.76-.3-1.64-.5-2.91-.56C13.67.01 13.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4zm6.4-10.4a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>'
   };
 
+  // 🔧 GRAVITY FIX (2026-09-13): แต่ก่อนแชร์ลิงก์เปล่าๆ ไม่เคยแปะ utm_source
+  // เลยสักครั้ง — Traffic Agent เลยเห็น click ทุกอันเป็น "direct/unknown"
+  // หมด ทั้งที่มีคนมาจาก Facebook/Line/ฯลฯ จริง ตอนนี้ทุกปุ่มแชร์แปะ
+  // utm_source ตามช่องทางของตัวเองอัตโนมัติ
+  const withUtm = (source) => `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}utm_source=${source}&utm_medium=social&utm_campaign=share_button`;
+  const urlFor = (source) => encodeURIComponent(withUtm(source));
+
   const links = [
-    { icon: ICONS.facebook, name: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${url}` },
-    { icon: ICONS.line, name: 'Line', href: `https://social-plugins.line.me/lineit/share?url=${url}` },
-    { icon: ICONS.x, name: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${url}&text=${text}` },
-    { icon: ICONS.whatsapp, name: 'WhatsApp', href: `https://wa.me/?text=${text}%20${url}` },
-    { icon: ICONS.pinterest, name: 'Pinterest', href: `https://pinterest.com/pin/create/button/?url=${url}&description=${text}` + (media ? `&media=${encodeURIComponent(media)}` : '') },
-    { icon: ICONS.telegram, name: 'Telegram', href: `https://t.me/share/url?url=${url}&text=${text}` },
+    { icon: ICONS.facebook, name: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${urlFor('facebook')}` },
+    { icon: ICONS.line, name: 'Line', href: `https://social-plugins.line.me/lineit/share?url=${urlFor('line')}` },
+    { icon: ICONS.x, name: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${urlFor('twitter')}&text=${text}` },
+    { icon: ICONS.whatsapp, name: 'WhatsApp', href: `https://wa.me/?text=${text}%20${urlFor('whatsapp')}` },
+    { icon: ICONS.pinterest, name: 'Pinterest', href: `https://pinterest.com/pin/create/button/?url=${urlFor('pinterest')}&description=${text}` + (media ? `&media=${encodeURIComponent(media)}` : '') },
+    { icon: ICONS.telegram, name: 'Telegram', href: `https://t.me/share/url?url=${urlFor('telegram')}&text=${text}` },
   ];
 
   const buttons = links
@@ -570,10 +577,10 @@ export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
 
   const copyLabel = lang === 'en' ? 'Copy link' : 'คัดลอกลิงก์';
   const copiedTitle = lang === 'en' ? 'Copied!' : 'คัดลอกแล้ว!';
-  const copyBtn = `<button type="button" class="share-btn" data-url="${escapeHtml(fullUrl)}" data-copied="${escapeHtml(copiedTitle)}" data-icon-copy='${ICONS.copy}' data-icon-check='${ICONS.check}' aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}" onclick="(function(btn){navigator.clipboard.writeText(btn.dataset.url).then(function(){btn.innerHTML=btn.dataset.iconCheck;btn.title=btn.dataset.copied;setTimeout(function(){btn.innerHTML=btn.dataset.iconCopy;btn.title='${escapeHtml(copyLabel)}';},1800);});})(this)">${ICONS.copy}</button>`;
+  const copyBtn = `<button type="button" class="share-btn" data-url="${escapeHtml(withUtm('copy_link'))}" data-copied="${escapeHtml(copiedTitle)}" data-icon-copy='${ICONS.copy}' data-icon-check='${ICONS.check}' aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}" onclick="(function(btn){navigator.clipboard.writeText(btn.dataset.url).then(function(){btn.innerHTML=btn.dataset.iconCheck;btn.title=btn.dataset.copied;setTimeout(function(){btn.innerHTML=btn.dataset.iconCopy;btn.title='${escapeHtml(copyLabel)}';},1800);});})(this)">${ICONS.copy}</button>`;
 
   const igLabel = lang === 'en' ? 'Copy link & open Instagram' : 'คัดลอกลิงก์และเปิด Instagram';
-  const igBtn = `<button type="button" class="share-btn" data-url="${escapeHtml(fullUrl)}" aria-label="${escapeHtml(igLabel)}" title="${escapeHtml(igLabel)}" onclick="(function(btn){navigator.clipboard.writeText(btn.dataset.url).then(function(){window.open('https://www.instagram.com/','_blank');});})(this)">${ICONS.instagram}</button>`;
+  const igBtn = `<button type="button" class="share-btn" data-url="${escapeHtml(withUtm('instagram'))}" aria-label="${escapeHtml(igLabel)}" title="${escapeHtml(igLabel)}" onclick="(function(btn){navigator.clipboard.writeText(btn.dataset.url).then(function(){window.open('https://www.instagram.com/','_blank');});})(this)">${ICONS.instagram}</button>`;
 
   return `<div class="share-row"><span class="share-label">${escapeHtml(t.shareLabel)}</span>${buttons}${igBtn}${copyBtn}</div>`;
 }

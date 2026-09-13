@@ -38,8 +38,19 @@ export async function executeTrafficReport(env, task) {
     GROUP BY eventType
   `).bind(since30d).all();
 
+  // 🔧 GRAVITY FIX (2026-09-13): utm_source เพิ่งเริ่มมีข้อมูลจริงตั้งแต่
+  // วันนี้ (ดู layout.js/article.js) — click เก่าก่อนหน้านี้ทั้งหมดไม่มี utm
+  // เลย แต่บางอันมี fbclid ติดอยู่ใน referrer (Facebook แปะเองตอนคนกดลิงก์ที่
+  // แชร์มาจาก Facebook) นี่เป็นหลักฐานจริง ไม่ใช่การเดา จึงแยกออกมาให้เห็น
+  // แทนที่จะรวมทิ้งไว้ใน "direct/unknown" ทั้งหมด
   const { results: bySourceRaw } = await env.DB.prepare(`
-    SELECT COALESCE(NULLIF(utm_source, ''), 'direct/unknown') as source, COUNT(*) as n
+    SELECT
+      CASE
+        WHEN utm_source IS NOT NULL AND utm_source != '' THEN utm_source
+        WHEN referrer LIKE '%fbclid=%' THEN 'facebook (inferred via fbclid, no utm)'
+        ELSE 'direct/unknown'
+      END as source,
+      COUNT(*) as n
     FROM clicks WHERE timestamp >= ?
     GROUP BY source ORDER BY n DESC LIMIT 10
   `).bind(since30d).all();
