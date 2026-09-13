@@ -11,6 +11,7 @@ import { executeOpportunityReview } from './handlers/opportunity-agent.js';
 import { executeAudienceAnalysis } from './handlers/audience-agent.js';
 import { executeOfferMatching } from './handlers/offer-agent.js';
 import { executeContentGeneration } from './handlers/content-agent.js';
+import { executeMediaWorkflow } from './handlers/media-agent.js';
 
 export async function reconcileRegistry(env) {
   for (const identity of AGENT_REGISTRY) {
@@ -41,13 +42,14 @@ const AGENT_HANDLERS = {
   audience: { execute: executeAudienceAnalysis, taskMessageType: 'audience_analysis' },
   offer: { execute: executeOfferMatching, taskMessageType: 'offer_matching' },
   content: { execute: executeContentGeneration, taskMessageType: 'content_generation' },
+  media: { execute: executeMediaWorkflow, taskMessageType: 'media_workflow' },
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' },
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' },
   experiment: { execute: executeExperimentCycle, taskMessageType: 'experiment_cycle' },
   growth: { execute: executeGrowthCycle, taskMessageType: 'growth_cycle' }
 };
-const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', 'content', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
+const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', 'content', 'media', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 
