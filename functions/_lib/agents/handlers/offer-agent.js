@@ -51,6 +51,7 @@ async function matchOneOpportunity(env, task) {
       AND (
         LOWER(TRIM(category)) = LOWER(TRIM(?))
         OR LOWER(TRIM(category_th)) = LOWER(TRIM(?))
+        OR ? = '' OR ? IS NULL OR ? = '(ไม่ระบุ)'
       )
     ORDER BY
       CASE pipeline_status WHEN 'enriched' THEN 0 WHEN 'enriching' THEN 1 ELSE 2 END,
