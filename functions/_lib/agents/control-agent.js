@@ -24,6 +24,7 @@ import { executeExperimentCycle } from './handlers/experiment-agent.js';
 import { executeGrowthCycle } from './handlers/growth-agent.js';
 import { executeMarketScan } from './handlers/market-agent.js';
 import { executeOpportunityReview } from './handlers/opportunity-agent.js';
+import { executeAudienceAnalysis } from './handlers/audience-agent.js';
 
 export async function reconcileRegistry(env) {
   for (const identity of AGENT_REGISTRY) {
@@ -56,6 +57,7 @@ export function detectStale(agents) {
 const AGENT_HANDLERS = {
   market: { execute: executeMarketScan, taskMessageType: 'market_scan' },
   opportunity: { execute: executeOpportunityReview, taskMessageType: 'opportunity_review' },
+  audience: { execute: executeAudienceAnalysis, taskMessageType: 'audience_analysis' },
   revenue: { execute: executeRevenueReport, taskMessageType: 'revenue_report' },
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' },
@@ -64,9 +66,11 @@ const AGENT_HANDLERS = {
 };
 // Order matters for runFullCycle: market must run before opportunity (opportunity
 // reads market_reports/latest from agent_memory, written by market's own run in
-// this same cycle); revenue+traffic before conversion (evaluateSystemPriority
-// needs both, conversion's report enriches the REVENUE_LEAKAGE reasoning).
-const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
+// this same cycle); audience runs right after opportunity so it can claim the
+// agent_tasks rows opportunity just created in the same cycle (same reasoning);
+// revenue+traffic before conversion (evaluateSystemPriority needs both,
+// conversion's report enriches the REVENUE_LEAKAGE reasoning).
+const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 

@@ -22,10 +22,12 @@
  * flood downstream agents that don't have handlers yet. Marks the row
  * status='selected' in `markets` — guarded by `AND status = 'candidate'`
  * in the UPDATE itself, so re-running never re-selects the same row even
- * if two ticks race. Creates an `agent_tasks` entry addressed to `offer`:
- * Offer Agent has no handler yet, so nothing claims it immediately, but
- * the task bus is honest about there being real work queued (matches
- * 02_SYSTEMS/AGENT_ORCHESTRATION.md's design — never silently drop work).
+ * if two ticks race. Creates an `agent_tasks` entry addressed to
+ * `audience` — the spec's section-2 pipeline order is
+ * MARKET → OPPORTUNITY → AUDIENCE → OFFER → ..., so a selected
+ * opportunity goes to Audience Agent next, not straight to Offer Agent
+ * (Audience Agent has a real handler as of Step 2 slice 9 — see
+ * audience-agent.js — and forwards to `offer` itself once done).
  */
 
 import { writeMemory, readMemory, createTask, nowIso } from '../db.js';
@@ -93,7 +95,7 @@ export async function executeOpportunityReview(env, task) {
 
     const createdTask = await createTask(env, {
       senderAgent: 'opportunity',
-      receiverAgent: 'offer',
+      receiverAgent: 'audience',
       messageType: 'opportunity_selected',
       priority: 8,
       payload: {
@@ -119,7 +121,7 @@ export async function executeOpportunityReview(env, task) {
     generatedAt: nowIso(),
     status: selected.length ? 'SELECTED' : 'ALREADY_PROCESSED',
     note: selected.length
-      ? `เลือก ${selected.length} market/opportunity ที่ score_total >= ${MIN_SELECT_SCORE} มาร์คเป็น 'selected' ใน D1 แล้ว และสร้าง task ส่งต่อให้ Offer Agent แล้ว (Offer Agent ยังไม่มี handler — task รอ claim อยู่ในคิว ไม่ได้หายไปไหน ตามหลัก task bus)`
+      ? `เลือก ${selected.length} market/opportunity ที่ score_total >= ${MIN_SELECT_SCORE} มาร์คเป็น 'selected' ใน D1 แล้ว และสร้าง task ส่งต่อให้ Audience Agent แล้ว (ตามลำดับ pipeline MARKET → OPPORTUNITY → AUDIENCE → OFFER)`
       : 'candidate ที่ผ่านเกณฑ์ทั้งหมดถูกเลือกไปแล้วในรอบก่อนหน้า (หรือมี race condition) ไม่มีอะไรใหม่ให้เลือกในรอบนี้',
     minSelectScore: MIN_SELECT_SCORE,
     selected,
