@@ -1,6 +1,13 @@
-import { runFullCycle, evaluateSystemPriority } from '../registry.js';
+import { evaluateSystemPriority } from '../registry.js';
+import { writeMemory, nowIso } from '../db.js';
 
 export async function executeControlCycle(env, task) {
-  const result = await runFullCycle(env);
-  return result;
+  const decision = await evaluateSystemPriority(env);
+  const report = {
+    generatedAt: nowIso(),
+    status: 'EVALUATED',
+    decision
+  };
+  await writeMemory(env, 'control_decisions', 'latest', report, 'control');
+  return report;
 }
