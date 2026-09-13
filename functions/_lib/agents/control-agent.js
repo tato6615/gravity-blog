@@ -49,7 +49,8 @@ const AGENT_HANDLERS = {
   traffic: { execute: executeTrafficReport, taskMessageType: 'traffic_report' },
   conversion: { execute: executeConversionReport, taskMessageType: 'conversion_report' },
   experiment: { execute: executeExperimentCycle, taskMessageType: 'experiment_cycle' },
-  growth: { execute: executeGrowthCycle, taskMessageType: 'growth_cycle' }
+  growth: { execute: executeGrowthCycle, taskMessageType: 'growth_cycle' },
+  control: { execute: async (env, task) => { const { evaluateSystemPriority } = await import('./control-agent.js'); return evaluateSystemPriority(env); }, taskMessageType: 'control_cycle' }
 };
 const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', 'content', 'media', 'distribution', 'revenue', 'traffic', 'conversion', 'experiment', 'growth'];
 
