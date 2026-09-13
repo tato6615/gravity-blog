@@ -53,3 +53,43 @@ export async function onRequestPost({ request, env }) {
     });
   }
 }
+
+export async function onRequestPatch({ request, env, params }) {
+  try {
+    const id = params.id || new URL(request.url).pathname.split('/').pop();
+    const body = await request.json();
+    const status = body.status || 'cancelled';
+    await env.DB.prepare(
+      "UPDATE agent_tasks SET status=?, updated_at=datetime('now') WHERE id=?"
+    ).bind(status, id).run();
+    return new Response(JSON.stringify({ ok: true, id, status }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ ok: false, error: err.message }), {
+      status: 500, headers: { 'content-type': 'application/json' }
+    });
+  }
+}
+
+export async function onRequestDelete({ request, env }) {
+  try {
+    const url = new URL(request.url);
+    const cancelNoProduct = url.searchParams.get('cancel_no_product');
+    if (cancelNoProduct === '1') {
+      const result = await env.DB.prepare(
+        "UPDATE agent_tasks SET status='cancelled', updated_at=datetime('now') WHERE status='pending' AND payload NOT LIKE '%productId%'"
+      ).run();
+      return new Response(JSON.stringify({ ok: true, cancelled: result.meta?.changes || 0 }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+    return new Response(JSON.stringify({ ok: false, error: 'ระบุ action' }), {
+      status: 400, headers: { 'content-type': 'application/json' }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ ok: false, error: err.message }), {
+      status: 500, headers: { 'content-type': 'application/json' }
+    });
+  }
+}
