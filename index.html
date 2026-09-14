@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRAVITY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0C0E;
+    --surface: #131418;
+    --surface-2: #17181D;
+    --line: #232429;
+    --text: #EDEDEC;
+    --text-dim: #8C8D95;
+    --text-faint: #55565D;
+    --accent: #E8A33D;
+    --accent-dim: #7A5A26;
+    --good: #6FAF82;
+    --bad: #D9694F;
+    --radius: 10px;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .mono{ font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .app{ display:flex; min-height:100vh; }
+
+  .rail{
+    width: 216px;
+    flex-shrink:0;
+    border-right: 1px solid var(--line);
+    padding: 28px 14px;
+    display:flex;
+    flex-direction:column;
+    gap: 26px;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    padding: 0 10px;
+  }
+  .brand .mark{
+    width:8px; height:8px; border-radius:2px;
+    background: var(--accent);
+    transform: rotate(45deg);
+    flex-shrink:0;
+  }
+  .brand .name{ font-size:15px; font-weight:600; letter-spacing:0.3px; }
+  .brand .name span{ color: var(--text-dim); font-weight:400; }
+
+  nav{ display:flex; flex-direction:column; gap:2px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding: 9px 10px;
+    border-radius: 7px;
+    color: var(--text-dim);
+    cursor:pointer;
+    border-left: 2px solid transparent;
+    transition: color .12s ease, background .12s ease;
+  }
+  .nav-item svg{ width:16px; height:16px; flex-shrink:0; opacity:.85; }
+  .nav-item:hover{ color: var(--text); background: var(--surface); }
+  .nav-item.active{
+    color: var(--text);
+    background: var(--surface);
+    border-left-color: var(--accent);
+  }
+  .nav-item .label{ font-size:13.5px; }
+
+  .rail-foot{ margin-top:auto; padding: 0 10px; }
+  .rail-foot .status{
+    display:flex; align-items:center; gap:7px;
+    font-size:12px; color: var(--text-faint);
+  }
+  .dot{ width:6px; height:6px; border-radius:50%; background: var(--good); }
+
+  .tabbar{ display:none; }
+
+  main{ flex:1; min-width:0; padding: 34px 40px 60px; }
+  .page{ display:none; max-width: 980px; }
+  .page.active{ display:block; }
+
+  h1{ font-size:19px; font-weight:600; margin:0 0 4px; letter-spacing:.1px; }
+  .sub{ color: var(--text-dim); font-size:13px; margin:0 0 26px; }
+
+  .controls{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-bottom: 22px;
+  }
+  .field{
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .field label{ font-size:11px; color: var(--text-faint); }
+  .field input{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size:13px;
+    font-family: inherit;
+    min-width: 130px;
+  }
+  .field input:focus{ outline: 1.5px solid var(--accent); border-color: var(--accent); }
+  .btn{
+    align-self:flex-end;
+    background: var(--accent);
+    color: #1A1305;
+    border:none;
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size:13px;
+    font-weight:600;
+    font-family: inherit;
+    cursor:pointer;
+  }
+  .btn:hover{ filter: brightness(1.06); }
+  .btn:focus-visible, .nav-item:focus-visible{ outline: 2px solid var(--accent); outline-offset:2px; }
+  .meta{ color: var(--text-faint); font-size:12px; align-self:flex-end; padding-bottom:9px; }
+
+  table{ width:100%; border-collapse: collapse; }
+  thead th{
+    text-align:left;
+    font-size:11px;
+    font-weight:500;
+    color: var(--text-faint);
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  thead th.num{ text-align:right; }
+  tbody td{
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--line);
+    font-size:13.5px;
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ text-align:right; }
+  td.zero{ color: var(--text-faint); }
+
+  .links{ margin-top: 26px; display:flex; flex-direction:column; gap:1px; }
+  .link-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 15px 4px;
+    border-bottom: 1px solid var(--line);
+    cursor:pointer;
+    color: var(--text);
+  }
+  .link-row:last-child{ border-bottom:none; }
+  .link-row .t{ font-size:13.5px; font-weight:500; }
+  .link-row .d{ font-size:12px; color: var(--text-dim); margin-top:2px; }
+  .link-row .chev{ color: var(--text-faint); }
+  .link-row:hover .t{ color: var(--accent); }
+
+  .stat-row{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom: 26px; }
+  .stat{
+    flex:1; min-width:150px;
+    background: var(--surface);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .stat .n{ font-size:22px; font-weight:600; }
+  .stat .l{ font-size:12px; color: var(--text-dim); margin-top:4px; }
+
+  .empty{
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align:center;
+    color: var(--text-dim);
+    font-size:13px;
+  }
+
+  @media (max-width: 800px){
+    .rail{ display:none; }
+    .tabbar{
+      display:flex; gap: 4px;
+      overflow-x:auto;
+      padding: 12px 14px 0;
+      border-bottom: 1px solid var(--line);
+      -ms-overflow-style:none; scrollbar-width:none;
+    }
+    .tabbar::-webkit-scrollbar{ display:none; }
+    .tabbar .tab{
+      flex-shrink:0;
+      padding: 10px 12px 12px;
+      font-size:13px;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      white-space:nowrap;
+      cursor:pointer;
+    }
+    .tabbar .tab.active{ color: var(--text); border-bottom-color: var(--accent); }
+    main{ padding: 20px 16px 50px; }
+    .controls{ align-items:stretch; }
+    .btn, .meta{ align-self:flex-start; }
+    table{ font-size:12.5px; }
+    thead th:nth-child(3), td:nth-child(3){ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="rail">
+    <div class="brand">
+      <span class="mark"></span>
+      <span class="name">GRAVITY <span>ars</span></span>
+    </div>
+    <nav id="nav"></nav>
+    <div class="rail-foot">
+      <div class="status"><span class="dot"></span> ระบบทำงานปกติ</div>
+    </div>
+  </div>
+
+  <div class="tabbar" id="tabbar"></div>
+
+  <main>
+
+    <section class="page" id="page-analytics">
+      <h1>Product performance</h1>
+      <p class="sub">คลิก การแปลง และค่าคอมมิชชันของแต่ละสินค้า</p>
+
+      <div class="controls">
+        <div class="field">
+          <label>จาก</label>
+          <input type="text" value="14 ส.ค. 2569">
+        </div>
+        <div class="field">
+          <label>ถึง</label>
+          <input type="text" value="13 ก.ย. 2569">
+        </div>
+        <button class="btn">ดูข้อมูล</button>
+        <span class="meta">อัปเดต 15:20:45</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th class="num">Clicks</th>
+            <th class="num">Conversions</th>
+            <th class="num">CVR</th>
+            <th class="num">Commission</th>
+            <th class="num">Comm / click</th>
+          </tr>
+        </thead>
+        <tbody id="perf-body"></tbody>
+      </table>
+
+      <div class="links">
+        <div class="link-row">
+          <div>
+            <div class="t">สถานะระบบ</div>
+            <div class="d">AI providers, ตารางที่บันทึกแล้ว, log การเรียก API</div>
+          </div>
+          <span class="chev">›</span>
+        </div>
+        <div class="link-row">
+          <div>
+            <div class="t">สินค้าทั้งหมด</div>
+            <div class="d">กดเพื่อดูรายการ</div>
+          </div>
+          <span class="chev">›</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-engine">
+      <h1>Product engine</h1>
+      <p class="sub">สินค้าที่ระบบสร้างและกำลังทดสอบอยู่</p>
+      <div class="stat-row">
+        <div class="stat"><div class="n">128</div><div class="l">สินค้าทั้งหมด</div></div>
+        <div class="stat"><div class="n">6</div><div class="l">กำลังทดสอบ</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">แปลงสำเร็จวันนี้</div></div>
+      </div>
+      <div class="empty">ยังไม่มีสินค้าใหม่ในคิว — ระบบจะดึงจาก Market Discovery อัตโนมัติ</div>
+    </section>
+
+    <section class="page" id="page-health">
+      <h1>System health</h1>
+      <p class="sub">สถานะของ AI providers และ background jobs</p>
+      <div class="stat-row">
+        <div class="stat"><div class="n" style="color:var(--good)">Online</div><div class="l">API หลัก</div></div>
+        <div class="stat"><div class="n">42ms</div><div class="l">Latency เฉลี่ย</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">Error วันนี้</div></div>
+      </div>
+      <div class="empty">ไม่มีเหตุการณ์ผิดปกติในช่วง 24 ชั่วโมงที่ผ่านมา</div>
+    </section>
+
+    <section class="page" id="page-community">
+      <h1>Community hub</h1>
+      <p class="sub">ความคิดเห็นและกิจกรรมจากผู้อ่าน</p>
+      <div class="empty">ยังไม่มีกิจกรรมใหม่</div>
+    </section>
+
+    <section class="page" id="page-market">
+      <h1>Market discovery</h1>
+      <p class="sub">เทรนด์และโอกาสสินค้าที่ระบบพบล่าสุด</p>
+      <div class="empty">รอบการค้นหาถัดไปจะเริ่มอัตโนมัติ</div>
+    </section>
+
+    <section class="page" id="page-agent">
+      <h1>Multi-agent</h1>
+      <p class="sub">งานที่ agent แต่ละตัวกำลังทำอยู่</p>
+      <div class="empty">ไม่มี agent ทำงานอยู่ในขณะนี้</div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const sections = [
+    { id: 'analytics', label: 'Analytics', icon: 'M4 19h16M7 16v-5M12 16V6M17 16v-9' },
+    { id: 'engine',    label: 'Product engine', icon: 'M12 2l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-1.5z' },
+    { id: 'health',    label: 'System health', icon: 'M4 12h4l2-7 4 14 2-7h4' },
+    { id: 'community', label: 'Community hub', icon: 'M8 12a3 3 0 100-6 3 3 0 000 6zm8 0a3 3 0 100-6 3 3 0 000 6zM3 20c0-3 2.5-5 5-5s5 2 5 5M11 20c0-3 2.5-5 5-5s5 2 5 5' },
+    { id: 'market',    label: 'Market discovery', icon: 'M11 4a7 7 0 104.9 12l4.5 4.5M11 4a7 7 0 017 7' },
+    { id: 'agent',     label: 'Multi-agent', icon: 'M9 7h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2zM12 3v4M9 11h.01M15 11h.01M9 15h6' },
+  ];
+
+  const nav = document.getElementById('nav');
+  const tabbar = document.getElementById('tabbar');
+
+  sections.forEach((s, i) => {
+    const item = document.createElement('div');
+    item.className = 'nav-item' + (i === 0 ? ' active' : '');
+    item.dataset.target = s.id;
+    item.tabIndex = 0;
+    item.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + s.icon + '"/></svg><span class="label">' + s.label + '</span>';
+    nav.appendChild(item);
+
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (i === 0 ? ' active' : '');
+    tab.dataset.target = s.id;
+    tab.textContent = s.label;
+    tabbar.appendChild(tab);
+  });
+
+  function activate(id){
+    document.querySelectorAll('.nav-item').forEach(function(el){ el.classList.toggle('active', el.dataset.target === id); });
+    document.querySelectorAll('.tabbar .tab').forEach(function(el){ el.classList.toggle('active', el.dataset.target === id); });
+    document.querySelectorAll('.page').forEach(function(el){ el.classList.toggle('active', el.id === 'page-' + id); });
+  }
+
+  document.querySelectorAll('.nav-item, .tabbar .tab').forEach(function(el){
+    el.addEventListener('click', function(){ activate(el.dataset.target); });
+    el.addEventListener('keydown', function(e){ if(e.key === 'Enter') activate(el.dataset.target); });
+  });
+
+  activate('analytics');
+
+  var rows = [
+    [10,7,0],[100,8,0],[101,13,0],[102,4,0],[103,4,0],
+    [104,135,0],[105,5,0],[106,5,0],[107,4,0],[109,6,0],
+  ];
+  var body = document.getElementById('perf-body');
+  rows.forEach(function(r){
+    var id = r[0], clicks = r[1], conv = r[2];
+    var cvr = clicks ? Math.round((conv/clicks)*100) : 0;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="mono">' + id + '</td>' +
+      '<td class="num mono">' + clicks + '</td>' +
+      '<td class="num mono ' + (conv===0?'zero':'') + '">' + conv + '</td>' +
+      '<td class="num mono ' + (cvr===0?'zero':'') + '">' + cvr + '%</td>' +
+      '<td class="num mono ' + (conv===0?'zero':'') + '">$0</td>' +
+      '<td class="num mono ' + (conv===0?'zero':'') + '">$0</td>';
+    body.appendChild(tr);
+  });
+</script>
+
+</body>
+</html>
