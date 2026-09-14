@@ -271,6 +271,26 @@
   #stat-table td.an-commission{ color:var(--amber); font-weight:600; }
   .ag-stat-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:12px; }
   @media(max-width:420px){ .ag-stat-row{ grid-template-columns:repeat(2,1fr); } }
+
+  .ag-stat-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; }
+  .ag-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .ag-stat-num{ font-size:22px; font-weight:500; line-height:1; color:var(--text); }
+  .ag-stat-label{ color:var(--text-faint); font-size:11px; }
+  .ag-agent-list{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:4px 16px; }
+  .ag-agent-row{ border-bottom:1px solid var(--line); padding:11px 0; display:flex; align-items:center; gap:10px; }
+  .ag-agent-row:last-child{ border-bottom:none; }
+  .ag-agent-dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; background:var(--text-faint); }
+  .ag-agent-dot.live{ background:var(--teal); }
+  .ag-agent-dot.err{ background:var(--red); }
+  .ag-agent-name{ font-size:13px; color:var(--text); flex:1; }
+  .btn-icon-run{ background:transparent; border:none; color:var(--amber); font-size:16px; cursor:pointer; padding:4px; line-height:1; opacity:0.65; flex-shrink:0; }
+  .btn-icon-run:hover{ opacity:1; }
+  .ag-section-label{ font-size:11px; font-weight:500; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .ag-section-label::after{ content:""; flex:1; height:1px; background:var(--line); }
+  .ag-decision{ border-radius:12px; padding:14px 16px; margin-bottom:20px; }
+  .ag-decision.leak{ background:rgba(226,96,79,0.08); border:0.5px solid rgba(226,96,79,0.3) !important; color:var(--text); }
+  .ag-decision.converting{ background:rgba(79,209,197,0.08); border:0.5px solid rgba(79,209,197,0.3) !important; color:var(--text); }
+  .ag-decision.notraffic, .ag-decision.insufficient{ background:var(--panel); border:1px solid var(--line) !important; }
 </style>
 </head>
 <body>
@@ -970,7 +990,7 @@ switchTab = function(tab) {
     <h2 style="margin:0; color:var(--text);">🤖 Multi-Agent Foundation</h2>
     <div style="display:flex; gap:8px;">
       <button class="btn-primary" id="ag-runall-btn" onclick="runAllAgents()" style="width:auto; padding:8px 14px; font-size:12.5px; font-weight:700;">▶ รันทั้งหมด</button>
-      <button class="btn-ghost" id="ag-refresh-btn" onclick="loadAgentsPanel()" style="width:auto; padding:8px 14px; font-size:12.5px;">↻ รีเฟรช</button>
+      <button class="btn-ghost" id="ag-refresh-btn" onclick="loadAgentsPanel()" style="width:auto; padding:8px 14px; font-size:12.5px;" style="width:auto;padding:9px 11px;font-size:14px;">↻</button>
     </div>
   </div>
   <p style="color:var(--text-faint); font-size:13px; margin:0 0 16px;" id="ag-updated">ยังไม่ได้โหลด</p>
@@ -1017,7 +1037,7 @@ switchTab = function(tab) {
   <div id="ag-growth-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
   <div class="sh-phase-title" style="margin-top:16px;">AGENTS (13)</div>
-  <div class="sh-card-grid" id="ag-agent-list"></div>
+  <div class="ag-agent-list" id="ag-agent-list"></div>
 </section>
 
 <style>
@@ -1080,7 +1100,8 @@ async function loadAgentsPanel() {
     data.agents.forEach(a => {
       const cls = AG_STATUS_CLASS[a.status] || 'unknown';
       const card = document.createElement('div');
-      card.className = `sh-card ${cls}`;
+      const dotCls = a.status==='WORKING'||a.status==='SUCCESS'?'live':a.status==='FAILED'||a.status==='BLOCKED'?'err':'';
+        card.className = 'ag-agent-row';
       const lastActivity = a.lastActivityAt ? new Date(a.lastActivityAt).toLocaleString('th-TH') : 'ยังไม่เคยทำงาน';
       card.innerHTML = `
         <div class="sh-card-top">
