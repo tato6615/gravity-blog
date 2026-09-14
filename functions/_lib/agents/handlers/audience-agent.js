@@ -39,6 +39,69 @@ function uniqueNonEmpty(values) {
   return out;
 }
 
+// Intent funnel classification (spec section 7: Awareness → Interest →
+// Research → Comparison → Consideration → Action → Purchase). Deliberately
+// NOT a single invented score — per spec section 9 ("never invent"), this
+// counts which `keywords` columns actually have data for the sampled
+// products and reports the distribution as evidence. Mapping is a direct
+// reading of what each column already means in `13_DATA/SCHEMA.md`, not a
+// new classifier: problem_keywords = someone just realized they have a
+// problem (Awareness); faq_keywords = still learning basics (Interest);
+// best_keywords/review_keywords = actively researching options (Research);
+// comparison_keywords/alternative_keywords = weighing named options
+// (Comparison/Consideration); price_keywords = checking cost before buying
+// (Action); search_intent = the keyword tool's own transactional/
+// commercial/informational label, used to distinguish Consideration from
+// Purchase where price_keywords data alone can't tell the two apart.
+const INTENT_STAGE_COLUMNS = {
+  awareness: ['problem_keywords'],
+  interest: ['faq_keywords'],
+  research: ['best_keywords', 'review_keywords'],
+  comparison: ['comparison_keywords', 'alternative_keywords'],
+  consideration: ['comparison_keywords', 'alternative_keywords'],
+  action: ['price_keywords'],
+  purchase: [] // derived from search_intent === 'transactional' below, not a keyword column
+};
+
+function classifyIntentSignals(sample) {
+  const stageCounts = { awareness: 0, interest: 0, research: 0, comparison: 0, consideration: 0, action: 0, purchase: 0 };
+  const searchIntentLabels = {};
+
+  for (const row of sample) {
+    for (const [stage, cols] of Object.entries(INTENT_STAGE_COLUMNS)) {
+      if (cols.some(col => row[col] && String(row[col]).trim())) stageCounts[stage] += 1;
+    }
+    const label = row.search_intent && String(row.search_intent).trim().toLowerCase();
+    if (label) {
+      searchIntentLabels[label] = (searchIntentLabels[label] || 0) + 1;
+      if (label === 'transactional') stageCounts.purchase += 1;
+    }
+  }
+
+  const totalWithAnySignal = sample.length;
+  const distribution = Object.fromEntries(
+    Object.entries(stageCounts).map(([stage, count]) => [
+      stage,
+      { productCount: count, coverage: totalWithAnySignal ? Math.round((count / totalWithAnySignal) * 100) : 0 }
+    ])
+  );
+
+  const dominantStage = Object.entries(stageCounts).reduce(
+    (best, [stage, count]) => (count > best.count ? { stage, count } : best),
+    { stage: null, count: 0 }
+  );
+
+  return {
+    sampleSize: totalWithAnySignal,
+    distribution,
+    dominantStage: dominantStage.count > 0 ? dominantStage.stage : null,
+    searchIntentLabels,
+    note: dominantStage.count > 0
+      ? `จากสินค้า ${totalWithAnySignal} รายการ พบ evidence ของ funnel stage "${dominantStage.stage}" มากที่สุด (${dominantStage.count} รายการ) — นับจากคอลัมน์ keywords ที่มีข้อมูลจริงเท่านั้น ไม่ได้ให้คะแนน/เดา`
+      : 'ไม่มี evidence คอลัมน์ intent-related ใด ๆ เลยในสินค้ากลุ่มนี้ (ทุกคอลัมน์ว่างหมด) — ไม่สามารถระบุ funnel stage ได้'
+  };
+}
+
 async function analyzeOneMarket(env, task) {
   let payload;
   try {
@@ -51,7 +114,9 @@ async function analyzeOneMarket(env, task) {
   const { results: sample } = await env.DB.prepare(`
     SELECT p.id, p.product_name,
            a.target_audience, a.pros, a.cons,
-           k.search_intent, k.problem_keywords, k.faq_keywords
+           k.search_intent, k.problem_keywords, k.faq_keywords,
+           k.best_keywords, k.review_keywords, k.comparison_keywords,
+           k.alternative_keywords, k.price_keywords
     FROM products p
     LEFT JOIN ai_analysis a ON a.product_id = p.id AND a.language = 'th'
     LEFT JOIN keywords k ON k.product = p.id
@@ -71,6 +136,7 @@ async function analyzeOneMarket(env, task) {
       targetAudienceSignals: [],
       painPointSignals: [],
       searchIntentSignals: [],
+      intent: classifyIntentSignals([]),
       fallbackFromMarket: { contentAngles: contentAngles || null, aiReasoning: aiReasoning || null }
     };
   } else {
@@ -92,7 +158,8 @@ async function analyzeOneMarket(env, task) {
       sampleProductIds: sample.map(r => r.id),
       targetAudienceSignals,
       painPointSignals,
-      searchIntentSignals
+      searchIntentSignals,
+      intent: classifyIntentSignals(sample)
     };
   }
 
