@@ -1,8 +1,18 @@
-[DONE.md](https://github.com/user-attachments/files/31093606/DONE.md)
 # DONE — งานที่เสร็จแล้ว
 **Archive เท่านั้น — ไม่ต้องทำซ้ำ**
 
 ---
+
+## 2026-09-15
+
+| งาน | หลักฐาน/Commit | ผลลัพธ์ |
+|---|---|---|
+| **[SEC-001]** Rotate Google Service Account Key (`ga4-views-sync@gen-lang-client-0149890375`) — ลบ key ID `416a0ab80a23970e745fb6dcc846292f705ea2c1` + สร้างใหม่ + อัปเดต GitHub Secret `GA4_SERVICE_ACCOUNT_KEY` | Google Cloud Console | key เก่าถูก revoke ✅ |
+| **[SEC-002]** Rotate credentials ที่หลุดทั้งหมด — Discord Webhook URL (สร้างใหม่), Cloudflare API Token (revoke + สร้างใหม่), Telegram Bot Token (revoke ผ่าน @BotFather + สร้างใหม่) | Discord/Cloudflare/Telegram Dashboard | credentials เก่าทั้งหมด revoke ✅ |
+| Worker "af": แก้บั๊กสินค้าซ้ำ (check-then-insert race condition) — atomic insert ด้วย UNIQUE constraint | Dashboard Quick Edit | `COUNT(*) = 1` ยืนยันไม่ซ้ำ ✅ |
+| **[GRAVITY ARS STEP 1]** ระบบ 13 AI Agents ครบ — registry.js + capabilities.js + agent files ทั้ง 13 ตัว (opportunity, audience, offer, content, media, distribution และ sub-agents) | commit `ad1fd285` | agents โหลดและ register ครบ ✅ |
+| **[GRAVITY ARS STEP 2]** control-agent.js — orchestrator กลางที่รับ task จาก tick.js, เลือก agent ที่เหมาะสมจาก registry, และ chain pipeline ตามลำดับ opportunity→audience→offer→content→media→distribution | commit `ad1fd285` | control-agent รัน pipeline ครบ ✅ |
+| **[GRAVITY ARS STEP 3]** tick.js อัตโนมัติทุก 10 นาที — Cloudflare Cron Trigger เรียก control-agent.js วน loop ตลอด ไม่ต้องรัน manual | commit `ad1fd285` | tick ยืนยันใน Cloudflare dashboard ✅ |
 
 ## 2026-08-14
 
