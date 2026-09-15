@@ -71,9 +71,10 @@ worker-af/
 | eBay adapter | ✅ deploy แล้ว |
 | Generic fallback adapter | ✅ deploy แล้ว |
 | Root `/` | ✅ 200 ปกติ |
-| ทดสอบกับ URL สินค้า Amazon จริง | ⏳ ยังไม่ทดสอบ |
+| ทดสอบกับ URL สินค้า Amazon จริง | ✅ ทดสอบแล้ว 2026-09-15 (`B07S1BZT9J`, Dogline dog leash → `productId: 280`, field ครบ) |
 | ทดสอบกับ URL สินค้า eBay จริง | ⏳ ยังไม่ทดสอบ |
 | ทดสอบกับ URL จากเว็บอื่น (Shopee/Lazada) | ⏳ ยังไม่ทดสอบ |
+| Dedup สินค้าซ้ำ (UNIQUE constraint บน `normalized_source_url`) | ✅ แก้ + deploy + ทดสอบผ่านแล้ว 2026-09-15 — ดู `04_BUG_DATABASE/BUG_006_PRODUCT_DUPLICATE_RACE.md` |
 
 ---
 
@@ -81,3 +82,5 @@ worker-af/
 
 - Grist 429 จาก Worker "af": ~15 calls/step × 8 steps = ~120 calls/สินค้า แก้แล้วเหลือ ~11 calls/step ด้วย `buildTableColumnsLite` — แต่ถ้า import หลายสินค้าพร้อมกันยังอาจชน quota ได้
 - ดู `04_BUG_DATABASE/BUG_002_GRIST_429.md` ถ้าเจอ 429 อีก
+- Import ซ้ำ URL เดิม (กดปุ่มซ้ำ/retry) เคยทำให้เกิดสินค้าซ้ำจาก race condition — แก้แล้วด้วย atomic insert + UNIQUE index ดู `04_BUG_DATABASE/BUG_006_PRODUCT_DUPLICATE_RACE.md`
+- **⚠️ Worker "af" deploy ผ่าน Cloudflare Dashboard Quick Edit เท่านั้น ไม่มี git** — โค้ด `db.js`/`import.js` เวอร์ชันล่าสุดของ Worker af **ไม่ได้อยู่ใน repo `gravity-blog` นี้เลย** เอกสารนี้บันทึกไว้แค่ "อะไรถูกแก้และผลทดสอบ" เท่านั้น ถ้าต้องการโค้ดจริงต้องคัดลอกจาก Cloudflare Dashboard โดยตรง

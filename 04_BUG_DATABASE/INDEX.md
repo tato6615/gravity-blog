@@ -11,6 +11,7 @@
 | BUG-003 | D1 "too many SQL variables" → sort ผิดทั้งเว็บ | 2026-08-13 | ✅ แก้แล้ว | `BUG_003_D1_SQL_VARIABLES.md` |
 | BUG-004 | `/go/[id]` redirect → browser ดาวน์โหลดไฟล์แทน | 2026-08-14 | ✅ แก้แล้ว | `BUG_004_GO_REDIRECT.md` |
 | BUG-005 | HTTP 500 ดิบ — route function ไม่มี try/catch | 2026-08-14 | ✅ แก้แล้ว | `BUG_005_HTTP500_NO_TRYCATCH.md` |
+| BUG-006 | สินค้าซ้ำใน Worker "af" — check-then-insert race condition | 2026-09-15 | ✅ แก้แล้ว | `BUG_006_PRODUCT_DUPLICATE_RACE.md` |
 
 ---
 
@@ -20,3 +21,4 @@
 2. **Grist API call มากเกินโควตา** → BUG-002
 3. **D1 query ไม่ chunk** → BUG-003
 4. **Catch block เงียบๆ ซ่อน error** → BUG-003
+5. **Dedup แบบ check-then-insert ไม่ atomic (มี network call คั่นกลาง)** → BUG-006 — ให้พึ่ง UNIQUE constraint ของ DB แทนเสมอ

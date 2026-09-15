@@ -85,3 +85,18 @@
 - [ ] Mailchimp secrets ยังไม่ได้ตั้งจริงใน Cloudflare
 - [ ] Revoke + สร้าง `GRIST_API_KEY` ใหม่ (เคยหลุดในแชทก่อนหน้า)
 - [ ] Workflow อัตโนมัติสำหรับ `sync-ga4-views-to-grist.js` ยังไม่มี (รันมือ)
+
+### 2026-09-15 — ✅ Worker "af": แก้บั๊กสินค้าซ้ำ (check-then-insert race condition) เสร็จสมบูรณ์
+
+**สรุปผล:** ปิดเคสบั๊กสินค้าซ้ำใน Worker "af" (ระบบแยกจาก repo นี้ ดู `02_SYSTEMS/WORKER_AF.md`) ครบทั้ง fix + migration cleanup + UNIQUE index + deploy + ทดสอบจริงผ่าน HTTP แล้ว รายละเอียดเต็มดู `04_BUG_DATABASE/BUG_006_PRODUCT_DUPLICATE_RACE.md`
+
+**สิ่งที่ทำ:**
+1. เขียน `createProductIfNotExists()` ใน `db.js` (atomic insert พึ่ง UNIQUE constraint) + แก้ `import.js` เอา early dedup check ออก
+2. Cleanup duplicate เก่า 3 กลุ่ม (id 16, 195, 196, 197 — เจอกลุ่มที่ 3 ระหว่าง verify รอบสุดท้าย ไม่ใช่แค่ 2 กลุ่มที่คาดไว้ตอนแรก)
+3. สร้าง `idx_products_normalized_source_url` UNIQUE INDEX บน D1 สำเร็จ
+4. Deploy โค้ดใหม่เข้า Worker "af" ผ่าน Cloudflare Dashboard
+5. ทดสอบจริง: import URL Amazon จริงซ้ำ 3 ครั้งติดกัน → เหลือแถวเดียวใน D1 (`COUNT(*) = 1`) ยืนยันถูกต้อง
+
+**หมายเหตุสำคัญ:** โค้ด `db.js`/`import.js` ของ Worker "af" **ไม่มีอยู่ใน repo `gravity-blog` นี้** เพราะ deploy ผ่าน Cloudflare Dashboard Quick Edit เท่านั้น ไม่มี git — เอกสารนี้และ `04_BUG_DATABASE/BUG_006...md` เก็บไว้แค่บันทึกสถานะ/ผลทดสอบ ไม่ใช่ตัวโค้ดจริง
+
+**งานที่เหลือ (ไม่ใช่ priority):** พิจารณาเพิ่ม non-blocking early-check เพื่อลด compute ที่เสียตอนแพ้ race — ไม่จำเป็นเพราะ correctness ปลอดภัยด้วย UNIQUE constraint แล้ว
