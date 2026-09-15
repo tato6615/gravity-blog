@@ -2,10 +2,6 @@
 **อัปเดตล่าสุด:** 2026-09-15
 ## 🟢 ปกติ (ทำได้เรื่อยๆ)
 
-### [FEAT-002] Tumblr Integration
-ใช้ pattern เดียวกับ Discord (`functions/api/send-discord.js`)
-ต้องการ 5 keys: Consumer Key/Secret, OAuth Token/Secret, Blog ID
-ดู: `15_INTEGRATIONS/THIRD_PARTY.md`
 
 ### [FEAT-003] buy_url Audit ทุก Product ใน Grist
 เช็คว่ามีสินค้าตัวไหนที่ affiliate_link พัง/ว่าง/ขาด https:// ซ่อนอยู่อีกไหม
