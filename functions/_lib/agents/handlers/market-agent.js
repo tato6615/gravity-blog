@@ -40,15 +40,19 @@ export async function executeMarketScan(env, task) {
     const report = {
       generatedAt: nowIso(),
       status: 'NO_CANDIDATES',
-      note: 'ไม่มี market candidate เหลืออยู่เลย (status=candidate ว่างเปล่า) — Worker af\'s market-discovery.js อาจยังไม่เคยรันรอบใหม่ หรือทุกอันถูกคัดเลือก/archive ไปหมดแล้ว ไม่มีข้อมูลใหม่ให้รายงานตอนนี้',
+      note:
+        'ไม่มี market candidate เหลืออยู่เลย (status=candidate ว่างเปล่า) — ' +
+        "Worker af's market-discovery.js อาจยังไม่เคยรันรอบใหม่ หรือทุกอันถูกคัดเลือก/archive ไปหมดแล้ว " +
+        'ไม่มีข้อมูลใหม่ให้รายงานตอนนี้',
       candidateCount: 0,
       topCandidates: []
     };
+
     await writeMemory(env, 'market_reports', 'latest', report, 'market');
     return report;
   }
 
-  const topCandidates = candidates.slice(0, MAX_CANDIDATES_IN_REPORT).map(c => ({
+  const topCandidates = candidates.slice(0, MAX_CANDIDATES_IN_REPORT).map((c) => ({
     id: c.id,
     name: c.name,
     parentMarketId: c.parent_market_id,
@@ -73,10 +77,16 @@ export async function executeMarketScan(env, task) {
     createdAt: c.created_at
   }));
 
+  const highestScore = candidates[0].score_total;
+  const lowestScore = candidates[candidates.length - 1].score_total;
+
   const report = {
     generatedAt: nowIso(),
     status: 'CANDIDATES_FOUND',
-    note: `พบ ${candidates.length} market candidate ที่ยังไม่ถูกคัดเลือก/archive — เรียงตาม score_total มากไปน้อย (คะแนนสูงสุด ${candidates[0].score_total}, ต่ำสุด ${candidates[candidates.length - 1].score_total}) ส่งต่อให้ Opportunity Agent ประเมินว่าควรเลือกตัวไหน`,
+    note:
+      `พบ ${candidates.length} market candidate ที่ยังไม่ถูกคัดเลือก/archive — ` +
+      `เรียงตาม score_total มากไปน้อย (คะแนนสูงสุด ${highestScore}, ต่ำสุด ${lowestScore}) ` +
+      'ส่งต่อให้ Opportunity Agent ประเมินว่าควรเลือกตัวไหน',
     candidateCount: candidates.length,
     topCandidates
   };
