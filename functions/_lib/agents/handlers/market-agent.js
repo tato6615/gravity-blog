@@ -6,9 +6,9 @@
  * live schema 2026-09-13) and report what candidate markets exist, ranked
  * by score_total.
  *
- * Deliberately read-only: does NOT change any market's `status` and does
- * NOT invent a score of its own. Per registry.js this agent's role is
- * "discover_markets / detect_demand / detect_trends / identify_problems /
+ * Deliberately read-only re: markets: does NOT change any market's `status`
+ * and does NOT invent a score of its own. Per registry.js this agent's role
+ * is "discover_markets / detect_demand / detect_trends / identify_problems /
  * identify_opportunities" — scoring already happened upstream (Worker af),
  * deciding what to DO with a score is Opportunity Agent's job
  * (opportunity-agent.js), kept separate on purpose (same reasoning
@@ -16,11 +16,61 @@
  *
  * If there are no unprocessed candidates, says so plainly instead of
  * fabricating demand data to report on (never invent, per spec section 9).
+ *
+ * --- AGENT-003: Self-refill when Worker "af" stalls --------------------
+ * Market Agent depends on Worker af to keep feeding new products in. If af
+ * stops, the `markets` candidate queue silently runs dry with no clear
+ * signal. When there are zero candidates, we check af's own health
+ * endpoint; if af reports itself stale (or is unreachable at all — treated
+ * as worse than stale), we fall back to re-queuing already-enriched
+ * products that haven't finished distribution to every platform yet, so
+ * the pipeline doesn't sit fully idle waiting on af to come back.
+ * -------------------------------------------------------------------------
  */
 
-import { writeMemory, nowIso } from '../db.js';
+import { writeMemory, nowIso, createTask } from '../db.js';
 
 const MAX_CANDIDATES_IN_REPORT = 10;
+const WORKER_AF_HEALTH_URL = 'https://af.pakpiromjajaja.workers.dev/api/agent-health';
+const FALLBACK_BATCH_SIZE = 5;
+
+async function checkWorkerAfHealth() {
+  try {
+    const res = await fetch(WORKER_AF_HEALTH_URL);
+    return await res.json();
+  } catch (err) {
+    // เข้าไม่ถึง Worker af เลย = แย่กว่า stale อีก, ถือว่า stale
+    return { stale: true, error: err.message || String(err) };
+  }
+}
+
+async function requeueUndistributedProducts(env) {
+  const { results = [] } = await env.DB.prepare(`
+    SELECT id, name, channels
+    FROM products
+    WHERE pipeline_status = 'enriched'
+      AND (channels IS NULL OR channels NOT LIKE '%facebook%')
+    ORDER BY updated_at ASC
+    LIMIT ?
+  `).bind(FALLBACK_BATCH_SIZE).all();
+
+  const tasks = [];
+  for (const p of results) {
+    try {
+      const task = await createTask(env, {
+        senderAgent: 'market',
+        receiverAgent: 'distribution',
+        messageType: 'distribution',
+        payload: { productId: p.id, reason: 'worker_af_stale_fallback' }
+      });
+      tasks.push({ productId: p.id, taskId: task.id, ok: true });
+    } catch (err) {
+      // อย่าให้ 1 task ที่ fail ทำให้ทั้ง batch ล้ม — เก็บ error ไว้รายงาน แล้วไปต่อ
+      tasks.push({ productId: p.id, ok: false, error: err.message || String(err) });
+    }
+  }
+  return tasks;
+}
 
 export async function executeMarketScan(env, task) {
   if (!env.DB) throw new Error('D1 binding (env.DB) ไม่พร้อมใช้งาน');
@@ -37,6 +87,16 @@ export async function executeMarketScan(env, task) {
   `).all();
 
   if (!candidates.length) {
+    const health = await checkWorkerAfHealth();
+    let fallback = null;
+
+    if (health.stale) {
+      const tasks = await requeueUndistributedProducts(env);
+      fallback = { triggered: true, workerAfHealth: health, requeuedTasks: tasks };
+    } else {
+      fallback = { triggered: false, workerAfHealth: health };
+    }
+
     const report = {
       generatedAt: nowIso(),
       status: 'NO_CANDIDATES',
@@ -45,7 +105,8 @@ export async function executeMarketScan(env, task) {
         "Worker af's market-discovery.js อาจยังไม่เคยรันรอบใหม่ หรือทุกอันถูกคัดเลือก/archive ไปหมดแล้ว " +
         'ไม่มีข้อมูลใหม่ให้รายงานตอนนี้',
       candidateCount: 0,
-      topCandidates: []
+      topCandidates: [],
+      fallback
     };
 
     await writeMemory(env, 'market_reports', 'latest', report, 'market');
