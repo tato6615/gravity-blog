@@ -1,11 +1,5 @@
 ## 🤖 Agent System — งานค้าง (ยืนยันจาก tick.js)
 
-### [AGENT-001] Full Priority Scoring ข้าม 13 Agents
-ระบบ tick.js ปัจจุบัน schedule agents แบบ round-robin หรือ fixed order — ยังไม่มี priority scoring แบบ dynamic ที่เปรียบเทียบ urgency/value ข้าม agents ทั้ง 13 ตัวพร้อมกัน
-- [ ] ออกแบบ scoring model: urgency × value × cost ต่อ agent
-- [ ] implement ใน `control-agent.js` หรือ `tick.js` ให้ agent ที่ score สูงสุดรันก่อน
-- [ ] ทดสอบว่า pipeline chain ยังได้ลำดับถูกต้อง (opportunity→audience→offer→content→media→distribution)
-
 ### [AGENT-002] Real-time Event / Webhook Response
 tick.js รันทุก 10 นาที — ทำให้ระบบตอบสนองต่อ external event ได้ช้าสูงสุด 10 นาที
 - [ ] เพิ่ม webhook endpoint ที่ trigger `control-agent.js` ทันทีเมื่อมี event เข้า (เช่น สินค้าใหม่จาก Worker "af", Discord mention, Telegram command)
