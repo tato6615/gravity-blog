@@ -1,3 +1,4 @@
+cat > 05_ROADMAP/BACKLOG.md << 'ENDOFFILE'
 # BACKLOG — งานที่ต้องทำ
 **อัปเดตล่าสุด:** 2026-09-15
 
