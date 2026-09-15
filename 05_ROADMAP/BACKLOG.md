@@ -1,17 +1,3 @@
-# BACKLOG — งานที่ต้องทำ
-**อัปเดตล่าสุด:** 2026-09-15
-## 🟢 ปกติ (ทำได้เรื่อยๆ)
-
-### [REFACTOR-001] Standardize Publisher Structure
-- Telegram อยู่ใน `_lib/publishers/telegram.js`
-- Discord/Mastodon อยู่ใน `api/send-*.js`
-- ควรรวมให้เป็นมาตรฐานเดียวกัน
-
-### [TEST-001] ทดสอบ Worker "af" กับ URL สินค้าจริง
-ดูรายละเอียด: `02_SYSTEMS/WORKER_AF.md`
-
----
-
 ## 🤖 Agent System — งานค้าง (ยืนยันจาก tick.js)
 
 ### [AGENT-001] Full Priority Scoring ข้าม 13 Agents
