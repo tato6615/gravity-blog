@@ -13,11 +13,6 @@
 - [ ] ปุ่ม "💾 บันทึกทั้งหมด" → POST `/api/community-platforms`
 - [ ] โหลด platform list จาก GET `/api/community-platforms` ตอนเปิด admin
 
-### [CLEAN-001] ลบ debug endpoint ที่ค้างอยู่
-- [ ] `functions/api/debug-tumblr-env.js` — ควรลบทิ้ง
-- [ ] `functions/api/debug-env.js` — ถ้ายังมีอยู่
----
-
 ## 🟢 ปกติ (ทำได้เรื่อยๆ)
 
 ### [FEAT-002] Tumblr Integration
