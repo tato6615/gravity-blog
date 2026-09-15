@@ -644,9 +644,12 @@ export function formatArticleBody(text) {
       return `<ol>${items}</ol>`;
     }
 
-    if (lines.length === 1 && lines[0].length <= 50 && !/[.!?…""]$/.test(lines[0])) {
-      return `<h3>${escapeHtml(lines[0])}</h3>`;
-    }
+    if (lines.length === 1) {
+    if (/^###\s+/.test(lines[0])) return `<h3>${escapeHtml(lines[0].replace(/^###\s+/, ''))}</h3>`;
+    if (/^##\s+/.test(lines[0]))  return `<h2>${escapeHtml(lines[0].replace(/^##\s+/, ''))}</h2>`;
+    if (/^#\s+/.test(lines[0]))   return `<h2>${escapeHtml(lines[0].replace(/^#\s+/, ''))}</h2>`;
+    if (lines[0].length <= 50 && !/[.!?…""]$/.test(lines[0])) return `<h3>${escapeHtml(lines[0])}</h3>`;
+  }
 
     return `<p>${escapeHtml(lines.join(' '))}</p>`;
   }).join('');
