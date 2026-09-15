@@ -1,18 +1,5 @@
 # BACKLOG — งานที่ต้องทำ
 **อัปเดตล่าสุด:** 2026-09-15
-
----
-
-## 🟡 ควรทำเร็ว (ภายในสัปดาห์นี้)
-
-### [FEAT-001] Community Hub — CRUD form ใน admin.html
-เป็นขั้นสุดท้ายของ Community Hub feature
-- [ ] ช่องกรอก emoji/ชื่อ/ลิงก์/cta ต่อ platform
-- [ ] ปุ่ม "ลบ" ต่อแถว
-- [ ] ปุ่ม "➕ เพิ่ม platform ใหม่"
-- [ ] ปุ่ม "💾 บันทึกทั้งหมด" → POST `/api/community-platforms`
-- [ ] โหลด platform list จาก GET `/api/community-platforms` ตอนเปิด admin
-
 ## 🟢 ปกติ (ทำได้เรื่อยๆ)
 
 ### [FEAT-002] Tumblr Integration
