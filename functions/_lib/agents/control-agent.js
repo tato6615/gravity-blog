@@ -56,6 +56,28 @@ const ORDERED_IMPLEMENTED_IDS = ['market', 'opportunity', 'audience', 'offer', '
 
 export const IMPLEMENTED_AGENT_IDS = Object.keys(AGENT_HANDLERS);
 
+// --- AGENT-001: priority scoring สำหรับกลุ่ม REPORT agents เท่านั้น ---
+const AGENT_VALUE_WEIGHT = {
+  revenue: 10, market: 8, conversion: 7, traffic: 6, growth: 5, experiment: 4
+};
+const AGENT_COST_WEIGHT = {
+  revenue: 2, conversion: 3, traffic: 3, growth: 4, experiment: 5, market: 6
+};
+
+export function computeAgentUrgency(agent, cooldownMs) {
+  if (!agent?.last_activity_at) return 1;
+  const elapsedMs = Date.now() - new Date(agent.last_activity_at).getTime();
+  if (elapsedMs <= 0) return 0;
+  return Math.min(1, elapsedMs / cooldownMs);
+}
+
+export function computeAgentScore(agentId, agent, cooldownMs) {
+  const value = AGENT_VALUE_WEIGHT[agentId] ?? 1;
+  const cost = AGENT_COST_WEIGHT[agentId] ?? 5;
+  const urgency = computeAgentUrgency(agent, cooldownMs);
+  return { agentId, urgency, value, cost, score: (urgency * value) / cost };
+}
+
 export async function runAgentOnce(env, agentId, { messageType } = {}) {
   const handlerEntry = AGENT_HANDLERS[agentId];
   const task = await createTask(env, {
