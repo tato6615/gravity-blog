@@ -61,7 +61,7 @@
  *     instead of inventing demand, but nothing here restarts discovery)
  */
 
-import { reconcileRegistry, runAgentOnce, evaluateSystemPriority, IMPLEMENTED_AGENT_IDS } from '../../_lib/agents/control-agent.js';
+import { reconcileRegistry, runAgentOnce, evaluateSystemPriority, IMPLEMENTED_AGENT_IDS, computeAgentScore } from '../../_lib/agents/control-agent.js';
 import { updateAgentStatus } from '../../_lib/agents/db.js';
 
 const TICK_COOLDOWN_MINUTES = 55; // slightly under the 1h schedule interval — REPORT agents only, see header comment
@@ -88,24 +88,38 @@ async function handleTick({ env }) {
     const ran = [];
     const skipped = [];
 
-    for (const agentId of IMPLEMENTED_AGENT_IDS) {
+    const queueDrivenIds = IMPLEMENTED_AGENT_IDS.filter(id => QUEUE_DRIVEN_AGENT_IDS.has(id));
+    const reportAgentIds = IMPLEMENTED_AGENT_IDS.filter(id => !QUEUE_DRIVEN_AGENT_IDS.has(id));
+
+    const scoredReportAgents = reportAgentIds
+      .map(agentId => {
+        const agent = agents.find(a => a.id === agentId);
+        return { agentId, ...computeAgentScore(agentId, agent, TICK_COOLDOWN_MINUTES * 60 * 1000) };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const orderedAgentIds = [...queueDrivenIds, ...scoredReportAgents.map(s => s.agentId)];
+    const scoreById = new Map(scoredReportAgents.map(s => [s.agentId, s]));
+
+    for (const agentId of orderedAgentIds) {
       const agent = agents.find(a => a.id === agentId);
       const lastRun = agent?.last_activity_at ? new Date(agent.last_activity_at).getTime() : 0;
       const isQueueDriven = QUEUE_DRIVEN_AGENT_IDS.has(agentId);
+      const scoreInfo = scoreById.get(agentId);
 
       if (agent?.status === 'WORKING') {
-        skipped.push({ agentId, reason: 'ยังอยู่ในสถานะ WORKING (อาจรันค้างจากรอบก่อน)' });
+        skipped.push({ agentId, reason: 'ยังอยู่ในสถานะ WORKING (อาจรันค้างจากรอบก่อน)', score: scoreInfo?.score });
         continue;
       }
       if (!isQueueDriven && lastRun > cutoff) {
-        skipped.push({ agentId, reason: `รันไปแล้วภายใน ${TICK_COOLDOWN_MINUTES} นาทีที่ผ่านมา` });
+        skipped.push({ agentId, reason: `รันไปแล้วภายใน ${TICK_COOLDOWN_MINUTES} นาทีที่ผ่านมา`, score: scoreInfo?.score });
         continue;
       }
       try {
         const { taskId } = await runAgentOnce(env, agentId, { messageType: 'tick' });
-        ran.push({ agentId, taskId, ok: true });
+        ran.push({ agentId, taskId, ok: true, score: scoreInfo?.score });
       } catch (err) {
-        ran.push({ agentId, ok: false, error: err.message || String(err) });
+        ran.push({ agentId, ok: false, error: err.message || String(err), score: scoreInfo?.score });
       }
     }
 
