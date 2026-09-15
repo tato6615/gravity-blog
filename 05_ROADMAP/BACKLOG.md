@@ -2,22 +2,6 @@
 **อัปเดตล่าสุด:** 2026-09-15
 ## 🟢 ปกติ (ทำได้เรื่อยๆ)
 
-
-### [FEAT-003] buy_url Audit ทุก Product ใน Grist
-เช็คว่ามีสินค้าตัวไหนที่ affiliate_link พัง/ว่าง/ขาด https:// ซ่อนอยู่อีกไหม
-```bash
-curl -s -H "Authorization: Bearer $GRIST_API_KEY" \
-  "https://docs.getgrist.com/api/docs/$GRIST_DOC_ID/tables/PRODUCTS/records" \
-  | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for r in data['records']:
-  url = r['fields'].get('affiliate_link', '')
-  if not url or not url.startswith('http'):
-    print(f\"ID {r['id']}: '{url}'\")
-"
-```
-
 ### [REFACTOR-001] Standardize Publisher Structure
 - Telegram อยู่ใน `_lib/publishers/telegram.js`
 - Discord/Mastodon อยู่ใน `api/send-*.js`
