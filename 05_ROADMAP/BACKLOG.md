@@ -100,3 +100,21 @@ Tab ใหม่ต้องมี 4 section ตามลำดับ:
 ## คำถามที่ต้องตอบก่อนเริ่ม P0.1
 ตอนนี้ AI สร้าง hook/headline กี่แบบต่อสินค้า? (เช็คจาก content generation prompt ปัจจุบัน)
 ถ้ายังเป็นแบบเดียว → เริ่มจาก P0.1 ก่อนอย่างอื่นทั้งหมด
+---
+
+## ✅ Progress Log — 2026-09-16
+
+### เสร็จแล้ว
+- **Security fix**: ลบ endpoint `/api/click` (dead code, ไม่เคยทำงานจริง — method mismatch + template placeholder ไม่เคยถูกแทนที่ + ไม่มีการกรอง bot + เป็น open-redirect vulnerability เพราะรับ `redirect` param แล้ว `Response.redirect()` ตรงๆ โดยไม่ validate). ลบไฟล์ + แก้ template 2 ไฟล์ (`en/product/dji-mini-3-pro.html`, `en/product/sample-template.html`) + ลบ health check ที่เกี่ยวข้องออกจาก `system-health.js`. Commit `8d289be`.
+- **Root cause conversion=0 ยืนยันแล้ว**: ไม่ใช่บั๊ก tracking (`/go/[id].js` กรอง bot + track click ถูกต้องอยู่แล้ว, `view` event ก็ยิงถูกจุดใน `article.js`) — สาเหตุจริงคือตาราง `conversions` ไม่เคยมีข้อมูลเข้าเลย เพราะ endpoint `/api/conversions/import` (รับรายงานจาก Amazon Associates/eBay) ไม่เคยถูกเรียกใช้งานจริงสักครั้ง
+- ตั้งค่า `IMPORT_SECRET` ใหม่ใน Cloudflare Pages env vars + ยืนยันด้วย test request ว่า endpoint ทำงานถูกต้อง (`{"ok":true,"inserted":1,"skipped":0}`) — ลบแถว test (`TEST-001`) ออกจาก `conversions` แล้ว
+
+### กำลังทำ / ค้างอยู่
+- [ ] Import ข้อมูล conversion จริงจาก Amazon Associates commission report (CSV → JSON → `/api/conversions/import`) — ต้องออกแบบ ASIN → `product_id` mapping ก่อน เพราะ CSV ของ Amazon ไม่มี internal product_id ตรงๆ
+- [ ] เช็คว่า affiliate short-link (`amzn.to/...`) ของสินค้าทั้งหมด redirect ไปถูกที่พร้อม tag `gravityos-20` จริงหรือไม่ (สุ่มเทสหลายตัว)
+
+### ยังไม่เริ่ม (ตาม priority backlog เดิม)
+- P0.1 — Content/Hook Variants (ยังไม่เช็คว่า AI สร้าง hook กี่แบบต่อสินค้าตอนนี้)
+- P0.2 ส่วนที่เหลือ — ตาราง `attention_events` เต็มรูป (scroll_25/50/75/100, exit, section, variant_id, channel) ตอนนี้มีแค่ตาราง `clicks` แบบง่าย (view/click เท่านั้น)
+- P1.1 — Funnel เต็มรูปตาม attention_events
+- P1.2, P2.1, P2.2 — ยังไม่แตะ
