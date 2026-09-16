@@ -26,12 +26,36 @@
  * find/import a product URL" case spec section 13 describes — the
  * system escalates instead of guessing, and does NOT create a downstream
  * task (there's no real offer to hand off yet).
+ *
+ * --- FIX 2026-09-16 (duplicate content bug: product 269 x42, 294 x14) ---
+ * Root cause: this file always picked matches[0] (top backlog candidate)
+ * and handed it to Content Agent, but NEVER updated that product's
+ * pipeline_status afterward. So the same product kept being the #1
+ * candidate for every new opportunity task in the same category,
+ * forever, generating duplicate content each time.
+ *
+ * Fix has two layers:
+ *   1) After a successful match, immediately UPDATE products.pipeline_status
+ *      to 'matched' so it drops out of the BACKLOG_STATUSES query on the
+ *      next run (primary fix).
+ *   2) Idempotency guard: before choosing a candidate, skip any product
+ *      that already has a row in `content` — belt-and-suspenders in case
+ *      pipeline_status wasn't updated for some reason (manual DB edits,
+ *      older rows from before this fix, etc).
+ * ---------------------------------------------------------------------------
  */
 
 import { claimNextTask, completeTask, failTask, createTask, writeMemory, nowIso } from '../db.js';
 
 const MAX_TASKS_PER_RUN = 5;
 const BACKLOG_STATUSES = ['imported', 'enriching', 'enriched'];
+
+async function hasExistingContent(env, productId) {
+  const row = await env.DB.prepare(`SELECT 1 FROM content WHERE product_id = ? LIMIT 1`)
+    .bind(productId)
+    .first();
+  return !!row;
+}
 
 async function matchOneOpportunity(env, task) {
   let payload;
@@ -48,35 +72,55 @@ async function matchOneOpportunity(env, task) {
            affiliate_link, source_url, price, rating
     FROM products
     WHERE pipeline_status IN (${placeholders})
-
     ORDER BY
       CASE pipeline_status WHEN 'enriched' THEN 0 WHEN 'enriching' THEN 1 ELSE 2 END,
       id DESC
     LIMIT 5
   `).bind(...BACKLOG_STATUSES).all();
 
-  if (!matches.length) {
+  // --- FIX layer 2: skip any candidate that already has content (idempotency guard) ---
+  let chosen = null;
+  const skippedAlreadyMatched = [];
+  for (const candidate of matches) {
+    const alreadyHasContent = await hasExistingContent(env, candidate.id);
+    if (alreadyHasContent) {
+      skippedAlreadyMatched.push(candidate.id);
+      continue;
+    }
+    chosen = candidate;
+    break;
+  }
+
+  if (!chosen) {
     const result = {
       marketId, marketName, category, country,
       status: 'NEEDS_SOURCING',
-      note: `ไม่พบสินค้าใน backlog (pipeline_status: imported/enriching/enriched) ที่หมวดตรงกับ "${category || '(ไม่ระบุ)'}" เลย — ระบบนี้ไม่มีวิธีหาสินค้าใหม่จากอินเทอร์เน็ตเองได้ (ไม่มี product-search API) ต้องการคนช่วย import URL สินค้าในหมวดนี้เข้า Worker af ก่อน ตามสเปกข้อ 13 (human intervention เมื่อระบบแก้เองไม่ได้) — ไม่แต่งสินค้าขึ้นมาเอง`,
+      note: matches.length
+        ? `เจอสินค้าใน backlog ${matches.length} ตัวที่หมวดตรงกับ "${category || '(ไม่ระบุ)'}" แต่ทุกตัวมี content อยู่แล้ว (product_id: ${skippedAlreadyMatched.join(', ')}) — น่าจะเป็นสินค้าที่ pipeline_status ยังไม่ถูกอัปเดตหลัง match รอบก่อน ข้ามไปหมดเพื่อกันสร้าง content ซ้ำ ต้องการสินค้าใหม่เข้า backlog`
+        : `ไม่พบสินค้าใน backlog (pipeline_status: imported/enriching/enriched) ที่หมวดตรงกับ "${category || '(ไม่ระบุ)'}" เลย — ระบบนี้ไม่มีวิธีหาสินค้าใหม่จากอินเทอร์เน็ตเองได้ (ไม่มี product-search API) ต้องการคนช่วย import URL สินค้าในหมวดนี้เข้า Worker af ก่อน ตามสเปกข้อ 13 (human intervention เมื่อระบบแก้เองไม่ได้) — ไม่แต่งสินค้าขึ้นมาเอง`,
       matchedProduct: null
     };
     await writeMemory(env, 'offer_reports', `market_${marketId}`, result, 'offer');
     return result;
   }
 
-  const chosen = matches[0];
+  // --- FIX layer 1: update pipeline_status immediately so this product drops
+  // out of the backlog query on the next run, before creating the downstream task ---
+  await env.DB.prepare(`UPDATE products SET pipeline_status = 'matched' WHERE id = ?`)
+    .bind(chosen.id)
+    .run();
+
   const result = {
     marketId, marketName, category, country,
     status: 'MATCHED_BACKLOG',
-    note: `จับคู่กับสินค้าที่มีอยู่แล้วใน backlog: #${chosen.id} "${chosen.product_name}" (pipeline_status=${chosen.pipeline_status}) — หมวดตรงกัน ไม่ต้อง sourcing ใหม่ ส่งต่อให้ Content Agent ทำ content ต่อ`,
+    note: `จับคู่กับสินค้าที่มีอยู่แล้วใน backlog: #${chosen.id} "${chosen.product_name}" (pipeline_status เดิม=${chosen.pipeline_status} → อัปเดตเป็น 'matched' แล้ว) — หมวดตรงกัน ไม่ต้อง sourcing ใหม่ ส่งต่อให้ Content Agent ทำ content ต่อ`,
     matchedProduct: {
       productId: chosen.id, productName: chosen.product_name, brand: chosen.brand,
       pipelineStatus: chosen.pipeline_status, hasAffiliateLink: !!chosen.affiliate_link,
       price: chosen.price, rating: chosen.rating
     },
-    otherCandidates: matches.slice(1).map(m => ({ productId: m.id, productName: m.product_name, pipelineStatus: m.pipeline_status }))
+    otherCandidates: matches.filter(m => m.id !== chosen.id).map(m => ({ productId: m.id, productName: m.product_name, pipelineStatus: m.pipeline_status })),
+    skippedAlreadyMatched
   };
 
   await writeMemory(env, 'offer_reports', `market_${marketId}`, result, 'offer');
