@@ -32,6 +32,17 @@
  * timestamp, so ties are still deterministic instead of picking an
  * arbitrary duplicate.
  *
+ * ⭐ GRAVITY FIX (2026-09-16): content table now has multiple hook-variant
+ * rows per product+language (P0.1 — variant_id / variant_label, 4 rows per
+ * product: specificity / problem_first / audience_curiosity / value_anchor).
+ * The ROW_NUMBER()-per-product "latest row" logic above still picks exactly
+ * ONE row to render on the public page — now that row's variant_id/
+ * variant_label are also selected and passed through to the article object
+ * (as variantId/variantLabel) so functions/_lib/article.js's attention
+ * tracker can log which hook variant was actually shown. Previously these
+ * columns were not selected at all, so article.variantId was always
+ * undefined and every attention_events row landed with variant_id = null.
+ *
  * --- GRAVITY FIX (2026-09-08): ลด MIN_PUBLISHABLE_QUALITY_SCORE 70 → 50 ---
  * ค่าเดิม 70 เข้มเกินไป — สินค้าที่ publish แล้วและมี content ครบ
  * แต่ quality_score อยู่ที่ 40-69 จะถูก filter ออกทั้งหมด ไม่ขึ้นเว็บ
@@ -172,6 +183,8 @@ export async function getLiveArticles(env, lang = 'th') {
       c.generated_at          AS content_generated_at,
       c.quality_score,
       c.quality_tier,
+      c.variant_id,
+      c.variant_label,
       a.product_summary,
       a.pros,
       a.cons,
@@ -239,6 +252,11 @@ export async function getLiveArticles(env, lang = 'th') {
       // exclude articles. See file header, GRAVITY_OS 2026-09-10.
       qualityTier: row.quality_tier || null,
       qualityScore: row.quality_score != null ? Number(row.quality_score) : null,
+      // ⭐ GRAVITY FIX (2026-09-16): now selected from `content` above so
+      // article.js's attention tracker can log the real hook variant shown
+      // on this page instead of always logging variant_id = null.
+      variantId: row.variant_id || null,
+      variantLabel: row.variant_label || null,
       analysis: hasAnalysis ? {
         product_summary: row.product_summary,
         pros: row.pros,
