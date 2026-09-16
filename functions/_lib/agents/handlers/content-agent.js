@@ -20,7 +20,16 @@
  * ai_analysis/keywords data gets a LOW tier and an explicit warning
  * instead of being presented as equally good content.
  *
- * Each run always creates a NEW content row (never updates in place) —
+ * P0.1: instead of one content row per product, this agent now generates
+ * a set of deterministic headline/hook variants (see generateHookVariants)
+ * and writes ONE content row PER VARIANT — same body content
+ * (blog_draft/review/faq/etc.), different seo_title/slug/variant_id/
+ * variant_label. This lets downstream steps (e.g. an A/B test or manual
+ * pick) choose among real, non-fabricated hook angles instead of only
+ * ever getting a single framing. A product with thin signal data
+ * legitimately gets fewer variant rows, never padded/fabricated ones.
+ *
+ * Each run always creates NEW content row(s) (never updates in place) —
  * matching this table's existing append-only convention (see the
  * Experiment Agent's own note about content being append-only), so
  * regenerating content for the same product keeps prior versions intact.
@@ -29,6 +38,11 @@
  * even though no Media Agent handler exists yet — same reasoning as
  * every earlier handoff in this chain: the task sits safely in the queue
  * until that handler is implemented, rather than silently dropped.
+ *
+ * NOTE: requires the `variant_id` / `variant_label` columns on `content`.
+ * Run this D1 migration BEFORE deploying this file:
+ *   ALTER TABLE content ADD COLUMN variant_id TEXT;
+ *   ALTER TABLE content ADD COLUMN variant_label TEXT;
  */
 
 import { claimNextTask, completeTask, failTask, createTask, writeMemory, nowIso } from '../db.js';
@@ -55,6 +69,46 @@ function slugify(text, productId) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
   return `${base || 'product'}-${productId}`;
+}
+
+// --- P0.1: hook/headline variants — deterministic, no AI, no invented facts.
+// Every variant is built only from real signals already assembled by the
+// caller. A product with thin data legitimately gets fewer variants
+// rather than padded/fabricated ones.
+function generateHookVariants(product, primaryKeyword, targetAudienceSignals, painPointSignals, prosSignals) {
+  const variants = [];
+
+  variants.push({
+    variant_id: 'specificity',
+    variant_label: 'เน้นข้อมูลจริง (ชื่อสินค้า + keyword)',
+    headline: `${product.product_name}${primaryKeyword ? ` — ${primaryKeyword}` : ''}`.slice(0, 120)
+  });
+
+  if (painPointSignals.length) {
+    variants.push({
+      variant_id: 'problem_first',
+      variant_label: 'เน้นปัญหาที่แก้',
+      headline: `${painPointSignals[0]}? ${product.product_name} ช่วยแก้ปัญหานี้ได้`.slice(0, 120)
+    });
+  }
+
+  if (targetAudienceSignals.length) {
+    variants.push({
+      variant_id: 'audience_curiosity',
+      variant_label: 'กระตุ้นคำถามผ่านกลุ่มเป้าหมายจริง',
+      headline: `ทำไม ${product.product_name} ถึงเหมาะกับ ${targetAudienceSignals[0]}`.slice(0, 120)
+    });
+  }
+
+  if (prosSignals.length && product.price) {
+    variants.push({
+      variant_id: 'value_anchor',
+      variant_label: 'เน้นความคุ้มค่า',
+      headline: `${product.product_name} ราคา ${product.price} คุ้มกับ${prosSignals[0]}ไหม?`.slice(0, 120)
+    });
+  }
+
+  return variants;
 }
 
 async function assembleOneContent(env, task) {
@@ -138,7 +192,6 @@ async function assembleOneContent(env, task) {
   const tagsSignals = uniqueNonEmpty([kw?.primary_keyword, kw?.supporting_keywords, kw?.best_keywords]);
 
   const primaryKeyword = kw?.primary_keyword || product.category_th || product.category || product.product_name;
-  const seoTitle = `${product.product_name}${primaryKeyword ? ` — ${primaryKeyword}` : ''}`.slice(0, 120);
   const metaDescription = [
     product.product_name,
     product.brand ? `จาก ${product.brand}` : null,
@@ -180,50 +233,75 @@ async function assembleOneContent(env, task) {
   const faq = faqSignals.length ? faqSignals.join(' | ') : null;
   const tags = tagsSignals.length ? tagsSignals.join(', ') : null;
 
-  const contentRow = {
-    product_id: productId,
-    slug: slugify(product.product_name, productId),
-    seo_title: seoTitle,
-    meta_description: metaDescription || null,
-    primary_keyword: primaryKeyword || null,
-    tags,
-    faq,
-    blog_draft: blogDraft || null,
-    comparison,
-    alternatives,
-    review,
-    buying_guide: buyingGuide,
-    blog_outline: blogOutline || null,
-    generated_at: nowIso(),
-    language: 'th',
-    buy_link: product.affiliate_link || null,
-    quality_score: qualityScore,
-    quality_tier: qualityTier,
-    quality_warnings: qualityWarnings.length ? qualityWarnings.join(' | ') : null
-  };
+  // --- P0.1: build variant set, then INSERT one content row per variant.
+  // Body fields (blog_draft/review/faq/etc.) are identical across variants
+  // on purpose — only the hook (seo_title) + slug + variant_id/label differ.
+  const variants = generateHookVariants(product, primaryKeyword, targetAudienceSignals, painPointSignals, prosSignals);
 
-  const insertResult = await env.DB.prepare(`
-    INSERT INTO content (
-      product_id, slug, seo_title, meta_description, primary_keyword, tags, faq,
-      blog_draft, comparison, alternatives, review, buying_guide, blog_outline,
-      generated_at, language, buy_link, quality_score, quality_tier, quality_warnings
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    contentRow.product_id, contentRow.slug, contentRow.seo_title, contentRow.meta_description,
-    contentRow.primary_keyword, contentRow.tags, contentRow.faq, contentRow.blog_draft,
-    contentRow.comparison, contentRow.alternatives, contentRow.review, contentRow.buying_guide,
-    contentRow.blog_outline, contentRow.generated_at, contentRow.language, contentRow.buy_link,
-    contentRow.quality_score, contentRow.quality_tier, contentRow.quality_warnings
-  ).run();
+  const variantResults = [];
 
-  const contentId = insertResult.meta?.last_row_id ?? null;
+  for (const variant of variants) {
+    const contentRow = {
+      product_id: productId,
+      slug: `${slugify(product.product_name, productId)}-${variant.variant_id}`,
+      seo_title: variant.headline,
+      meta_description: metaDescription || null,
+      primary_keyword: primaryKeyword || null,
+      tags,
+      faq,
+      blog_draft: blogDraft || null,
+      comparison,
+      alternatives,
+      review,
+      buying_guide: buyingGuide,
+      blog_outline: blogOutline || null,
+      generated_at: nowIso(),
+      language: 'th',
+      buy_link: product.affiliate_link || null,
+      quality_score: qualityScore,
+      quality_tier: qualityTier,
+      quality_warnings: qualityWarnings.length ? qualityWarnings.join(' | ') : null,
+      variant_id: variant.variant_id,
+      variant_label: variant.variant_label
+    };
+
+    const insertResult = await env.DB.prepare(`
+      INSERT INTO content (
+        product_id, slug, seo_title, meta_description, primary_keyword, tags, faq,
+        blog_draft, comparison, alternatives, review, buying_guide, blog_outline,
+        generated_at, language, buy_link, quality_score, quality_tier, quality_warnings,
+        variant_id, variant_label
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      contentRow.product_id, contentRow.slug, contentRow.seo_title, contentRow.meta_description,
+      contentRow.primary_keyword, contentRow.tags, contentRow.faq, contentRow.blog_draft,
+      contentRow.comparison, contentRow.alternatives, contentRow.review, contentRow.buying_guide,
+      contentRow.blog_outline, contentRow.generated_at, contentRow.language, contentRow.buy_link,
+      contentRow.quality_score, contentRow.quality_tier, contentRow.quality_warnings,
+      contentRow.variant_id, contentRow.variant_label
+    ).run();
+
+    const contentId = insertResult.meta?.last_row_id ?? null;
+
+    variantResults.push({
+      contentId,
+      variantId: variant.variant_id,
+      variantLabel: variant.variant_label,
+      seoTitle: variant.headline
+    });
+  }
+
+  // Primary content row = the always-present 'specificity' variant.
+  // Used for the media handoff payload (imageUrl etc. don't vary by variant).
+  const primaryVariant = variantResults.find(v => v.variantId === 'specificity') || variantResults[0];
 
   const result = {
     marketId, marketName, category, country, productId, productName: product.product_name,
     status: 'CONTENT_CREATED',
-    contentId,
+    contentId: primaryVariant?.contentId ?? null,
+    variants: variantResults,
     qualityScore, qualityTier, qualityWarnings,
-    note: `สร้าง content row #${contentId} สำหรับสินค้า "${product.product_name}" สำเร็จ (คุณภาพ: ${qualityTier}, คะแนน ${qualityScore}/100) — ประกอบจากข้อมูลจริงใน ai_analysis/keywords ไม่ได้แต่งขึ้นเอง`
+    note: `สร้าง content ${variantResults.length} variant สำหรับสินค้า "${product.product_name}" สำเร็จ (คุณภาพ: ${qualityTier}, คะแนน ${qualityScore}/100) — ประกอบจากข้อมูลจริงใน ai_analysis/keywords ไม่ได้แต่งขึ้นเอง`
   };
 
   await writeMemory(env, 'content_reports', `product_${productId}`, result, 'content');
@@ -236,7 +314,9 @@ async function assembleOneContent(env, task) {
     payload: {
       marketId, marketName, category, country,
       productId, productName: product.product_name,
-      contentId, imageUrl: product.image_url
+      contentId: primaryVariant?.contentId ?? null,
+      variantContentIds: variantResults.map(v => v.contentId),
+      imageUrl: product.image_url
     }
   });
 
@@ -268,7 +348,7 @@ export async function executeContentGeneration(env, task) {
     generatedAt: nowIso(),
     status: processed.length ? 'PROCESSED' : (failed.length ? 'ERRORS' : 'NO_PENDING_TASKS'),
     note: processed.length
-      ? `สร้าง content สำเร็จ ${processed.length} รายการ ส่งต่อ Media Agent แล้วทุกรายการ`
+      ? `สร้าง content สำเร็จ ${processed.length} รายการ (สินค้า) ส่งต่อ Media Agent แล้วทุกรายการ`
       : (failed.length ? `พยายามแล้วแต่ล้มเหลว ${failed.length} รายการ` : 'ไม่มี task ค้างอยู่ในคิวสำหรับ content ตอนนี้'),
     processed, failed
   };
