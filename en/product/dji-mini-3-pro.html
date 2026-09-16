@@ -188,13 +188,7 @@
 <script>
   const today = new Date();
   document.getElementById('publish-date').textContent = today.toLocaleDateString();
-  
-  document.querySelectorAll('.affiliate-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      fetch('/api/click?product_id=PRODUCT_ID_HERE', { method: 'POST' });
-    });
-  });
-</script>
+  </script>
 
 </body>
 </html>

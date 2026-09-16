@@ -169,18 +169,6 @@ async function checkStatsEndpoint(env) {
 }
 
 // ---------- NEW: remaining endpoints ----------
-
-async function checkClickEndpoint(env) {
-  const c = check("click_endpoint", "/api/click", "tracking");
-  try {
-    const res = await withTimeout((s) => fetch(`${CONFIG.SITE_URL}/api/click`, { signal: s }), 6000);
-    // Known design: GET without product_id+redirect params returns 400 — that IS correct behavior
-    c.status = res.status === 400 ? "ok" : (res.status >= 500 ? "error" : "warn");
-    c.detail = `HTTP ${res.status}${res.status === 400 ? " — validating input correctly" : ""}`;
-  } catch (e) { c.status = "error"; c.detail = e.message; }
-  return c;
-}
-
 async function checkTrackEndpoint(env) {
   const c = check("track_endpoint", "/api/track", "tracking");
   try {
@@ -316,7 +304,6 @@ export async function onRequestGet({ env }) {
     checkD1Tables(env),
     checkGoRedirect(env),
     checkStatsEndpoint(env),
-    checkClickEndpoint(env),
     checkTrackEndpoint(env),
     checkArticlePage(env),
     checkGA4Config(env),
