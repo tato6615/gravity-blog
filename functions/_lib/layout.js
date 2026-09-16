@@ -752,7 +752,7 @@ export function generateProductJsonLd(article, canonicalPath, authorId = 'gravit
   if (article.product?.buyUrl) {
     schema.offers = {
       '@type': 'Offer',
-      url: sanitizeUrl(article.product.buyUrl) || url,
+      url: sanitizeUrl(article.product.trackedBuyUrl || article.product.buyUrl) || url,
       priceCurrency: article.product.priceCurrency || 'THB',
       price: article.product.priceAmount ? String(article.product.priceAmount) : undefined,
       availability: 'https://schema.org/InStock'

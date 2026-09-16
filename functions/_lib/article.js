@@ -133,6 +133,7 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
     const trackedBuyUrl = article.product.buyUrl
       ? `/go/${encodeURIComponent(article.id)}${buyUrlQuery ? `?${buyUrlQuery}` : ''}`
       : '';
+    article.product.trackedBuyUrl = trackedBuyUrl;
     const buyBtn = trackedBuyUrl
       ? `<a class="buy-btn" href="${escapeHtml(trackedBuyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`
       : '';
