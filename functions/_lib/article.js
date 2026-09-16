@@ -45,7 +45,7 @@ const STRINGS = {
 };
 
 function buildProductJsonLd(article, canonicalUrl, authorId = 'gravity-os-team') {
-  return `<script type="application/ld+json">${generateProductJsonLd(article, canonicalUrl, authorId)}</script>`;
+  return `<script type="application/ld+json">${generateProductJsonLd(article, canonicalUrl, authorId)}<\/script>`;
 }
 
 function renderFaq(faqText, t) {
@@ -78,6 +78,67 @@ function renderSpecifications(analysis, t) {
     <h3 style="font-size:16px;margin:0 0 12px;">${escapeHtml(t.specifications)}</h3>
     <ul style="margin:0;padding-left:1.2em;font-size:14px;color:var(--ink-muted);">${specs.map(s => `<li style="margin-bottom:6px;">${escapeHtml(s)}</li>`).join('')}</ul>
   </div>`;
+}
+
+// --- P0.2: attention tracker script (inline) ---
+// ฝังตรงใน HTML แทนการโหลด external file เพื่อลด round-trip
+// session_id เป็น in-memory เท่านั้น ไม่ใช้ localStorage/cookie
+function buildAttentionTrackerScript(productId, variantId, channel) {
+  return `<script>
+(function () {
+  'use strict';
+  var ENDPOINT = '/api/track-event';
+  var sid = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  var cfg = {
+    session_id: sid,
+    product_id: ${JSON.stringify(productId || null)},
+    variant_id: ${JSON.stringify(variantId || null)},
+    channel: ${JSON.stringify(channel || 'direct')}
+  };
+
+  function send(eventType, section) {
+    var payload = Object.assign({}, cfg, { event_type: eventType });
+    if (section) payload.section = section;
+    var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(ENDPOINT, blob);
+    } else {
+      fetch(ENDPOINT, { method: 'POST', body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(function(){});
+    }
+  }
+
+  // view
+  send('view');
+
+  // scroll depth
+  var milestones = { 25: false, 50: false, 75: false, 100: false };
+  window.addEventListener('scroll', function () {
+    var el = document.documentElement;
+    var pct = Math.floor(((el.scrollTop + window.innerHeight) / el.scrollHeight) * 100);
+    [25, 50, 75, 100].forEach(function (m) {
+      if (!milestones[m] && pct >= m) { milestones[m] = true; send('scroll_' + m); }
+    });
+  }, { passive: true });
+
+  // affiliate click
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('a[href],button');
+    if (!el) return;
+    var href = el.getAttribute('href') || '';
+    var section = (el.closest('[data-section]') || {}).dataset && el.closest('[data-section]').dataset.section || null;
+    var isAffiliate = href.indexOf('/go/') !== -1 || href.indexOf('amzn.to') !== -1 || href.indexOf('amazon.com') !== -1;
+    var isCTA = el.classList.contains('buy-btn') || el.dataset.track === 'click';
+    if (isAffiliate || isCTA) send('click', section || 'cta');
+  });
+
+  // exit
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') send('exit');
+  });
+  window.addEventListener('pagehide', function () { send('exit'); });
+})();
+<\/script>`;
 }
 
 export async function renderArticlePage(env, slug, lang = 'th', request) {
@@ -119,10 +180,6 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
         </div>`
       : '';
 
-    // 🔧 GRAVITY FIX (2026-09-13): ถ้าคนเข้าหน้านี้มาพร้อม utm_source (เช่น
-    // มาจากปุ่มแชร์ที่เพิ่งแก้ให้แปะ utm) ต้อง forward ต่อไปที่ /go/[id]
-    // ด้วย ไม่งั้น click ที่บันทึกจะเห็นเป็น "direct/unknown" อยู่ดี ทั้งที่
-    // รู้ต้นตอจริงจาก URL หน้านี้แล้ว
     const incomingUrl = request ? new URL(request.url) : null;
     const incomingUtmSource = incomingUrl?.searchParams.get('utm_source');
     const incomingUtmMedium = incomingUrl?.searchParams.get('utm_medium');
@@ -156,6 +213,11 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       ? renderStars(article.product.rating)
       : '';
 
+    // P0.2: detect channel จาก utm_source ที่ incoming URL
+    const attentionChannel = incomingUtmSource || 'direct';
+    // variant_id มาจาก article.variantId ถ้า d1-articles ดึงมาด้วย ไม่งั้น null
+    const attentionVariantId = article.variantId || null;
+
     const body = `
       ${jsonLd}
       ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
@@ -166,29 +228,18 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       <p class="disclosure" style="font-size:13px;color:#8a90a0;margin:8px 0;">${escapeHtml(t.disclosureText)}</p>
       ${renderShareButtons(canonicalPath, article.seoTitle, lang, article.product.image_url)}
       <div class="meta" style="margin-bottom:16px;">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · ${escapeHtml(t.reviewedBy)} ${escapeHtml(article.analysis?.reviewer_name || 'GRAVITY OS')}</div>
-      ${buyBtn}
+      <div data-section="cta">${buyBtn}</div>
       ${verdict}
       ${renderSpecifications(article.analysis, t)}
-      <div class="article-body">${formatArticleBody(article.blogDraft)}</div>
-      ${article.buyingGuide ? `<hr class="hairline"><h3>${escapeHtml(t.buyingGuideTitle)}</h3><div class="article-body">${formatArticleBody(article.buyingGuide)}</div>` : ''}
+      <div class="article-body" data-section="review">${formatArticleBody(article.blogDraft)}</div>
+      ${article.buyingGuide ? `<hr class="hairline"><h3>${escapeHtml(t.buyingGuideTitle)}</h3><div class="article-body" data-section="buying_guide">${formatArticleBody(article.buyingGuide)}</div>` : ''}
       ${renderNotApprovedFor(article.analysis, t)}
-      ${renderFaq(article.faq, t)}
-      ${buyBtn}
+      <div data-section="faq">${renderFaq(article.faq, t)}</div>
+      <div data-section="cta">${buyBtn}</div>
       ${renderAuthorSection(authorId, lang)}
       ${tagsHtml}
       <p style="margin-top:32px;"><a href="${prefix}/">${t.moreReviews}</a></p>
-      <script>
-        (function () {
-          try {
-            fetch('/api/track', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ productId: ${JSON.stringify(article.id)}, eventType: "view" }),
-              keepalive: true
-            }).catch(function () {});
-          } catch (e) {}
-        })();
-      </script>
+      ${buildAttentionTrackerScript(article.id, attentionVariantId, attentionChannel)}
     `;
 
     const html = renderPage({
