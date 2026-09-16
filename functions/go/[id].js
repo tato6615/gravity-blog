@@ -1,4 +1,5 @@
 import { getProductBuyUrlById } from '../_lib/d1-products.js';
+import { buildTrackedUrl } from '../_lib/affiliate-tracking.js';
 
 // รายชื่อ known bot / crawler / preview-fetcher ที่พบบ่อยที่สุด — เหมือนกับ
 // ตัวที่ใช้ใน analytics.js -> handleTrackClick (ตั้งใจให้สอดคล้องกัน เพราะ
@@ -7,16 +8,16 @@ import { getProductBuyUrlById } from '../_lib/d1-products.js';
 const KNOWN_BOT_UA = /bot|crawl|spider|facebookexternalhit|telegrambot|discordbot|slackbot|whatsapp|preview|python-requests|curl\/|wget|headlesschrome|phantomjs|linkedinbot|pinterest(bot)?|redditbot|embedly|quora link preview|vkshare|w3c_validator|bytespider/i;
 
 function isLikelyBot(userAgent) {
-  if (!userAgent) return true; // ไม่มี User-Agent เลย = น่าสงสัยว่าไม่ใช่ browser จริง
+  if (!userAgent) return true;
   return KNOWN_BOT_UA.test(userAgent);
 }
 
 export async function onRequestGet({ params, env, waitUntil, request }) {
   const productId = params.id;
 
-  let buyUrl;
+  let productInfo;
   try {
-    buyUrl = await getProductBuyUrlById(env, productId);
+    productInfo = await getProductBuyUrlById(env, productId);
   } catch (e) {
     return new Response(
       `<!doctype html><meta charset="utf-8"><title>เกิดข้อผิดพลาด</title>
@@ -28,6 +29,7 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
     );
   }
 
+  const buyUrl = productInfo?.buyUrl || null;
   const cleanedUrl = typeof buyUrl === 'string' ? buyUrl.trim() : buyUrl;
 
   if (!cleanedUrl) {
@@ -41,11 +43,30 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
     );
   }
 
+  const userAgent = request.headers.get('User-Agent') || null;
+  const isBot = isLikelyBot(userAgent);
+
+  // GRAVITY ENHANCEMENT (2026-09-16): generate a unique click_id per real
+  // (non-bot) click and inject it into the outbound URL as a
+  // platform-specific subtag (ascsubtag for Amazon, customid for eBay).
+  // See affiliate-tracking.js for full reasoning + platform coverage.
+  const clickId = !isBot ? crypto.randomUUID() : null;
+
+  let trackedUrl = cleanedUrl;
+  if (!isBot) {
+    trackedUrl = buildTrackedUrl(
+      productInfo.sourceType,
+      productInfo.affiliateLink,
+      productInfo.sourceUrl,
+      clickId
+    ) || cleanedUrl;
+  }
+
   let validatedUrl;
   try {
-    validatedUrl = new URL(cleanedUrl).href;
+    validatedUrl = new URL(trackedUrl).href;
   } catch (e) {
-    console.error(`go/[id]: invalid buy_url for product ${productId}:`, cleanedUrl);
+    console.error(`go/[id]: invalid buy_url for product ${productId}:`, trackedUrl);
     return new Response(
       `<!doctype html><meta charset="utf-8"><title>ลิงก์สินค้านี้ไม่ถูกต้อง</title>
       <body style="font-family:sans-serif;padding:40px;text-align:center;">
@@ -60,30 +81,21 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
   const referrer = request.headers.get('Referer') || null;
   const utmSource = url.searchParams.get('utm_source') || null;
   const utmMedium = url.searchParams.get('utm_medium') || null;
-  const userAgent = request.headers.get('User-Agent') || null;
   const ip = request.headers.get('CF-Connecting-IP') || null;
-
-  // 🐛 GRAVITY FIX (2026-09-10): ก่อนหน้านี้ INSERT เข้าตาราง clicks
-  // แบบไม่มีเงื่อนไขเลย — ทุก GET ที่เข้ามา (รวมถึง social preview bot ที่
-  // เปิดลิงก์เพื่อ generate thumbnail, search crawler, หรือ http client
-  // อัตโนมัติอื่นๆ) จะถูกนับเป็นคลิกจริงหมด เคสจริงที่เจอ: Product 104
-  // ขึ้นไป 193 คลิกทั้งที่ conversion = 0 ตัวเดียว ตอนนี้กรอง known bot
-  // ออกก่อน insert — ยังคง redirect ให้ผู้ใช้ (หรือบอท) ไปหน้าต้นทางตามปกติ
-  // ทุกกรณี แค่ไม่นับเป็นคลิกถ้า User-Agent ตรงกับ known bot pattern
-  const isBot = isLikelyBot(userAgent);
 
   if (!isBot) {
     waitUntil(
       env.DB.prepare(`
-        INSERT INTO clicks (product_id, event_type, referrer, utm_source, utm_medium, user_agent, ip)
-        VALUES (?, 'click', ?, ?, ?, ?, ?)
+        INSERT INTO clicks (product_id, event_type, referrer, utm_source, utm_medium, user_agent, ip, click_id)
+        VALUES (?, 'click', ?, ?, ?, ?, ?, ?)
       `).bind(
         String(productId),
         referrer,
         utmSource,
         utmMedium,
         userAgent,
-        ip
+        ip,
+        clickId
       ).run().catch((err) => {
         console.error('click tracking failed:', err.message);
       })
@@ -102,6 +114,7 @@ export async function onRequestGet({ params, env, waitUntil, request }) {
         params: {
           product_id: String(productId),
           link_url: validatedUrl,
+          click_id: clickId,
           utm_source: utmSource || '(none)',
           utm_medium: utmMedium || '(none)',
           page_referrer: referrer || '(none)',

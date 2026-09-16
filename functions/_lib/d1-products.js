@@ -2,6 +2,14 @@
  * D1 replacement for grist.js's getProductBuyUrlById() / getProductNamesByIds().
  * Only reads from `products` table — no join needed, these two functions
  * never touched content/analysis in grist.js either.
+ *
+ * GRAVITY ENHANCEMENT (2026-09-16): getProductBuyUrlById() now returns an
+ * object ({ affiliateLink, sourceUrl, sourceType, buyUrl }) instead of a
+ * single string, so /go/[id].js can build a per-click tracked URL
+ * (see affiliate-tracking.js). Only consumer of this function is
+ * /go/[id].js — confirmed via grep before this change — so this is a
+ * safe, non-breaking shape change. `buyUrl` is kept for anyone reading
+ * this file who expects the old single-string value.
  */
 
 const D1_CHUNK_SIZE = 90; // D1 caps at 100 bound params/query — chunk to stay safe
@@ -15,11 +23,17 @@ export async function getProductBuyUrlById(env, productId) {
   if (!env.DB) return null;
   try {
     const row = await env.DB.prepare(
-      `SELECT affiliate_link, source_url FROM products WHERE id = ?`
+      `SELECT affiliate_link, source_url, source_type FROM products WHERE id = ?`
     ).bind(productId).first();
     if (!row) return null;
-    const url = row.affiliate_link || row.source_url || null;
-    return url ? String(url).trim() : null;
+    const affiliateLink = row.affiliate_link ? String(row.affiliate_link).trim() : null;
+    const sourceUrl = row.source_url ? String(row.source_url).trim() : null;
+    return {
+      affiliateLink,
+      sourceUrl,
+      sourceType: row.source_type || null,
+      buyUrl: affiliateLink || sourceUrl || null,
+    };
   } catch (e) {
     console.error(`getProductBuyUrlById: D1 query failed for product ${productId}:`, e.message);
     return null;
