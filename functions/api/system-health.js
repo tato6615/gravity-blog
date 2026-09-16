@@ -17,7 +17,14 @@ const CONFIG = {
   D1_BINDING: "DB",
   AF_WORKER_URL: "https://af.pakpiromjajaja.workers.dev",
   GITHUB_REPO: "tato6615/gravity-blog",
-  GITHUB_WORKFLOWS: ["check-product-links.yml", "sync-analytics.yml", "sync-ga4-views.yml"],
+  // GRAVITY NOTE (2026-09-16): check-product-links.yml, sync-analytics.yml,
+  // sync-ga4-views.yml, and check-buy-url-health.yml (not listed here,
+  // never was) all depend on Grist, which is no longer in active use.
+  // Decision: leave those workflows as-is (not deleted, not migrated) but
+  // stop monitoring them here — they will keep failing forever due to
+  // Grist quota/deprecation, which isn't a real actionable incident, so
+  // showing them as a permanent dashboard warning is just noise.
+  GITHUB_WORKFLOWS: [],
   SITE_URL: "https://gravity-blog.pages.dev",
   // A known-good product to test the real article page + affiliate link with
   TEST_PRODUCT_SLUG: "cat-calming-diffuser-kit",
