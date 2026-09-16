@@ -23,3 +23,24 @@
 ### บั๊กใหม่ที่เจอระหว่างทาง (ยังไม่แก้ ให้บันทึกไว้ก่อน)
 - [ ] **Content ซ้ำซ้อนต่อสินค้าเดียว**: พบว่า product id=2 (Insta360 X5), id=34 (Cat Recovery Suit), id=35 (STMK Cat Birthday) แต่ละตัวมีหลายแถวใน `content` table (บางตัวถึง 7 แถว) พร้อม slug ต่างกัน (บางอันซ้ำ slug เดิม บางอันคนละ slug เช่น `insta360-x5-review`, `san-pham-khao-khwam-d`, `ebay-product-review`) — ต้องหา root cause ว่า content generation pipeline รันซ้ำทำไม และตัดสินใจว่าจะเก็บ/ลบแถวไหน
 - [ ] **`pipeline_status` มีค่าหลากหลายที่ควร map ให้ชัด**: `enriched`, `published`, `imported`, `enriching`, `blocked_low_quality`, `skipped_market_not_approved`, `<null>` — พบว่า id=2 (Insta360 X5) ค้างอยู่ที่ `enriched` ไม่เคยขยับไป `published` ทั้งที่มี content ครบแล้ว ควรเช็คว่ามีสินค้าตัวอื่นค้างสถานะแบบนี้อีกเท่าไหร่ (potential lost revenue — สินค้าพร้อมขายแต่ไม่เคยขึ้นเว็บจริง)
+
+## ✅ Progress Log — 2026-09-16 (แก้บั๊ก Offer Agent duplicate เสร็จแล้ว)
+
+### เสร็จแล้ว
+- **[FIXED] Offer Agent match สินค้าซ้ำไม่หยุด** — แก้ root cause แล้ว: เดิมโค้ดไม่เคยอัปเดต `pipeline_status` ของสินค้าหลัง match สำเร็จ ทำให้สินค้าตัวเดิม (เช่น 269, 294) ถูกเลือกเป็น top candidate ซ้ำไปเรื่อยๆ ทุกครั้งที่มี opportunity ใหม่เข้ามาในหมวดเดียวกัน
+- แก้ไข `functions/_lib/agents/handlers/offer-agent.js` — 2 ชั้น:
+  1. หลัง match สำเร็จ `UPDATE products SET pipeline_status = 'matched'` ทันที เพื่อดึงออกจาก backlog query รอบถัดไป
+  2. เพิ่ม idempotency guard — เช็คตาราง `content` ก่อนเลือก candidate ทุกครั้ง ข้ามสินค้าที่มี content อยู่แล้ว
+- ยืนยันผ่าน `node --check` ว่า syntax ถูกต้อง
+- Manual update `pipeline_status = 'matched'` ให้สินค้า 269, 294 ที่ค้างอยู่ (กันโดน match ซ้ำอีกรอบก่อนโค้ดใหม่ deploy)
+- Commit `180612e`: "fix: offer-agent duplicate content bug - update pipeline_status after match + idempotency guard"
+- Push ขึ้น `main` สำเร็จ (`ac25ec5..180612e`)
+
+### สิ่งที่ต้องเช็คต่อ (เพิ่งแก้ ยังไม่ผ่านการทดสอบ production จริง)
+- [ ] เช็คว่า `pipeline_status = 'matched'` ไม่ทำให้สินค้าหายจาก dashboard/query อื่นๆ ที่อาจ hardcode รายชื่อ status ไว้ (เช็คแล้วเบื้องต้นจาก `grep -rn "pipeline_status"` — ไม่พบจุดที่ต้องแก้เพิ่ม แต่ควร monitor หลัง deploy จริง)
+- [ ] ดู Workflow run ว่า deploy ผ่านหรือไม่
+- [ ] Monitor สินค้าอื่นๆ ในหมวดเดียวกับ 269/294 อีกสักพัก ว่า pipeline ทำงานปกติ ไม่มี match ซ้ำเกิดขึ้นอีก
+
+### การตัดสินใจ (อัปเดต)
+- ✅ **ปลดล็อก P0.1 (hook variants) แล้ว** — บั๊ก Offer Agent duplicate ถูกแก้เรียบร้อย ไม่ต้องพักไว้ก่อนแล้ว
+- 🔜 ขั้นต่อไป: เริ่ม P0.1 — เช็คว่า AI สร้าง hook/headline กี่แบบต่อสินค้าตอนนี้ ตามคำถามเดิมใน backlog
