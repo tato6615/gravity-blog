@@ -107,6 +107,29 @@ async function checkAfWorker(env) {
   return c;
 }
 
+async function checkWorkerAfActivity(env) {
+  // AGENT-003: reads the /api/agent-health signal (agent-health.js) to
+  // surface "when did Worker af last actually create something?" on the
+  // System Health dashboard, independent of whether af's homepage responds.
+  const c = check("worker_af_activity", "Worker af — Last Activity", "automation");
+  try {
+    const res = await withTimeout((s) => fetch(`${CONFIG.AF_WORKER_URL}/api/agent-health`, { signal: s }), 6000);
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      c.status = "error";
+      c.detail = data.error || `HTTP ${res.status}`;
+      return c;
+    }
+    const productsAgo = data.products?.minutesSinceLast;
+    const marketsAgo = data.markets?.minutesSinceLast;
+    c.status = data.stale ? "error" : "ok";
+    c.detail = `Products: ${productsAgo == null ? "no data" : productsAgo + " min ago"} · `
+      + `Markets: ${marketsAgo == null ? "no data" : marketsAgo + " min ago"} · `
+      + `stale threshold: ${data.staleMinutes} min`;
+  } catch (e) { c.status = "error"; c.detail = e.message; }
+  return c;
+}
+
 async function checkGitHubActions(env) {
   const c = check("github_actions", "GitHub Actions", "automation");
   try {
@@ -293,6 +316,7 @@ export async function onRequestGet({ env }) {
     checkEmailEndpoint(env),
     checkMailchimpConfig(env),
     checkAfWorker(env),
+    checkWorkerAfActivity(env),
     checkGitHubActions(env),
     checkProductWebhook(env),
     checkShotstackCallback(env),
