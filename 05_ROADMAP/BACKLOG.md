@@ -118,3 +118,21 @@ Tab ใหม่ต้องมี 4 section ตามลำดับ:
 - P0.2 ส่วนที่เหลือ — ตาราง `attention_events` เต็มรูป (scroll_25/50/75/100, exit, section, variant_id, channel) ตอนนี้มีแค่ตาราง `clicks` แบบง่าย (view/click เท่านั้น)
 - P1.1 — Funnel เต็มรูปตาม attention_events
 - P1.2, P2.1, P2.2 — ยังไม่แตะ
+
+---
+
+## ✅ Progress Log — 2026-09-16 (ต่อ)
+
+### เสร็จแล้ว
+- **Per-click subtag tracking ใช้งานได้จริงแล้ว**: เพิ่มคอลัมน์ `click_id` ในตาราง `clicks` และ `conversions` (migration `migrations/2026-09-16_add_click_id.sql`)
+- สร้าง `functions/_lib/affiliate-tracking.js` — ฝัง subtag ตามแพลตฟอร์ม (Amazon → `ascsubtag`, eBay → `customid`) ก่อน redirect ไปหน้าต้นทาง
+- แก้ `functions/_lib/d1-products.js` — คืนค่า `source_type`/`sourceUrl`/`affiliateLink` แยกกัน เพื่อให้ `/go/[id].js` เลือก URL ฐานที่ถูกต้องสำหรับฝัง subtag
+- แก้ `functions/go/[id].js` — generate `click_id` (UUID) ทุกคลิกจริง (ไม่นับ bot) แล้วฝังลง URL ปลายทาง + บันทึกลง `clicks`
+- แก้ `functions/api/conversions/import.js` — รับ `click_id` เพิ่ม (optional, backward compatible) เพื่อจับคู่ click กับ conversion แบบ 1:1 แทนที่จะเป็นแค่ aggregate ต่อ product_id
+- ทดสอบ end-to-end สำเร็จ: คลิกจริงที่ `/go/104` บันทึก `click_id` ลง D1 ถูกต้อง (`2fd2fd56-6ded-4b11-842b-0ccae733fd67`)
+- Commit `f62171d`
+
+### ค้างอยู่ / ขั้นต่อไป
+- [ ] Import conversion report จริงจาก Amazon Associates — ตอนนี้พร้อมรับ `click_id` แล้ว ถ้า Amazon ส่ง `ascsubtag` กลับมาในรายงาน commission จะ match ได้แม่นยำระดับ 1:1
+- [ ] เช็คว่า Amazon Associates report จริงมีคอลัมน์ subtag/ascsubtag ส่งกลับมาไหม (ต้องดู export CSV จริงก่อน)
+- [ ] พิจารณาว่าจะยกเลิกใช้ short link (`amzn.to`) ทั้งหมดเป็น URL เต็มถาวรไหม เพื่อความสม่ำเสมอ
