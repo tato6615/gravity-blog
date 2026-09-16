@@ -136,3 +136,31 @@ Tab ใหม่ต้องมี 4 section ตามลำดับ:
 - [ ] Import conversion report จริงจาก Amazon Associates — ตอนนี้พร้อมรับ `click_id` แล้ว ถ้า Amazon ส่ง `ascsubtag` กลับมาในรายงาน commission จะ match ได้แม่นยำระดับ 1:1
 - [ ] เช็คว่า Amazon Associates report จริงมีคอลัมน์ subtag/ascsubtag ส่งกลับมาไหม (ต้องดู export CSV จริงก่อน)
 - [ ] พิจารณาว่าจะยกเลิกใช้ short link (`amzn.to`) ทั้งหมดเป็น URL เต็มถาวรไหม เพื่อความสม่ำเสมอ
+
+## 🔎 Investigation Findings — 2026-09-16 (ผ่าน D1 Console)
+
+### Pipeline โดยรวม
+เกือบทุก agent status = success, มี control (pending 5 / cancelled 2) และ offer (cancelled 4)
+ซึ่งไม่ใช่จำนวนผิดปกติ — ไม่ใช่ stuck หนักเหมือนที่กังวลตอนแรก
+
+### สินค้า 234, 235, 238, 239 — pipeline อัตโนมัติยังไม่ครอบคลุม
+เจอ task ที่ match แค่ 2 แถว (chain เดียว ห่างกัน 12 วินาที) ไม่ใช่ของสินค้าทั้ง 4 ตัวจริงจัง
+→ ต้อง manual ต่อ หรือเช็คว่าทำไม Offer Agent ไม่สร้าง task ให้สินค้าพวกนี้
+
+### Duplicate content — ยืนยันแล้วว่าเป็น 2 บั๊กคนละตัว
+1. **[ACTIVE BUG] Offer Agent match สินค้าซ้ำไม่หยุด**
+   - Product 269: 42 แถว content กระจายตลอด 3 วัน (12-15 ก.ย.)
+   - Product 294: 14 แถว ใน 17 ชม.
+   - ยืนยันจาก agent_tasks: pattern คือ `offer→content (offer_matched)` วนซ้ำหลายรอบห่างกันเป็นชั่วโมง/วัน
+     ไม่ใช่ race condition — เป็นเพราะ Offer Agent ไม่เช็คว่าสินค้ามี content อยู่แล้วก่อน match ซ้ำ
+   - **ต้องแก้ก่อนทำ P0.1** (ไม่งั้น hook variant จะยิ่งเพิ่มความเสียหาย)
+   - Next step: อ่าน `functions/_lib/agents/handlers/offer-agent.js` หา root cause แล้วเพิ่ม idempotency check
+
+2. **[LEGACY, priority ต่ำกว่า] Product 2 (7 แถว) และ 101 (3 แถว)**
+   - timestamp เดียวกันเป๊ะทุกแถว แต่ **ไม่มีร่องรอยใน agent_tasks เลย**
+   - แปลว่าไม่ได้มาจาก pipeline อัตโนมัติปัจจุบัน — น่าจะเป็นสคริปต์/batch เก่าก่อนมีระบบ 13-agent
+   - ไม่ใช่บั๊กที่ต้องรีบแก้ (โค้ดปัจจุบันไม่ได้เป็นคนก่อ) — พักไว้ก่อน
+
+### การตัดสินใจ
+- ⏸️ **P0.1 (hook variants): พักไว้ก่อน** จนกว่าจะแก้บั๊ก Offer Agent duplicate ของ product 269/294 เสร็จ
+- 🔜 ขั้นต่อไป: อ่าน `offer-agent.js` → หาจุดที่ควรเช็คก่อน match → แก้ให้ idempotent
