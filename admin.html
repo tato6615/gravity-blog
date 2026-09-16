@@ -310,6 +310,7 @@
 <body>
 
 <div class="tab-nav">
+  <button class="tab-btn" data-tab="attention" onclick="switchTab('attention')">🎯 Attention</button>
   <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
   <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')">🚀 Product Engine</button>
   <button class="tab-btn" data-tab="system-health" onclick="switchTab('system-health')">🩺 System Health</button>
@@ -317,6 +318,71 @@
   <button class="tab-btn" data-tab="market" onclick="switchTab('market')">🔎 Market Discovery</button>
   <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">🤖 Multi-Agent</button>
 </div>
+
+<!-- ===== Attention → Behavior → Conversion Dashboard ===== -->
+<section id="attention-panel" class="tab-panel hidden" data-tab="attention" style="max-width:960px; margin:0 auto; padding:0 20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 4px; flex-wrap:wrap; gap:10px;">
+    <div>
+      <h2 style="margin:0 0 4px; color:var(--text);">🎯 Attention</h2>
+      <div style="color:var(--text-faint); font-size:13px;">Attention ≠ Traffic — วัดความสนใจของคนที่มี intent จริง</div>
+    </div>
+    <button id="at-refresh-btn" onclick="loadAttention()"
+      style="background:var(--amber); color:#1a1a1a; border:none; border-radius:8px; padding:10px 20px; font-weight:700; cursor:pointer;">
+      ↻ รีเฟรช
+    </button>
+  </div>
+
+  <!-- Level 1: Attention KPI -->
+  <div id="at-kpi-cards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:16px 0 24px;">
+    <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
+      <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Attention Rate</div>
+      <div id="at-attention-rate" style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
+      <div style="font-size:11px; color:var(--teal); margin-top:4px;">clicks ÷ views</div>
+    </div>
+    <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
+      <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Avg. Scroll Depth</div>
+      <div style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
+      <div style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
+    </div>
+    <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
+      <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Bounce Rate</div>
+      <div style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
+      <div style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
+    </div>
+    <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
+      <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Avg. Time on Page</div>
+      <div style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—s</div>
+      <div style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
+    </div>
+  </div>
+
+  <!-- Level 2: ทำไมคนหยุด -->
+  <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:16px;">
+    <h3 style="margin:0 0 2px; color:var(--text); font-size:15px;">ทำไมคนหยุด? <span style="font-size:10px; padding:2px 8px; border-radius:20px; background:#3a2a12; color:var(--amber);">P1.1</span></h3>
+    <div style="color:var(--text-faint); font-size:12px; margin-bottom:14px;">Funnel: view → scroll → click → conversion — หา step ที่คนหลุดมากสุด</div>
+    <div id="at-funnel" style="color:var(--text-faint); font-size:13px; text-align:center; padding:20px; border:1px dashed var(--line); border-radius:8px;">
+      ยังไม่มีข้อมูล — ต้องสร้างตาราง attention_events ก่อน (BACKLOG P0.2)
+    </div>
+  </div>
+
+  <!-- Level 3: Conversion -->
+  <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:16px;">
+    <h3 style="margin:0 0 2px; color:var(--text); font-size:15px;">Conversion — อะไรทำให้ตัดสินใจ <span style="font-size:10px; padding:2px 8px; border-radius:20px; background:#123a2a; color:var(--teal);">P1.3 — ทำได้เลย</span></h3>
+    <div style="color:var(--text-faint); font-size:12px; margin-bottom:14px;">Quality Score / Category / Channel เทียบกับ Conversion Rate จริง</div>
+    <div id="at-conversion-table" style="color:var(--text-faint); font-size:13px; text-align:center; padding:20px; border:1px dashed var(--line); border-radius:8px;">
+      ยังไม่เชื่อมข้อมูล — join content.quality_score กับ ai_analytics ได้เลยตอนนี้
+    </div>
+  </div>
+
+  <!-- Level 4: Loop -->
+  <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:16px;">
+    <h3 style="margin:0 0 2px; color:var(--text); font-size:15px;">Loop — ปรับระบบอัตโนมัติ <span style="font-size:10px; padding:2px 8px; border-radius:20px; background:#3a2a12; color:var(--amber);">P1.2 / P2.2</span></h3>
+    <div style="color:var(--text-faint); font-size:12px; margin-bottom:14px;">Hook/Variant ไหนชนะ ไหนแพ้ต่อเนื่อง → ป้อนกลับเข้า prompt รอบถัดไป</div>
+    <div id="at-loop-table" style="color:var(--text-faint); font-size:13px; text-align:center; padding:20px; border:1px dashed var(--line); border-radius:8px;">
+      ยังไม่มี variant — ต้องเพิ่ม variant_id ในตาราง content/social ก่อน (BACKLOG P0.1)
+    </div>
+  </div>
+</section>
 
 <!-- ===== Phase 3: Analytics Dashboard ===== -->
 <section id="analytics-dashboard" class="tab-panel" data-tab="analytics">
