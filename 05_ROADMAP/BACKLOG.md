@@ -16,33 +16,31 @@ ATTENTION → BEHAVIOR → DATA → INSIGHT → EXPERIMENT → BETTER ATTENTION 
 
 ## 🔴 P0 — ต้องทำก่อน (ไม่งั้น loop ปิดไม่ได้เลย)
 
-### P0.1 — Content/Hook Variants
-- [ ] เพิ่มคอลัมน์ `variant_id`, `variant_label` ในตาราง `content` และ `social` (D1 migration)
-- [ ] แก้ prompt ใน content-generation step ให้ AI สร้าง **hook/headline อย่างน้อย 2-3 แบบ** ต่อสินค้า แทนที่จะเป็นแบบเดียวจบ
-      (ตัวแปรที่ควรสลับ: curiosity gap / specificity / contrarian / problem-first)
-- [ ] `distribute.js` สุ่มเลือก variant ต่อการโพสต์ (หรือกระจายเท่าๆ กันข้ามแพลตฟอร์ม/รอบเวลา)
-- **Why first**: ไม่มี variant → ต่อให้ track ละเอียดแค่ไหนก็ไม่มีอะไรให้เทียบ
+### ✅ P0.1 — Content/Hook Variants — DONE (verified 2026-09-16)
+- [x] เพิ่มคอลัมน์ `variant_id`, `variant_label` ในตาราง `content` และ `social` (D1 migration) — cid 20-21
+- [x] แก้ `content-agent.js` ให้ `generateHookVariants()` สร้าง headline 4 แบบ/สินค้า แล้ว INSERT 1 แถวต่อ 1 variant (specificity / problem_first / audience_curiosity / value_anchor)
+- [x] แก้ `offer-agent.js` — idempotency guard + update `pipeline_status = 'matched'` กัน duplicate content บั๊ก
+- [x] `distribute.js` แก้ให้เลือก hook variant แยกจาก link ปลายทาง — ยืนยันโพสต์ขึ้น Facebook จริง
+- [x] End-to-end verified: product 248 มี 4 variant rows (id 519-522) พร้อม `variant_id` ครบ
 
-### P0.2 — Attention Events Table (D1)
-- [ ] สร้างตาราง `attention_events`:
-  ```sql
-  CREATE TABLE attention_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL,
-    product_id INTEGER,
-    variant_id TEXT,
-    channel TEXT,             -- facebook/x/pinterest/website/...
-    event_type TEXT NOT NULL, -- view | scroll_25 | scroll_50 | scroll_75 | scroll_100 | click | exit
-    section TEXT,             -- review | comparison | faq | buying_guide | cta (nullable)
-    device TEXT,              -- mobile | desktop | tablet
-    ts TEXT NOT NULL
-  );
-  CREATE INDEX idx_attention_events_product ON attention_events(product_id);
-  CREATE INDEX idx_attention_events_session ON attention_events(session_id);
-  ```
-- [ ] เพิ่ม endpoint `/api/track-event` (Worker) — รับ event จาก client-side script บนหน้าเว็บ
-- [ ] ฝัง tracking snippet เบาๆ ในหน้า product/content page (scroll depth + time-on-page + exit)
-- **Why first**: เป็นฐานของ funnel (Level 2), drop-off analysis, และ retention ทั้งหมด
+**หมายเหตุ**:
+- SOCIAL table ยังไม่มี agent generate ข้อความแยกตาม variant จริง — `distribute.js` fallback ไปแถวแรกเสมอ (ค้างไว้ทำทีหลัง)
+- ล้างข้อมูลทดสอบ: `UPDATE products SET pipeline_status = 'enriched' WHERE id = 248;`
+
+### ✅ P0.2 — Attention Events Table — DONE (verified 2026-09-16)
+- [x] สร้างตาราง `attention_events` ใน D1 พร้อม index บน `product_id` และ `session_id`
+- [x] สร้าง endpoint `functions/api/track-event.js` — รับ event จาก client, validate, กรอง bot, INSERT ลง D1
+- [x] แก้ `functions/_lib/article.js` — ฝัง inline attention tracker script แทน `/api/track` เดิม
+      - track: view, scroll_25/50/75/100, click (affiliate link + buy-btn), exit (visibilitychange + pagehide)
+      - detect channel จาก `utm_source` อัตโนมัติ
+      - `data-section` attribute บน review, buying_guide, faq, cta
+- [x] สร้าง `functions/_lib/attention-tracker.js` (external script สำรอง)
+- [x] End-to-end verified: `curl POST /api/track-event` → `{"ok":true}` → event เข้า D1 ถูกต้อง
+
+**หมายเหตุ**:
+- session_id เป็น in-memory เท่านั้น (ไม่ใช้ localStorage/cookie) — ไม่ track ข้าม visit
+- bot filter ใช้ regex เดียวกับ `/go/[id].js`
+- `variant_id` ใน event มาจาก `article.variantId` — ต้องเช็คว่า `d1-articles.js` return field นี้มาด้วยไหม
 
 ### P0.3 — Quality Score ↔ Conversion Reality Check
 - [ ] Query join `content.quality_score` / `quality_tier` กับ conversion จริงจาก `ai_analytics`
@@ -59,11 +57,11 @@ ATTENTION → BEHAVIOR → DATA → INSIGHT → EXPERIMENT → BETTER ATTENTION 
 - [ ] แยก drop-off ตาม `section` — รู้ว่าคอนเทนต์ส่วนไหน (review/comparison/FAQ) ดึงคนไม่อยู่
 
 ### P1.2 — Auto-flag ระบบ
-- [ ] Cron job เช็ค: variant/quality_tier ที่ conversion ต่ำต่อเนื่อง (เช่น < X% เทียบ baseline) เกิน N วัน
+- [ ] Cron job เช็ค: variant/quality_tier ที่ conversion ต่ำต่อเนื่อง เกิน N วัน
 - [ ] ส่ง flag เข้า System Health หรือ webhook แจ้งเตือน
-- [ ] (ขั้นถัดไป) หยุดใช้ pattern ที่แพ้ซ้ำๆ ในการ generate content รอบใหม่โดยอัตโนมัติ
+- [ ] หยุดใช้ pattern ที่แพ้ซ้ำๆ ในการ generate content รอบใหม่โดยอัตโนมัติ
 
-### P1.3 — Cross-reference Dashboard (ใช้ข้อมูลที่มีอยู่แล้ว วันนี้ทำได้เลย)
+### P1.3 — Cross-reference Dashboard
 - [ ] ตาราง: category/market ↔ conversion rate
 - [ ] ตาราง: channel ↔ conversion rate
 - [ ] ตาราง: quality_score bucket ↔ conversion rate
@@ -73,94 +71,39 @@ ATTENTION → BEHAVIOR → DATA → INSIGHT → EXPERIMENT → BETTER ATTENTION 
 ## 🟡 P2 — ทำเมื่อมีปริมาณข้อมูลพอ
 
 ### P2.1 — Return Behavior / Retention (Level 4: Loop เต็มรูป)
-- [ ] Session ID แบบ anonymous คงอยู่ข้าม visit (cookie/localStorage-free — ใช้ fingerprint เบาๆ หรือ UTM+timestamp)
+- [ ] Session ID แบบ anonymous คงอยู่ข้าม visit
 - [ ] Return rate ภายใน 7/30 วัน
-- [ ] Cross-product path (สินค้าไหนที่คนไปดูต่อหลังหลุดจากสินค้านี้)
+- [ ] Cross-product path
 
 ### P2.2 — Experimentation Framework (Level 8)
-- [ ] Hypothesis log: บันทึกทุกครั้งที่เปลี่ยน prompt/hook pattern พร้อมสมมติฐาน
-- [ ] A/B compare ผลก่อน-หลังเปลี่ยน แบบมีนัยสำคัญทางสถิติขั้นต่ำ (จำนวน sample ที่พอ)
-- [ ] Insight digest รายสัปดาห์ ป้อนกลับเข้า prompt ของ content generation (`buildMarketPrompt` และ content/social prompt)
+- [ ] Hypothesis log
+- [ ] A/B compare ผลก่อน-หลังเปลี่ยน
+- [ ] Insight digest รายสัปดาห์ ป้อนกลับเข้า prompt
 
 ---
 
-## 📌 Dashboard: หน้าใหม่ "Attention" (บนสุด, ก่อน Analytics)
+## 📌 Dashboard: หน้าใหม่ "Attention"
 
-Tab ใหม่ต้องมี 4 section ตามลำดับ:
-
-1. **Attention** — Attention Rate (clicks/views), Avg. Scroll Depth, Bounce Rate *(รอ P0.2)*
+1. **Attention** — Attention Rate, Avg. Scroll Depth, Bounce Rate *(P0.2 พร้อมแล้ว)*
 2. **ทำไมคนหยุด** — Funnel + Drop-off by section/channel *(รอ P1.1)*
-3. **Conversion** — quality_score/category/channel ↔ conversion (ทำได้เลยจาก P1.3)
+3. **Conversion** — quality_score/category/channel ↔ conversion *(P1.3)*
 4. **Loop** — Auto-flag list + hypothesis log *(รอ P1.2 / P2.2)*
 
-ดู mockup UI แนบไฟล์ `attention-dashboard-mockup.html`
-
----
-
-## คำถามที่ต้องตอบก่อนเริ่ม P0.1
-ตอนนี้ AI สร้าง hook/headline กี่แบบต่อสินค้า? (เช็คจาก content generation prompt ปัจจุบัน)
-ถ้ายังเป็นแบบเดียว → เริ่มจาก P0.1 ก่อนอย่างอื่นทั้งหมด
 ---
 
 ## ✅ Progress Log — 2026-09-16
 
 ### เสร็จแล้ว
-- **Security fix**: ลบ endpoint `/api/click` (dead code, ไม่เคยทำงานจริง — method mismatch + template placeholder ไม่เคยถูกแทนที่ + ไม่มีการกรอง bot + เป็น open-redirect vulnerability เพราะรับ `redirect` param แล้ว `Response.redirect()` ตรงๆ โดยไม่ validate). ลบไฟล์ + แก้ template 2 ไฟล์ (`en/product/dji-mini-3-pro.html`, `en/product/sample-template.html`) + ลบ health check ที่เกี่ยวข้องออกจาก `system-health.js`. Commit `8d289be`.
-- **Root cause conversion=0 ยืนยันแล้ว**: ไม่ใช่บั๊ก tracking (`/go/[id].js` กรอง bot + track click ถูกต้องอยู่แล้ว, `view` event ก็ยิงถูกจุดใน `article.js`) — สาเหตุจริงคือตาราง `conversions` ไม่เคยมีข้อมูลเข้าเลย เพราะ endpoint `/api/conversions/import` (รับรายงานจาก Amazon Associates/eBay) ไม่เคยถูกเรียกใช้งานจริงสักครั้ง
-- ตั้งค่า `IMPORT_SECRET` ใหม่ใน Cloudflare Pages env vars + ยืนยันด้วย test request ว่า endpoint ทำงานถูกต้อง (`{"ok":true,"inserted":1,"skipped":0}`) — ลบแถว test (`TEST-001`) ออกจาก `conversions` แล้ว
+- **Security fix**: ลบ endpoint `/api/click` (open-redirect vulnerability). Commit `8d289be`.
+- **Root cause conversion=0**: ตั้งค่า `IMPORT_SECRET` + ยืนยัน `/api/conversions/import` ทำงาน.
+- **Per-click subtag tracking**: เพิ่ม `click_id` ใน `clicks`/`conversions`, `affiliate-tracking.js`, แก้ `/go/[id].js`. Commit `f62171d`.
+- **P0.1 Hook Variants**: verified — product 248 มี 4 variant rows. Deploy #490.
+- **P0.2 Attention Events**: verified — `track-event` endpoint ทำงาน, event เข้า D1 ถูกต้อง. Commit `b019cc6`.
 
-### กำลังทำ / ค้างอยู่
-- [ ] Import ข้อมูล conversion จริงจาก Amazon Associates commission report (CSV → JSON → `/api/conversions/import`) — ต้องออกแบบ ASIN → `product_id` mapping ก่อน เพราะ CSV ของ Amazon ไม่มี internal product_id ตรงๆ
-- [ ] เช็คว่า affiliate short-link (`amzn.to/...`) ของสินค้าทั้งหมด redirect ไปถูกที่พร้อม tag `gravityos-20` จริงหรือไม่ (สุ่มเทสหลายตัว)
-
-### ยังไม่เริ่ม (ตาม priority backlog เดิม)
-- P0.1 — Content/Hook Variants (ยังไม่เช็คว่า AI สร้าง hook กี่แบบต่อสินค้าตอนนี้)
-- P0.2 ส่วนที่เหลือ — ตาราง `attention_events` เต็มรูป (scroll_25/50/75/100, exit, section, variant_id, channel) ตอนนี้มีแค่ตาราง `clicks` แบบง่าย (view/click เท่านั้น)
-- P1.1 — Funnel เต็มรูปตาม attention_events
-- P1.2, P2.1, P2.2 — ยังไม่แตะ
-
----
-
-## ✅ Progress Log — 2026-09-16 (ต่อ)
-
-### เสร็จแล้ว
-- **Per-click subtag tracking ใช้งานได้จริงแล้ว**: เพิ่มคอลัมน์ `click_id` ในตาราง `clicks` และ `conversions` (migration `migrations/2026-09-16_add_click_id.sql`)
-- สร้าง `functions/_lib/affiliate-tracking.js` — ฝัง subtag ตามแพลตฟอร์ม (Amazon → `ascsubtag`, eBay → `customid`) ก่อน redirect ไปหน้าต้นทาง
-- แก้ `functions/_lib/d1-products.js` — คืนค่า `source_type`/`sourceUrl`/`affiliateLink` แยกกัน เพื่อให้ `/go/[id].js` เลือก URL ฐานที่ถูกต้องสำหรับฝัง subtag
-- แก้ `functions/go/[id].js` — generate `click_id` (UUID) ทุกคลิกจริง (ไม่นับ bot) แล้วฝังลง URL ปลายทาง + บันทึกลง `clicks`
-- แก้ `functions/api/conversions/import.js` — รับ `click_id` เพิ่ม (optional, backward compatible) เพื่อจับคู่ click กับ conversion แบบ 1:1 แทนที่จะเป็นแค่ aggregate ต่อ product_id
-- ทดสอบ end-to-end สำเร็จ: คลิกจริงที่ `/go/104` บันทึก `click_id` ลง D1 ถูกต้อง (`2fd2fd56-6ded-4b11-842b-0ccae733fd67`)
-- Commit `f62171d`
-
-### ค้างอยู่ / ขั้นต่อไป
-- [ ] Import conversion report จริงจาก Amazon Associates — ตอนนี้พร้อมรับ `click_id` แล้ว ถ้า Amazon ส่ง `ascsubtag` กลับมาในรายงาน commission จะ match ได้แม่นยำระดับ 1:1
-- [ ] เช็คว่า Amazon Associates report จริงมีคอลัมน์ subtag/ascsubtag ส่งกลับมาไหม (ต้องดู export CSV จริงก่อน)
-- [ ] พิจารณาว่าจะยกเลิกใช้ short link (`amzn.to`) ทั้งหมดเป็น URL เต็มถาวรไหม เพื่อความสม่ำเสมอ
-
-## 🔎 Investigation Findings — 2026-09-16 (ผ่าน D1 Console)
-
-### Pipeline โดยรวม
-เกือบทุก agent status = success, มี control (pending 5 / cancelled 2) และ offer (cancelled 4)
-ซึ่งไม่ใช่จำนวนผิดปกติ — ไม่ใช่ stuck หนักเหมือนที่กังวลตอนแรก
-
-### สินค้า 234, 235, 238, 239 — pipeline อัตโนมัติยังไม่ครอบคลุม
-เจอ task ที่ match แค่ 2 แถว (chain เดียว ห่างกัน 12 วินาที) ไม่ใช่ของสินค้าทั้ง 4 ตัวจริงจัง
-→ ต้อง manual ต่อ หรือเช็คว่าทำไม Offer Agent ไม่สร้าง task ให้สินค้าพวกนี้
-
-### Duplicate content — ยืนยันแล้วว่าเป็น 2 บั๊กคนละตัว
-1. **[ACTIVE BUG] Offer Agent match สินค้าซ้ำไม่หยุด**
-   - Product 269: 42 แถว content กระจายตลอด 3 วัน (12-15 ก.ย.)
-   - Product 294: 14 แถว ใน 17 ชม.
-   - ยืนยันจาก agent_tasks: pattern คือ `offer→content (offer_matched)` วนซ้ำหลายรอบห่างกันเป็นชั่วโมง/วัน
-     ไม่ใช่ race condition — เป็นเพราะ Offer Agent ไม่เช็คว่าสินค้ามี content อยู่แล้วก่อน match ซ้ำ
-   - **ต้องแก้ก่อนทำ P0.1** (ไม่งั้น hook variant จะยิ่งเพิ่มความเสียหาย)
-   - Next step: อ่าน `functions/_lib/agents/handlers/offer-agent.js` หา root cause แล้วเพิ่ม idempotency check
-
-2. **[LEGACY, priority ต่ำกว่า] Product 2 (7 แถว) และ 101 (3 แถว)**
-   - timestamp เดียวกันเป๊ะทุกแถว แต่ **ไม่มีร่องรอยใน agent_tasks เลย**
-   - แปลว่าไม่ได้มาจาก pipeline อัตโนมัติปัจจุบัน — น่าจะเป็นสคริปต์/batch เก่าก่อนมีระบบ 13-agent
-   - ไม่ใช่บั๊กที่ต้องรีบแก้ (โค้ดปัจจุบันไม่ได้เป็นคนก่อ) — พักไว้ก่อน
-
-### การตัดสินใจ
-- ⏸️ **P0.1 (hook variants): พักไว้ก่อน** จนกว่าจะแก้บั๊ก Offer Agent duplicate ของ product 269/294 เสร็จ
-- 🔜 ขั้นต่อไป: อ่าน `offer-agent.js` → หาจุดที่ควรเช็คก่อน match → แก้ให้ idempotent
+### ค้างอยู่
+- [ ] Import conversion จาก Amazon Associates — ออกแบบ ASIN → `product_id` mapping
+- [ ] เช็ค Amazon Associates report มีคอลัมน์ `ascsubtag` ไหม
+- [ ] SOCIAL variant generation (distribute.js fallback อยู่)
+- [ ] สินค้า 234, 235, 238, 239 — pipeline ยังไม่ครอบคลุม
+- [ ] ล้างข้อมูลทดสอบ: `UPDATE products SET pipeline_status = 'enriched' WHERE id = 248;`
+- [ ] เช็คว่า `d1-articles.js` return `variantId` มาด้วยไหม (ถ้าไม่มี attention_events จะได้ `variant_id = null` เสมอ)
