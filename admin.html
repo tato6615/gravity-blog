@@ -305,6 +305,31 @@
   .btn-icon-run{ background:transparent !important; border:none !important; color:var(--amber) !important; font-size:18px; cursor:pointer; padding:4px; line-height:1; opacity:0.7; flex-shrink:0; width:auto !important; }
   .btn-icon-run:hover{ opacity:1; }
 
+  /* ═══ Attention funnel — real /api/funnel-stats render ═══ */
+  .fn-row{ display:grid; grid-template-columns:88px 1fr 54px; align-items:center; gap:10px; margin-bottom:6px; }
+  .fn-stage{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); text-transform:lowercase; }
+  .fn-track{ height:26px; background:var(--panel-2); border-radius:6px; overflow:hidden; }
+  .fn-fill{ height:100%; border-radius:6px; display:flex; align-items:center; padding-left:9px;
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:600; color:#1a1206; min-width:2px; transition:width .4s ease; }
+  .fn-drop{ font-family:'IBM Plex Mono',monospace; font-size:11px; text-align:right; color:var(--text-faint); }
+  .fn-drop.hot{ color:var(--red); }
+  .fn-stage-0 .fn-fill, .fn-stage-1 .fn-fill{ background:var(--teal); }
+  .fn-stage-2 .fn-fill, .fn-stage-3 .fn-fill{ background:#3ea88f; }
+  .fn-stage-4 .fn-fill{ background:var(--amber); }
+  .fn-stage-5 .fn-fill{ background:var(--red); }
+  .fn-meta-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .fn-controls{ display:flex; gap:6px; align-items:center; }
+  .fn-controls input{ width:64px; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:6px; padding:6px 8px; font-family:'IBM Plex Mono',monospace; font-size:12px; margin:0; }
+  .fn-sub-panel{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .fn-sub-title{ font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:8px; }
+  .fn-sub-row{ display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:12.5px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .fn-sub-row:last-child{ border-bottom:none; }
+  .fn-sub-row .name{ color:var(--text-dim); display:flex; align-items:center; gap:7px; }
+  .fn-dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .fn-sub-row .val{ font-family:'IBM Plex Mono',monospace; color:var(--text); font-weight:600; }
+  .fn-conv-note{ font-size:11px; color:var(--text-faint); margin-top:10px; line-height:1.55; }
+
 </style>
 </head>
 <body>
@@ -341,13 +366,13 @@
     </div>
     <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
       <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Avg. Scroll Depth</div>
-      <div style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
-      <div style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
+      <div id="at-scroll-depth" style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
+      <div id="at-scroll-depth-note" style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
     </div>
     <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
       <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Bounce Rate</div>
-      <div style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
-      <div style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
+      <div id="at-bounce-rate" style="font-size:26px; font-weight:700; margin-top:6px; color:var(--text);">—%</div>
+      <div id="at-bounce-note" style="font-size:11px; color:var(--amber); margin-top:4px;">รอ attention_events (P0.2)</div>
     </div>
     <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;">
       <div style="color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:.04em;">Avg. Time on Page</div>
@@ -358,10 +383,18 @@
 
   <!-- Level 2: ทำไมคนหยุด -->
   <div style="background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:16px;">
-    <h3 style="margin:0 0 2px; color:var(--text); font-size:15px;">ทำไมคนหยุด? <span style="font-size:10px; padding:2px 8px; border-radius:20px; background:#3a2a12; color:var(--amber);">P1.1</span></h3>
-    <div style="color:var(--text-faint); font-size:12px; margin-bottom:14px;">Funnel: view → scroll → click → conversion — หา step ที่คนหลุดมากสุด</div>
+    <div class="fn-meta-row">
+      <div>
+        <h3 style="margin:0 0 2px; color:var(--text); font-size:15px;">ทำไมคนหยุด? <span style="font-size:10px; padding:2px 8px; border-radius:20px; background:#123a2a; color:var(--teal);">P1.1 — live</span></h3>
+        <div style="color:var(--text-faint); font-size:12px;">Funnel: view → scroll → click — หา step ที่คนหลุดมากสุด</div>
+      </div>
+      <div class="fn-controls">
+        <input type="text" id="fn-product-id" value="248" title="product_id">
+        <input type="text" id="fn-days" value="30" title="days">
+      </div>
+    </div>
     <div id="at-funnel" style="color:var(--text-faint); font-size:13px; text-align:center; padding:20px; border:1px dashed var(--line); border-radius:8px;">
-      ยังไม่มีข้อมูล — ต้องสร้างตาราง attention_events ก่อน (BACKLOG P0.2)
+      กำลังโหลด...
     </div>
   </div>
 
@@ -385,10 +418,118 @@
 </section>
 
 <script>
-/* ═══ Attention → Behavior → Conversion — ดึงจาก conversion-agent / experiment-agent ผ่าน /api/agents/status ═══ */
+/* ═══════════════════════════════════════════════════════════════════
+   ✅ FIXED (2026-09-16): "ทำไมคนหยุด?" (P1.1) เดิมยิง fetch ไป
+   /api/agents/status แล้วพยายามอ่าน conversionReport.byProduct ซึ่งเป็น
+   คนละระบบกับ funnel (conversion-agent รายงาน click/conversion ระดับ
+   product ไม่ใช่ event ระดับ view→scroll→click) ทำให้เห็น "Load failed"
+   เพราะ endpoint นั้นไม่มี field ที่โค้ดคาดหวังเลย
+
+   ตอนนี้แยกออกมาเป็น loadFunnel() เรียก /api/funnel-stats ตรงๆ (endpoint
+   ที่สร้างเสร็จ verify แล้วใน P1.1) ส่วน loadAttention() เดิมยังทำงาน
+   เหมือนเดิมสำหรับ Conversion (P1.3) และ Loop (P1.2/P2.2) ที่ยังพึ่ง
+   conversion-agent/experiment-agent อยู่ — ไม่แตะส่วนนั้น
+   ═══════════════════════════════════════════════════════════════════ */
+
+const FN_CHANNEL_COLORS = ['#4fd1c5', '#e8a33d', '#e2604f', '#8c8d95', '#a78bfa'];
+
+async function loadFunnel(){
+  const funnelEl = document.getElementById('at-funnel');
+  const productId = document.getElementById('fn-product-id').value.trim();
+  const days = document.getElementById('fn-days').value.trim() || '30';
+
+  try {
+    const res = await fetch(`/api/funnel-stats?product_id=${encodeURIComponent(productId)}&days=${encodeURIComponent(days)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'unknown error');
+
+    const funnel = data.funnel || [];
+    const view = funnel.find(f => f.stage === 'view');
+    const scroll50 = funnel.find(f => f.stage === 'scroll_50');
+    const scroll25 = funnel.find(f => f.stage === 'scroll_25');
+    const click = funnel.find(f => f.stage === 'click');
+    const viewCount = view ? view.count : 0;
+
+    // KPI cards ด้านบน — เติมเท่าที่ funnel-stats มีข้อมูลให้จริง
+    const rateEl = document.getElementById('at-attention-rate');
+    if (rateEl && viewCount > 0 && click) {
+      rateEl.textContent = Math.round((click.count / viewCount) * 1000) / 10 + '%';
+    }
+    const scrollEl = document.getElementById('at-scroll-depth');
+    const scrollNoteEl = document.getElementById('at-scroll-depth-note');
+    if (scrollEl && viewCount > 0 && scroll50) {
+      scrollEl.textContent = Math.round((scroll50.count / viewCount) * 100) + '%';
+      scrollNoteEl.textContent = 'scroll_50 ผ่าน';
+      scrollNoteEl.style.color = 'var(--teal)';
+    }
+    const bounceEl = document.getElementById('at-bounce-rate');
+    const bounceNoteEl = document.getElementById('at-bounce-note');
+    if (bounceEl && viewCount > 0 && scroll25) {
+      bounceEl.textContent = Math.round((1 - scroll25.count / viewCount) * 100) + '%';
+      bounceNoteEl.textContent = 'ออกก่อนถึง scroll_25';
+      bounceNoteEl.style.color = 'var(--teal)';
+    }
+
+    // Funnel bars — สีไล่ตามสเตจ ใช้ token เดิมของไฟล์ (--teal / --amber / --red)
+    if (!funnel.length || !viewCount) {
+      funnelEl.className = '';
+      funnelEl.style.cssText = 'color:var(--text-faint); font-size:13px; text-align:center; padding:20px; border:1px dashed var(--line); border-radius:8px;';
+      funnelEl.textContent = data.has_data === false
+        ? 'ยังไม่มี traffic เข้ามาในช่วงนี้ — จะขึ้นอัตโนมัติเมื่อมีคนเข้าเว็บ'
+        : 'ไม่มีข้อมูลในช่วงเวลานี้';
+    } else {
+      const maxCount = Math.max(1, ...funnel.map(f => f.count));
+      funnelEl.style.cssText = 'text-align:left; border:none; padding:0;';
+      funnelEl.innerHTML = funnel.map((f, i) => {
+        const pct = Math.max((f.count / maxCount) * 100, f.count > 0 ? 4 : 0);
+        const hot = i > 0 && f.dropoff_pct >= 50;
+        return `<div class="fn-row fn-stage-${i}">
+          <div class="fn-stage">${f.stage.replace('_',' ')}</div>
+          <div class="fn-track"><div class="fn-fill" style="width:${pct}%">${f.count > 0 ? f.count : ''}</div></div>
+          <div class="fn-drop ${hot ? 'hot' : ''}">${i === 0 ? '' : (f.dropoff_pct > 0 ? '−' + f.dropoff_pct + '%' : '—')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // by_channel + by_variant แทรกเป็น sub-panel ต่อท้าย funnel เดิม (ยังอยู่ใน token เดิม)
+    const byChannel = data.by_channel || [];
+    const byVariant = data.by_variant || [];
+    let subHtml = '';
+    if (byChannel.length) {
+      subHtml += `<div class="fn-sub-panel"><div class="fn-sub-title">by channel</div>${
+        byChannel.map((c, i) => `<div class="fn-sub-row"><span class="name"><span class="fn-dot" style="background:${FN_CHANNEL_COLORS[i % FN_CHANNEL_COLORS.length]}"></span>${c.channel}</span><span class="val">${c.share_pct}%</span></div>`).join('')
+      }</div>`;
+    }
+    if (byVariant.length) {
+      subHtml += `<div class="fn-sub-panel"><div class="fn-sub-title">by variant — CTR</div>${
+        byVariant.map(v => `<div class="fn-sub-row"><span class="name">${v.variant_id}</span><span class="val">${v.ctr_pct}%</span></div>`).join('')
+      }</div>`;
+    }
+    if (data.conversion) {
+      const c = data.conversion;
+      subHtml += `<div class="fn-sub-panel"><div class="fn-sub-title">conversion (product-level)</div>
+        <div class="fn-sub-row"><span class="name">total</span><span class="val">${c.total || 0}</span></div>
+        <div class="fn-sub-row"><span class="name">confirmed</span><span class="val">${c.confirmed || 0}</span></div>
+        <div class="fn-sub-row"><span class="name">commission</span><span class="val">$${(c.total_commission || 0).toFixed(2)}</span></div>
+        ${c.is_product_level_only ? '<div class="fn-conv-note">แยกตาม variant/channel ไม่ได้ตอนนี้ — click_id ยังไม่พา session_id/variant_id ผ่าน /go/[id] (BACKLOG P1.1 follow-up)</div>' : ''}
+      </div>`;
+    }
+    if (subHtml) funnelEl.insertAdjacentHTML('beforeend', subHtml);
+
+  } catch (err) {
+    funnelEl.className = '';
+    funnelEl.style.cssText = 'color:var(--text-faint); font-size:13px; text-align:center; padding:20px; border:1px dashed var(--line); border-radius:8px;';
+    funnelEl.textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + err.message;
+  }
+}
+
+document.getElementById('fn-product-id')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadFunnel(); });
+document.getElementById('fn-days')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadFunnel(); });
+
 async function loadAttention(){
   const btn = document.getElementById('at-refresh-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังโหลด...'; }
+  loadFunnel();
   try {
     const res = await fetch('/api/agents/status');
     const data = await res.json();
@@ -396,33 +537,6 @@ async function loadAttention(){
 
     const conv = data.conversionReport;
     const exp = data.experimentReport;
-
-    const rateEl = document.getElementById('at-attention-rate');
-    if (rateEl) {
-      const rate = conv?.last30d?.overallConversionRate;
-      rateEl.textContent = (rate !== null && rate !== undefined) ? rate + '%' : '—%';
-      const labelEl = rateEl.parentElement.querySelector('div:last-child');
-      if (labelEl) labelEl.textContent = 'conversion ÷ click (30d) · click÷view รอ view tracking';
-    }
-
-    const funnelEl = document.getElementById('at-funnel');
-    if (funnelEl) {
-      if (conv?.byProduct?.length) {
-        const top = conv.byProduct.slice(0, 8);
-        const maxClick = Math.max(...top.map(p => p.clickCount || 0), 1);
-        funnelEl.innerHTML = top.map(p => `
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-            <div style="width:140px; font-size:12px; color:var(--text-dim); flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${(p.productName||'').replace(/"/g,'&quot;')}">${p.productName || ('#' + p.productId)}</div>
-            <div style="flex:1; background:var(--panel-2); border-radius:6px; overflow:hidden; height:22px;">
-              <div style="height:100%; background:linear-gradient(90deg,var(--amber),#c9841c); width:${Math.max(4,(p.clickCount/maxClick)*100)}%; display:flex; align-items:center; padding-left:8px; font-size:11px; font-weight:600; color:#1a1200;">${p.clickCount} click</div>
-            </div>
-            <div style="width:90px; text-align:right; font-size:12px; color:${p.conversionCount > 0 ? 'var(--teal)' : 'var(--red)'}; flex-shrink:0;">${p.conversionCount} conv.</div>
-          </div>`).join('');
-        funnelEl.style.cssText = 'text-align:left; border:none; padding:0;';
-      } else {
-        funnelEl.textContent = 'ยังไม่มีข้อมูล click/conversion ใน 30 วันล่าสุด';
-      }
-    }
 
     const convTableEl = document.getElementById('at-conversion-table');
     if (convTableEl) {
@@ -485,8 +599,6 @@ async function loadAttention(){
     }
   } catch (err) {
     console.error('loadAttention error:', err);
-    const el = document.getElementById('at-funnel');
-    if (el) el.textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + err.message;
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↻ รีเฟรช'; }
   }
@@ -1420,7 +1532,7 @@ async function loadAgentsPanel() {
       `;
     }
   } catch (e) {
-    listEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">❌ โหลด Multi-Agent status ไม่สำเร็จ: ${e.message}</div>`;
+    listEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">�❌ โหลด Multi-Agent status ไม่สำเร็จ: ${e.message}</div>`;
   } finally {
     btn.disabled = false; btn.textContent = '↻ รีเฟรช';
   }
@@ -1783,15 +1895,6 @@ function renderTableGrid(stages){
   updateSysSummary();
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   ✅ FIXED (2026-09-10): apiCall() ตอนนี้มี timeout (45 วินาที) ผ่าน
-   AbortController — เดิม fetch() ไม่มี timeout เลย ถ้า backend ไม่ตอบ
-   (เช่น scrape ลิงก์ amzn.to ค้าง) โค้ดจะรอตลอดกาล และเพราะ btn.disabled
-   ถูกตั้งเป็น true ไปแล้วก่อน await แต่ finally{ btn.disabled=false }
-   ไม่มีวันทำงานถ้า fetch ไม่มีวัน resolve/reject → ปุ่ม Import ค้าง
-   disabled ถาวรจนกว่าจะ refresh หน้า ตอนนี้ถ้าไม่ตอบภายใน 45 วิ จะ throw
-   error ออกมาให้เห็นชัดเจน แทนที่จะค้างเงียบๆ
-   ═══════════════════════════════════════════════════════════════════ */
 async function apiCall(path, options, label, timeoutMs = 45000){
   const logId = logEvent('pending', label + ' — กำลังเรียก...');
   const controller = new AbortController();
@@ -1827,15 +1930,6 @@ async function apiCall(path, options, label, timeoutMs = 45000){
   }
 }
 
-// GRAVITY FIX (2026-09-08): เรียก /api/demand-check ทันทีหลัง import สำเร็จ
-// เพื่อโชว์ demand score ก่อนที่ user จะกด Generate Everything (ก่อนเสีย AI call)
-//
-// 🔧 GRAVITY FIX (2026-09-09): เดิมเมื่อ available:false (ไม่มีข้อมูลพอ)
-// จะซ่อนการ์ดไปเงียบๆ ทำให้ user ไม่รู้เลยว่าสินค้านี้ไม่มีข้อมูลให้ประเมิน
-// demand แล้วอาจเผลอกด Generate Everything ต่อ เสีย AI credit ไปกับสินค้า
-// ที่ไม่รู้เลยว่า demand ดีไหม — ตอนนี้โชว์คำเตือนแทนการซ่อนเสมอ ไม่ว่าจะ
-// มีข้อมูลหรือไม่ก็ตาม และเก็บผลไว้ใน latestDemand ให้ runGenerateAll()
-// เอาไปเช็คก่อนเริ่ม generate จริงด้วย (ถามยืนยันถ้า demand ต่ำ/ไม่มีข้อมูล)
 async function checkDemandAfterImport(){
   const el = document.getElementById('demandCard');
   if (!el) return;
@@ -1848,9 +1942,7 @@ async function checkDemandAfterImport(){
       body: JSON.stringify({ productId })
     }, 'POST /api/demand-check');
 
-    // โชว์การ์ดเสมอ ทุกกรณี
     if (!data.available) {
-      // ไม่มีข้อมูลเลย
       el.innerHTML =
         '<div style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px;">' +
         '<div style="display:flex; align-items:center; gap:8px;">' +
@@ -1866,7 +1958,6 @@ async function checkDemandAfterImport(){
     const d = data.demand;
     latestDemand = d;
 
-    // ใช้ normalizedScore ถ้ามี (เทียบกับ maxScore จริง ไม่ใช่ 100)
     const displayScore = d.normalizedScore ?? d.score;
     const isPartial = d.partial || (d.maxScore && d.maxScore < 100);
 
@@ -1904,7 +1995,6 @@ async function checkDemandAfterImport(){
     el.classList.remove('hidden');
 
   } catch(e) {
-    // error ก็โชว์ ไม่ซ่อน
     el.innerHTML =
       '<div style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px;">' +
       '<div style="display:flex; align-items:center; gap:8px;">' +
@@ -1923,7 +2013,6 @@ async function doImport(){
   hideErr('importErr');
   if(!val){ showErr('importErr', 'ใส่ลิงก์หรือรายละเอียดก่อนครับ'); return; }
 
-  // ✅ reset state ทันทีก่อนเรียก API (กัน bug หน้าจอค้างข้อมูลสินค้าเก่า)
   productId = null;
   latestPipelineStatus = null;
   latestPipelineError = '';
@@ -1940,7 +2029,6 @@ async function doImport(){
   renderFieldChecklist({});
   renderTableGrid({});
 
-  // เคลียร์ UI ที่แสดงข้อมูลสินค้าเก่า
   const statusTag = document.getElementById('statusTag');
   if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
   const pipelineBanner = document.getElementById('pipelineStatusBanner');
@@ -1961,7 +2049,7 @@ async function doImport(){
   if (cc) cc.innerHTML = '';
   document.getElementById('stepsList').innerHTML = '';
 
-  renderStepper(); // อัปเดตหน้าจอทันที — จะเห็น "ยังไม่มีสินค้า" แทนข้อมูลเก่า
+  renderStepper();
 
   btn.disabled = true; btn.textContent = 'กำลังนำเข้า...';
   try{
@@ -2301,14 +2389,6 @@ async function refreshStatus(){
   return data;
 }
 
-// 🔧 GRAVITY FIX (2026-09-09): เพิ่มการเช็ค/ถามยืนยันก่อนเริ่ม generate จริง
-// ถ้า demand score ต่ำ (< 70) หรือยังไม่มีข้อมูล demand เลย (latestDemand
-// เป็น null เพราะ checkDemandAfterImport() หาข้อมูลไม่เจอ) — เพื่อไม่ให้
-// เผลอกดแล้วเสีย AI credit ไปกับสินค้าที่รู้อยู่แล้วว่า demand ไม่ดี/ไม่รู้เลย
-// หมายเหตุ: แม้ user จะกด "ตกลง" ฝืนทำต่อ ฝั่ง backend (pipeline.js ->
-// handleEnrich) ก็ยังมี gate ซ้ำอีกชั้นอยู่ดี ถ้า demand ต่ำเกินเกณฑ์จริง
-// (canGenerate:false) จะ skip step แรกให้อัตโนมัติโดยไม่เรียก AI เลย
-// (ไม่เสีย credit) — คำเตือนตรงนี้คือให้ user รู้ล่วงหน้าเฉยๆ ไม่ใช่ gate เดียว
 async function runGenerateAll(){
   if (latestDemand && latestDemand.score < 70) {
     const proceed = confirm(
@@ -2523,17 +2603,6 @@ async function deleteProductRow(id){
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   🔧 GRAVITY FIX (2026-09-10): เพิ่มฟังก์ชันที่หายไป 4 ตัว —
-   renderFieldChecklist, toggleFieldChecklist, renderResults,
-   renderSyncSummary — ถูกเรียกใช้อยู่หลายจุดในโค้ด (รวมถึงใน doImport()
-   บรรทัดแรกๆ ก่อนเรียก API) แต่ไม่เคยถูก define ไว้เลย ทำให้เกิด
-   "ReferenceError: ... is not defined" แบบไม่มี error โชว์ให้เห็น
-   (เพราะเกิดนอก try/catch) ผลคือกดปุ่ม Import แล้วฟังก์ชันทั้งหมดหยุด
-   ทำงานทันทีตั้งแต่บรรทัดแรกๆ — ไม่เคย disable ปุ่ม, ไม่เคยยิง fetch
-   ไป /api/import เลย เหมือนปุ่มไม่ทำงานอะไรเลย นี่คือสาเหตุหลักของบั๊ก
-   "วางลิงก์แล้วกดปุ่มไม่มีอะไรเกิดขึ้น"
-   ═══════════════════════════════════════════════════════════════════ */
 const FIELD_GROUPS = {
   AI_ANALYSIS: { label: 'AI Analysis', fields: [
     { key: 'category', label: 'หมวดหมู่สินค้า' },
@@ -2638,9 +2707,6 @@ function renderResults(stages){
 }
 
 function renderSyncSummary(sync){
-  // ไม่มี UI element เฉพาะสำหรับสรุปผล sync — เก็บไว้ใน activity log แบบ
-  // best-effort เท่านั้น ห่อด้วย try/catch เผื่อ backend ส่งรูปแบบข้อมูล
-  // มาไม่ตรงที่คาดไว้ จะได้ไม่ทำให้ doPublish() พังอีกรอบเหมือนเดิม
   if (!sync) return;
   try {
     if (typeof sync === 'string') { logEvent('ok', 'Sync: ' + sync); return; }

@@ -4,18 +4,28 @@
 //
 // Returns real funnel data from `attention_events` for the Attention dashboard (P1.1):
 //   - overall funnel (view -> scroll_25 -> scroll_50 -> scroll_75 -> scroll_100 -> click) + drop-off %
+//   - conversion (product-level only, see limitation below)
 //   - by_channel  (session share per channel)
 //   - by_variant  (views/clicks/CTR per variant_id)
 //   - by_section  (event counts per content section: review/buying_guide/faq/cta)
 //
 // D1 binding assumed to be `env.DB` — rename below if your wrangler.toml uses a different binding name.
 //
-// NOTE on "conversion" stage:
-//   `attention_events` has no conversion event — conversions live in a separate
-//   `conversions` table (per backlog: click_id / Amazon Associates import).
-//   This endpoint does NOT join conversions yet because I don't have that table's
-//   schema. Once you share it (or confirm the table/column names), I'll add a
-//   `conversion` stage to the funnel via a join on click_id / product_id.
+// ⭐ KNOWN LIMITATION (2026-09-16) — conversion is PRODUCT-LEVEL ONLY, not
+// per-variant/per-channel:
+//   `conversions` schema is (id, product_id, commission, order_id, status,
+//   timestamp, click_id) — no session_id, no variant_id.
+//   `attention_events` schema has session_id/variant_id but NO click_id —
+//   the front-end tracker's 'click' event and the click_id generated
+//   server-side in /go/[id].js are two separate, currently-unlinked systems.
+//   Until click_id (or session_id) flows from the front-end click event
+//   through /go/[id].js into `clicks`/`conversions`, conversion can only be
+//   joined on product_id — so `conversion` below is a single number per
+//   product, NOT broken down by variant_id/channel like the other stages.
+//   Follow-up backlog item: have the affiliate-click tracker append
+//   session_id/variant_id as query params on the /go/[id] link, and have
+//   /go/[id].js persist them into `clicks` so they can flow through to
+//   `conversions` for real per-variant attribution.
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -68,6 +78,19 @@ export async function onRequestGet(context) {
     `;
     const sectionRows = (await env.DB.prepare(sectionSql).bind(...bindings).all()).results;
 
+    // 5. Conversions — PRODUCT-LEVEL ONLY (see file header limitation).
+    //    conversions.product_id is TEXT, so cast/compare as text to be safe.
+    const conversionSql = `
+      SELECT
+        COUNT(*) as conversions,
+        SUM(CASE WHEN status != 'pending' THEN 1 ELSE 0 END) as confirmed,
+        SUM(commission) as total_commission
+      FROM conversions
+      WHERE timestamp >= ${sinceClause} ${productId ? "AND product_id = ?" : ""}
+    `;
+    const conversionRow = (await env.DB.prepare(conversionSql).bind(...bindings).all()).results[0]
+      || { conversions: 0, confirmed: 0, total_commission: 0 };
+
     // --- shape the response ---
 
     const STAGES = ["view", "scroll_25", "scroll_50", "scroll_75", "scroll_100", "click"];
@@ -111,6 +134,13 @@ export async function onRequestGet(context) {
       product_id: productId || "all",
       days,
       funnel,
+      conversion: {
+        total: conversionRow.conversions || 0,
+        confirmed: conversionRow.confirmed || 0,
+        total_commission: conversionRow.total_commission || 0,
+        // per-variant/channel breakdown not possible yet — see file header
+        is_product_level_only: true
+      },
       by_channel: byChannel,
       by_variant: byVariant,
       by_section: bySection,
