@@ -344,6 +344,81 @@
   <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')" title="Multi-Agent" aria-label="Multi-Agent"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2.5"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1"/><circle cx="9" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.3" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg></button>
 </div>
 
+<!-- GX-TABNAV-DRAG-V4: ลากสลับตำแหน่งแท็บ ผูกตรงกับ .tab-nav/.tab-btn (ไม่เดา container) -->
+<script>
+(function () {
+  var STORAGE_KEY = "gx-tabnav-order-v4";
+  var nav = document.querySelector(".tab-nav");
+  if (!nav) return;
+
+  function applySavedOrder() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (!Array.isArray(saved) || !saved.length) return;
+      saved.forEach(function (tab) {
+        var el = nav.querySelector('.tab-btn[data-tab="' + tab + '"]');
+        if (el) nav.appendChild(el);
+      });
+    } catch (e) {
+      console.warn("[gx-tabnav-drag-v4] อ่าน localStorage ไม่ได้:", e);
+    }
+  }
+
+  function saveOrder() {
+    try {
+      var order = Array.prototype.slice
+        .call(nav.querySelectorAll(".tab-btn"))
+        .map(function (el) { return el.getAttribute("data-tab"); });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+    } catch (e) {
+      console.warn("[gx-tabnav-drag-v4] บันทึก localStorage ไม่ได้:", e);
+    }
+  }
+
+  var dragEl = null;
+
+  function onPointerDown(e) {
+    dragEl = e.currentTarget;
+    dragEl.classList.add("gx-dragging");
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp, { once: true });
+  }
+
+  function onPointerMove(e) {
+    if (!dragEl) return;
+    var target = document.elementFromPoint(e.clientX, e.clientY);
+    var hovered = target ? target.closest(".tab-btn") : null;
+    if (hovered && hovered !== dragEl && hovered.parentElement === nav) {
+      var rect = hovered.getBoundingClientRect();
+      var before = e.clientX < rect.left + rect.width / 2;
+      nav.insertBefore(dragEl, before ? hovered : hovered.nextSibling);
+    }
+  }
+
+  function onPointerUp() {
+    if (dragEl) dragEl.classList.remove("gx-dragging");
+    dragEl = null;
+    document.removeEventListener("pointermove", onPointerMove);
+    saveOrder();
+  }
+
+  function bind() {
+    Array.prototype.slice.call(nav.querySelectorAll(".tab-btn")).forEach(function (el) {
+      el.style.touchAction = "none";
+      el.addEventListener("pointerdown", onPointerDown);
+    });
+  }
+
+  applySavedOrder();
+  bind();
+})();
+</script>
+<style>
+  .tab-btn{ cursor:grab; }
+  .tab-btn:active{ cursor:grabbing; }
+  .tab-btn.gx-dragging{ opacity:0.35; }
+</style>
+
 <!-- ===== Attention → Behavior → Conversion Dashboard ===== -->
 <section id="attention-panel" class="tab-panel hidden" data-tab="attention" style="max-width:960px; margin:0 auto; padding:0 20px;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 4px; flex-wrap:wrap; gap:10px;">
@@ -528,7 +603,7 @@ document.getElementById('fn-days')?.addEventListener('keydown', e => { if (e.key
 
 async function loadAttention(){
   const btn = document.getElementById('at-refresh-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังโหลด...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังโหลด...'; }
   loadFunnel();
   try {
     const res = await fetch('/api/agents/status');
@@ -600,7 +675,7 @@ async function loadAttention(){
   } catch (err) {
     console.error('loadAttention error:', err);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '↻ รีเฟรช'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'รีเฟรช'; }
   }
 }
 document.addEventListener('DOMContentLoaded', () => {
@@ -1292,17 +1367,17 @@ switchTab = function(tab) {
 <!-- ===== GRAVITY ARS STEP 1: Multi-Agent Foundation (Admin monitoring) ===== -->
 <section id="agents-panel" class="tab-panel hidden" data-tab="agents" style="max-width:900px; margin:0 auto; padding:0 20px;">
   <div style="display:flex; align-items:center; justify-content:space-between; margin:20px 0 4px;">
-    <h2 style="margin:0; color:var(--text);">🤖 Multi-Agent Foundation</h2>
+    <h2 style="margin:0; color:var(--text); font-weight:600;">Multi-Agent Foundation</h2>
     <div style="display:flex; gap:8px;">
-      <button class="btn-primary" id="ag-runall-btn" onclick="runAllAgents()" style="width:auto; padding:8px 14px; font-size:12.5px; font-weight:700;">▶ รันทั้งหมด</button>
-      <button class="btn-ghost" id="ag-refresh-btn" onclick="loadAgentsPanel()" style="width:auto; padding:8px 14px; font-size:12.5px;" style="width:auto;padding:9px 11px;font-size:14px;">↻</button>
+      <button class="btn-run-all" id="ag-runall-btn" onclick="runAllAgents()">รันทั้งหมด</button>
+      <button class="btn-run" id="ag-refresh-btn" onclick="loadAgentsPanel()" style="padding:6px 10px;">รีเฟรช</button>
     </div>
   </div>
   <p style="color:var(--text-faint); font-size:13px; margin:0 0 16px;" id="ag-updated">ยังไม่ได้โหลด</p>
 
   <div id="ag-alerts" style="margin-bottom:16px;"></div>
 
-  <div class="sh-phase-title">🧠 CONTROL DECISION</div>
+  <div class="sh-phase-title">CONTROL DECISION</div>
   <div id="ag-control-decision" style="font-size:12.5px; margin-bottom:8px; padding:10px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--line); color:var(--text-faint);">ยังไม่มี decision — ต้องรอ Traffic Agent + Revenue Agent รันครบทั้งคู่ก่อน (ผ่าน tick อัตโนมัติทุกชั่วโมง หรือกด "▶" ด้านล่างเอง)</div>
 
   <div class="sh-phase-title" style="margin-top:16px;">SYSTEM</div>
@@ -1313,31 +1388,31 @@ switchTab = function(tab) {
 
   <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
     <span>REVENUE AGENT — รายงานล่าสุด</span>
-    <button class="btn-ghost" onclick="runAgent('revenue', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+    <button class="btn-run" onclick="runAgent('revenue', this)">รันใหม่</button>
   </div>
   <div id="ag-revenue-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
   <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
     <span>TRAFFIC AGENT — รายงานล่าสุด</span>
-    <button class="btn-ghost" onclick="runAgent('traffic', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+    <button class="btn-run" onclick="runAgent('traffic', this)">รันใหม่</button>
   </div>
   <div id="ag-traffic-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
   <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
     <span>CONVERSION AGENT — รายงานล่าสุด</span>
-    <button class="btn-ghost" onclick="runAgent('conversion', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+    <button class="btn-run" onclick="runAgent('conversion', this)">รันใหม่</button>
   </div>
   <div id="ag-conversion-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
   <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-    <span>🧪 EXPERIMENT AGENT — การทดลองที่กำลังรัน</span>
-    <button class="btn-ghost" onclick="runAgent('experiment', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+    <span>EXPERIMENT AGENT — การทดลองที่กำลังรัน</span>
+    <button class="btn-run" onclick="runAgent('experiment', this)">รันใหม่</button>
   </div>
   <div id="ag-experiment-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
   <div class="sh-phase-title" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-    <span>🚀 GROWTH AGENT — ขยายผลสูตรที่พิสูจน์แล้ว</span>
-    <button class="btn-ghost" onclick="runAgent('growth', this)" style="width:auto; padding:4px 10px; font-size:11px;">▶ รันใหม่</button>
+    <span>GROWTH AGENT — ขยายผลสูตรที่พิสูจน์แล้ว</span>
+    <button class="btn-run" onclick="runAgent('growth', this)">รันใหม่</button>
   </div>
   <div id="ag-growth-report" style="color:var(--text-faint); font-size:12.5px;">ยังไม่เคยรัน</div>
 
@@ -1346,15 +1421,21 @@ switchTab = function(tab) {
 </section>
 
 <style>
-  .ag-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; min-width:0; }
-  .ag-stat-num{ font-size:18px; font-weight:800; line-height:1; color:var(--text); }
-  .ag-stat-label{ color:var(--text-faint); font-size:10px; }
-  .ag-alert{ border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:12.5px; }
-  .ag-alert.error{ background:rgba(231,76,60,0.12); color:#e74c3c; }
-  .ag-alert.warn{ background:rgba(245,166,35,0.12); color:var(--amber); }
-  .ag-decision.leak{ background:rgba(231,76,60,0.12); border-color:rgba(231,76,60,0.4); color:#e74c3c; }
-  .ag-decision.converting{ background:rgba(46,204,113,0.12); border-color:rgba(46,204,113,0.4); color:#2ecc71; }
-  .ag-decision.notraffic, .ag-decision.insufficient{ background:var(--panel); }
+  .ag-stat-card{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .ag-stat-num{ font-size:20px; font-weight:600; line-height:1.1; color:var(--text); }
+  .ag-stat-label{ color:var(--text-faint); font-size:10.5px; }
+  .ag-alert{ border-radius:10px; padding:9px 12px; margin-bottom:6px; font-size:12.5px; border:1px solid transparent; }
+  .ag-alert.error{ background:rgba(226,96,79,0.08); border-color:rgba(226,96,79,0.3); color:var(--red); }
+  .ag-alert.warn{ background:rgba(232,163,61,0.08); border-color:rgba(232,163,61,0.3); color:var(--amber); }
+  .ag-decision{ border-radius:10px; padding:14px 16px; margin-bottom:20px; border:1px solid var(--line); background:var(--panel); }
+  .ag-decision.leak{ background:rgba(226,96,79,0.08); border-color:rgba(226,96,79,0.3); color:var(--text); }
+  .ag-decision.converting{ background:rgba(79,209,197,0.08); border-color:rgba(79,209,197,0.3); color:var(--text); }
+  .ag-decision.notraffic, .ag-decision.insufficient{ background:var(--panel); border-color:var(--line); }
+  .btn-run{ background:transparent; border:1px solid var(--line); color:var(--text-faint); font-weight:500; font-size:11px; padding:5px 12px; border-radius:8px; cursor:pointer; transition:border-color .15s ease, color .15s ease; }
+  .btn-run:hover{ border-color:var(--amber); color:var(--amber); }
+  .btn-run-all{ background:var(--amber); color:#1a1206; border:none; font-weight:600; font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer; }
+  .btn-run-all:hover{ filter:brightness(1.06); }
+  .btn-run-all:disabled{ opacity:0.5; cursor:not-allowed; }
 </style>
 
 <script>
@@ -1385,8 +1466,8 @@ async function loadAgentsPanel() {
     updatedEl.textContent = `เช็คล่าสุด ${new Date(data.generatedAt).toLocaleString('th-TH')}`;
 
     alertsEl.innerHTML = data.alerts.length
-      ? data.alerts.map(a => `<div class="ag-alert ${a.level}">⚠️ ${a.message}</div>`).join('')
-      : `<div style="color:var(--text-faint); font-size:12.5px;">✅ ไม่มีปัญหาที่ต้องดูตอนนี้</div>`;
+      ? data.alerts.map(a => `<div class="ag-alert ${a.level}">${a.message}</div>`).join('')
+      : `<div style="color:var(--text-faint); font-size:12.5px;">ไม่มีปัญหาที่ต้องดูตอนนี้</div>`;
 
     const s = data.system;
     systemEl.innerHTML = agStatCard(s.totalAgents, 'ทั้งหมด')
@@ -1525,14 +1606,14 @@ async function loadAgentsPanel() {
       const icon = { REVENUE_LEAKAGE: '🔴', CONVERTING: '🟢', NO_TRAFFIC: '⚪', INSUFFICIENT_DATA: '⚪' }[d.status] || '⚪';
       decisionEl.className = `ag-decision ${cls}`;
       decisionEl.innerHTML = `
-        <div style="font-weight:700; margin-bottom:4px;">${icon} ${d.status}</div>
+        <div style="font-weight:600; margin-bottom:4px; letter-spacing:0.3px;">${d.status}</div>
         <div style="margin-bottom:6px;">${d.reasoning}</div>
-        ${d.recommendedNextAction ? `<div style="opacity:0.85;">➡ ${d.recommendedNextAction}</div>` : ''}
+        ${d.recommendedNextAction ? `<div style="opacity:0.85;">แนะนำ: ${d.recommendedNextAction}</div>` : ''}
         <div style="color:var(--text-faint); font-size:10.5px; margin-top:6px;">ประเมินล่าสุด ${new Date(d.evaluatedAt).toLocaleString('th-TH')}</div>
       `;
     }
   } catch (e) {
-    listEl.innerHTML = `<div style="color:#e74c3c; padding:20px 0;">�❌ โหลด Multi-Agent status ไม่สำเร็จ: ${e.message}</div>`;
+    listEl.innerHTML = `<div style="color:var(--red); padding:20px 0;">โหลด Multi-Agent status ไม่สำเร็จ: ${e.message}</div>`;
   } finally {
     btn.disabled = false; btn.textContent = '↻ รีเฟรช';
   }
@@ -1541,7 +1622,7 @@ async function loadAgentsPanel() {
 async function runAllAgents() {
   const btn = document.getElementById('ag-runall-btn');
   const originalText = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳ กำลังรันทั้งหมด...';
+  btn.disabled = true; btn.textContent = 'กำลังรันทั้งหมด...';
   try {
     const res = await fetch('/api/agents/run-all', { method: 'POST' });
     const data = await res.json();
@@ -1560,7 +1641,7 @@ async function runAllAgents() {
 
 async function runAgent(agentId, btnEl) {
   const originalText = btnEl.textContent;
-  btnEl.disabled = true; btnEl.textContent = '⏳ กำลังรัน...';
+  btnEl.disabled = true; btnEl.textContent = 'กำลังรัน...';
   try {
     const res = await fetch('/api/agents/run', {
       method: 'POST',
