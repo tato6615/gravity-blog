@@ -252,12 +252,9 @@ export async function getLiveArticles(env, lang = 'th') {
       // exclude articles. See file header, GRAVITY_OS 2026-09-10.
       qualityTier: row.quality_tier || null,
       qualityScore: row.quality_score != null ? Number(row.quality_score) : null,
-<<<<<<< HEAD
       // ⭐ GRAVITY FIX (2026-09-16): now selected from `content` above so
       // article.js's attention tracker can log the real hook variant shown
       // on this page instead of always logging variant_id = null.
-=======
->>>>>>> de4792e (fix: select and return variant_id/variant_label for attention tracking)
       variantId: row.variant_id || null,
       variantLabel: row.variant_label || null,
       analysis: hasAnalysis ? {
