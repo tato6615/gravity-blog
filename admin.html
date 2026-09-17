@@ -55,12 +55,12 @@
   .sub{ color:var(--text-dim); font-size:13px; line-height:1.55; }
 
   /* ═══ Tabs ═══ */
-  .tab-nav{ display:flex; gap:0; max-width:100%; margin:0 0 0px; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; position:sticky; top:0; z-index:10; }
-  .tab-btn{ flex:none; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--text-faint);
-    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; padding:12px 16px;
-    border-radius:0; cursor:pointer; transition:color .15s, border-color .15s; white-space:nowrap; }
-  .tab-btn:hover{ border-color:var(--text-faint); color:var(--text); }
-  .tab-btn.active{ color:var(--text); border-bottom-color:var(--amber); background:rgba(232,163,61,0.07); }
+  .tab-nav{ display:flex; gap:4px; max-width:100%; margin:0; padding:6px 8px; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; position:sticky; top:0; z-index:10; }
+.tab-nav::-webkit-scrollbar{ display:none; }
+.tab-btn{ flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; background:transparent; border:none; border-radius:999px; padding:9px 0; color:var(--text-faint); cursor:pointer; transition:background .15s ease, color .15s ease; }
+.tab-btn svg{ width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; display:block; }
+.tab-btn:hover{ color:var(--text); background:rgba(232,163,61,0.08); }
+.tab-btn.active{ color:var(--amber); background:rgba(232,163,61,0.14); }
 
   .overview{ position:sticky; top:12px; z-index:5; background:var(--panel); border:1px solid var(--line);
     border-radius:var(--radius); padding:16px 18px; margin-bottom:22px; }
@@ -335,13 +335,13 @@
 <body>
 
 <div class="tab-nav">
-  <button class="tab-btn" data-tab="attention" onclick="switchTab('attention')">🎯 Attention</button>
-  <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
-  <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')">🚀 Product Engine</button>
-  <button class="tab-btn" data-tab="system-health" onclick="switchTab('system-health')">🩺 System Health</button>
-  <button class="tab-btn" data-tab="community" onclick="switchTab('community')">🎪 Community Hub</button>
-  <button class="tab-btn" data-tab="market" onclick="switchTab('market')">🔎 Market Discovery</button>
-  <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">🤖 Multi-Agent</button>
+  <button class="tab-btn" data-tab="attention" onclick="switchTab('attention')" title="Attention" aria-label="Attention"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none"/></svg></button>
+  <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')" title="Analytics" aria-label="Analytics"><svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg></button>
+  <button class="tab-btn" data-tab="engine" onclick="switchTab('engine')" title="Product Engine" aria-label="Product Engine"><svg viewBox="0 0 24 24"><path d="M12 2c3 3 4.5 6.5 4.5 9.5A4.5 4.5 0 0 1 12 16a4.5 4.5 0 0 1-4.5-4.5C7.5 8.5 9 5 12 2Z"/><path d="M9.5 15.5 7 21l3-1.2"/><path d="M14.5 15.5 17 21l-3-1.2"/></svg></button>
+  <button class="tab-btn" data-tab="system-health" onclick="switchTab('system-health')" title="System Health" aria-label="System Health"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 7 4-14 2 7h6"/></svg></button>
+  <button class="tab-btn" data-tab="community" onclick="switchTab('community')" title="Community Hub" aria-label="Community Hub"><svg viewBox="0 0 24 24"><circle cx="8.5" cy="8" r="3"/><circle cx="16" cy="9" r="2.4"/><path d="M2.5 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M14.5 14.3c2.4.3 4 2.3 4 5.7"/></svg></button>
+  <button class="tab-btn" data-tab="market" onclick="switchTab('market')" title="Market Discovery" aria-label="Market Discovery"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg></button>
+  <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')" title="Multi-Agent" aria-label="Multi-Agent"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2.5"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1"/><circle cx="9" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.3" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg></button>
 </div>
 
 <!-- ===== Attention → Behavior → Conversion Dashboard ===== -->
@@ -2724,247 +2724,5 @@ loadAiStatus();
 document.getElementById('in').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doImport();
 });
-</script>
-
-
-<!-- GX-TABBAR-PATCH-V1 -->
-<style>
-  /* ทำให้แถบแท็บ (Attention/Analytics/Product Engine/...) responsive */
-  .gx-tabbar {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    gap: 4px;
-    white-space: nowrap;
-  }
-  .gx-tabbar::-webkit-scrollbar {
-    height: 4px;
-  }
-  .gx-tabbar::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.15);
-    border-radius: 4px;
-  }
-  .gx-tabbar > * {
-    flex: 0 0 auto !important;
-  }
-  @media (max-width: 768px) {
-    .gx-tabbar {
-      font-size: 13px;
-    }
-    .gx-tabbar > * {
-      padding-left: 10px !important;
-      padding-right: 10px !important;
-    }
-  }
-</style>
-<script>
-(function () {
-  // รายชื่อแท็บที่ต้องหาให้เจอในหน้า
-  var labels = ["Attention", "Analytics", "Product Engine", "System Health",
-                "Community Hub", "Market Discovery", "Multi-Agent"];
-
-  function findTabbarContainer() {
-    // หา element ที่ตัวมันเองไม่มีลูกเป็น text ตรงๆ แต่มีลูกหลานรวมกันครบทุก label
-    var all = document.body.querySelectorAll("*");
-    var best = null, bestScore = 0;
-    for (var i = 0; i < all.length; i++) {
-      var el = all[i];
-      if (el.children.length < 2 || el.children.length > 12) continue;
-      var text = el.textContent || "";
-      var score = 0;
-      for (var j = 0; j < labels.length; j++) {
-        if (text.indexOf(labels[j]) !== -1) score++;
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        best = el;
-      }
-    }
-    return bestScore >= 5 ? best : null; // ต้องเจออย่างน้อย 5/7 ถึงจะมั่นใจ
-  }
-
-  function applyPatch() {
-    var el = findTabbarContainer();
-    if (el && !el.classList.contains("gx-tabbar")) {
-      el.classList.add("gx-tabbar");
-      console.log("[gx-tabbar-patch] applied to:", el);
-    } else if (!el) {
-      console.warn("[gx-tabbar-patch] ไม่เจอ container ของแถบแท็บ ลองรันใหม่หลังโหลดหน้าเสร็จ");
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", applyPatch);
-  } else {
-    applyPatch();
-  }
-})();
-</script>
-
-
-<!-- GX-TABBAR-PATCH-V2 -->
-<style>
-  /* v2: ไอคอนอย่างเดียว, พอดีในหนึ่งแถว, ลากสลับได้ */
-  .gx-tabbar {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    overflow: visible !important;
-    overflow-x: visible !important;
-    width: 100% !important;
-    justify-content: space-between !important;
-    gap: 2px !important;
-  }
-  .gx-tabbar > * {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 6px 2px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .gx-tabbar > *:active {
-    cursor: grabbing;
-  }
-  .gx-tabbar > *.gx-dragging {
-    opacity: 0.35;
-  }
-  .gx-icon {
-    font-size: 20px;
-    line-height: 1;
-    pointer-events: none;
-  }
-  .gx-label {
-    font-size: 9px;
-    line-height: 1.2;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-top: 2px;
-    opacity: 0.8;
-    pointer-events: none;
-  }
-  @media (max-width: 480px) {
-    .gx-label { display: none; }
-    .gx-icon { font-size: 22px; }
-  }
-</style>
-<script>
-(function () {
-  var STORAGE_KEY = "gx-tab-order-v1";
-
-  function extractIcon(text) {
-    var m = text.match(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/u);
-    return m ? m[0] : text.trim().slice(0, 2);
-  }
-
-  function init(container) {
-    if (container.dataset.gxV2Ready === "1") return;
-    container.dataset.gxV2Ready = "1";
-
-    var items = Array.prototype.slice.call(container.children);
-
-    items.forEach(function (el) {
-      var fullText = (el.getAttribute("data-gx-label") || el.textContent).trim();
-      var icon = extractIcon(fullText);
-      var label = fullText.replace(icon, "").trim();
-
-      el.setAttribute("data-gx-label", fullText);
-      el.setAttribute("title", fullText);
-      el.classList.add("gx-tab-item");
-      el.innerHTML =
-        '<span class="gx-icon">' + icon + "</span>" +
-        '<span class="gx-label">' + label + "</span>";
-    });
-
-    // เรียงลำดับตามที่เคยบันทึกไว้ (ถ้ามี)
-    try {
-      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (Array.isArray(saved) && saved.length) {
-        saved.forEach(function (label) {
-          var match = items.find(function (el) {
-            return el.getAttribute("data-gx-label") === label;
-          });
-          if (match) container.appendChild(match);
-        });
-      }
-    } catch (e) {
-      console.warn("[gx-tabbar-v2] อ่าน localStorage ไม่ได้:", e);
-    }
-
-    function saveOrder() {
-      try {
-        var order = Array.prototype.slice
-          .call(container.children)
-          .map(function (el) { return el.getAttribute("data-gx-label"); });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
-      } catch (e) {
-        console.warn("[gx-tabbar-v2] บันทึก localStorage ไม่ได้:", e);
-      }
-    }
-
-    // ---- Drag to reorder (mouse + touch ผ่าน Pointer Events) ----
-    var dragEl = null;
-
-    function onPointerDown(e) {
-      dragEl = e.currentTarget;
-      dragEl.classList.add("gx-dragging");
-      document.addEventListener("pointermove", onPointerMove);
-      document.addEventListener("pointerup", onPointerUp, { once: true });
-    }
-
-    function onPointerMove(e) {
-      if (!dragEl) return;
-      var target = document.elementFromPoint(e.clientX, e.clientY);
-      var hovered = target ? target.closest(".gx-tab-item") : null;
-      if (hovered && hovered !== dragEl && hovered.parentElement === container) {
-        var rect = hovered.getBoundingClientRect();
-        var before = e.clientX < rect.left + rect.width / 2;
-        container.insertBefore(dragEl, before ? hovered : hovered.nextSibling);
-      }
-    }
-
-    function onPointerUp() {
-      if (dragEl) dragEl.classList.remove("gx-dragging");
-      dragEl = null;
-      document.removeEventListener("pointermove", onPointerMove);
-      saveOrder();
-    }
-
-    Array.prototype.slice.call(container.children).forEach(function (el) {
-      el.addEventListener("pointerdown", onPointerDown);
-    });
-  }
-
-  function waitForContainer(retries) {
-    var c = document.querySelector(".gx-tabbar");
-    if (c) {
-      init(c);
-    } else if (retries > 0) {
-      setTimeout(function () { waitForContainer(retries - 1); }, 100);
-    } else {
-      console.warn("[gx-tabbar-v2] ไม่เจอ .gx-tabbar — ต้องรัน fix_tabs.py (v1) ก่อน");
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      waitForContainer(30);
-    });
-  } else {
-    waitForContainer(30);
-  }
-})();
-</script>
-
-</body>
+</script></body>
 </html>
