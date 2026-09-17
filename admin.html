@@ -1488,7 +1488,7 @@ async function loadAgentsPanel() {
       const card = document.createElement('div');
       const dotCls = a.status==='WORKING'||a.status==='SUCCESS'?'live':a.status==='FAILED'||a.status==='BLOCKED'?'err':'';
         card.className = 'ag-agent-row';
-        card.innerHTML = `<span class="ag-agent-dot ${dotCls}"></span><span class="ag-agent-name">${a.name}</span><button class="btn-icon-run" onclick="event.stopPropagation();runAgent('${a.id||a.name}',this)">&#9654;</button>`;
+        card.innerHTML = `<span class="ag-agent-dot ${dotCls}"></span><span class="ag-agent-name">${a.name}</span><button class="btn-icon-run" onclick="event.stopPropagation();runAgent('${a.id||a.name}',this)">&#9654;&#xFE0E;</button>`;
         listEl.appendChild(card);
     });
 
