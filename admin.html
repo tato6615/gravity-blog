@@ -850,7 +850,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
           <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
           <div class="err" id="importErr"></div>
-          <div id="demandCard" class="hidden" style="margin-top:12px;"></div>
         </div>
       </div>
     </div>
@@ -1853,8 +1852,6 @@ function startNewProduct(){
   const pipelineBanner = document.getElementById('pipelineStatusBanner');
   if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
 
-  const demandCard = document.getElementById('demandCard');
-  if (demandCard) { demandCard.classList.add('hidden'); demandCard.innerHTML = ''; }
 
   aiUsageThisRun = {};
   renderAiGrid();
@@ -2011,83 +2008,6 @@ async function apiCall(path, options, label, timeoutMs = 45000){
   }
 }
 
-async function checkDemandAfterImport(){
-  const el = document.getElementById('demandCard');
-  if (!el) return;
-  latestDemand = null;
-
-  try {
-    const data = await apiCall('/api/demand-check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId })
-    }, 'POST /api/demand-check');
-
-    if (!data.available) {
-      el.innerHTML =
-        '<div style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px;">' +
-        '<div style="display:flex; align-items:center; gap:8px;">' +
-        '<span>⚠️</span>' +
-        '<span><strong>ไม่มีข้อมูลให้ประเมิน demand</strong> — ไม่พบ rating/รีวิว/ราคา</span>' +
-        '</div>' +
-        '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">แนะนำเปิดลิงก์สินค้าดูด้วยตาก่อนกด Generate Everything</div>' +
-        '</div>';
-      el.classList.remove('hidden');
-      return;
-    }
-
-    const d = data.demand;
-    latestDemand = d;
-
-    const displayScore = d.normalizedScore ?? d.score;
-    const isPartial = d.partial || (d.maxScore && d.maxScore < 100);
-
-    const icon  = displayScore >= 70 ? '🎯' : displayScore >= 50 ? '⚠️' : '⛔';
-    const color = displayScore >= 70
-      ? 'rgba(79,209,197,0.35)'
-      : 'rgba(232,163,61,0.35)';
-    const scoreLabel = displayScore >= 70
-      ? 'Demand ดี — พร้อม Generate'
-      : displayScore >= 50
-        ? 'Demand ปานกลาง — Generate ได้แต่ระวัง'
-        : 'Demand ต่ำ — ควรเช็คก่อน Generate';
-
-    const partialNote = isPartial
-      ? '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">⚠️ ข้อมูลไม่ครบทุก signal (เช่น Amazon block scraping) — score อาจต่ำกว่าความเป็นจริง</div>'
-      : '';
-
-    const reasonsHtml = (d.reasons && d.reasons.length)
-      ? '<div style="margin-top:8px; font-size:12px; color:var(--text-faint);">' +
-        d.reasons.map(r => '<div>' + escapeHtml(r) + '</div>').join('') +
-        '</div>'
-      : '';
-
-    el.innerHTML =
-      '<div style="background:var(--panel-2); border:1px solid ' + color + '; border-radius:8px; padding:10px 12px;">' +
-      '<div style="display:flex; align-items:center; gap:8px;">' +
-      '<span style="font-size:18px;">' + icon + '</span>' +
-      '<div>' +
-      '<div style="font-weight:700; font-size:14px;">Demand Score: ' + displayScore + '/100</div>' +
-      '<div style="font-size:12px; color:var(--text-dim); margin-top:2px;">' + escapeHtml(scoreLabel) + '</div>' +
-      '</div></div>' +
-      partialNote +
-      reasonsHtml +
-      '</div>';
-    el.classList.remove('hidden');
-
-  } catch(e) {
-    el.innerHTML =
-      '<div style="background:var(--panel-2); border:1px solid rgba(232,163,61,0.35); border-radius:8px; padding:10px 12px;">' +
-      '<div style="display:flex; align-items:center; gap:8px;">' +
-      '<span>⚠️</span>' +
-      '<span>เช็ค demand ไม่สำเร็จ — ' + escapeHtml(e.message) + '</span>' +
-      '</div>' +
-      '<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">ลองรีเฟรชหน้าหรือเช็คสินค้าด้วยตาก่อน Generate</div>' +
-      '</div>';
-    el.classList.remove('hidden');
-  }
-}
-
 async function doImport(){
   const btn = document.getElementById('importBtn');
   const val = document.getElementById('in').value.trim();
@@ -2114,8 +2034,6 @@ async function doImport(){
   if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
   const pipelineBanner = document.getElementById('pipelineStatusBanner');
   if (pipelineBanner) { pipelineBanner.classList.add('hidden'); pipelineBanner.innerHTML = ''; }
-  const demandCard = document.getElementById('demandCard');
-  if (demandCard) { demandCard.classList.add('hidden'); demandCard.innerHTML = ''; }
   const resultTable = document.getElementById('resultTable');
   if (resultTable) resultTable.innerHTML = '';
   const dr = document.getElementById('distributeResults');
@@ -2139,7 +2057,6 @@ async function doImport(){
     }, 'POST /api/import');
     productId = data.productId;
     await refreshStatus();
-    checkDemandAfterImport();
     btn.textContent = 'Import สำเร็จ ✓';
   }catch(e){
     showErr('importErr', e.message);
