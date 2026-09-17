@@ -2471,19 +2471,6 @@ async function refreshStatus(){
 }
 
 async function runGenerateAll(){
-  if (latestDemand && latestDemand.score < 70) {
-    const proceed = confirm(
-      'Demand Score ของสินค้านี้ค่อนข้างต่ำ (' + latestDemand.score + '/100 — ' + latestDemand.recommendation + ')\n\n' +
-      'ถ้า demand ต่ำเกินเกณฑ์ ระบบจะข้าม step แรกให้อัตโนมัติ (ไม่เสีย AI credit) แต่ถ้าต้องการดำเนินการต่อ กด OK\nถ้าต้องการยกเลิกไปเช็คสินค้านี้ก่อน กด Cancel'
-    );
-    if (!proceed) return;
-  } else if (!latestDemand) {
-    const proceed = confirm(
-      'ยังไม่มีข้อมูล demand (rating/จำนวนรีวิว/ราคา) ให้ประเมินสินค้านี้เลย\n\n' +
-      'แนะนำให้เปิดลิงก์สินค้าดูด้วยตาก่อน — ถ้าต้องการดำเนินการต่อ กด OK, ถ้าต้องการยกเลิก กด Cancel'
-    );
-    if (!proceed) return;
-  }
 
   const btn = document.getElementById('generateBtn');
   hideErr('generateErr');
