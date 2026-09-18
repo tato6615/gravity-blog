@@ -2717,6 +2717,15 @@ document.getElementById('in').addEventListener('keydown', (e) => {
   <div id="settings-list" style="display:flex; flex-direction:column; gap:14px;">
     <p style="color:var(--text-faint); font-size:13px;">กำลังโหลด...</p>
   </div>
+
+  <div style="background:var(--panel); border:1px dashed var(--line); border-radius:10px; padding:16px; margin-top:14px;">
+    <div style="font-weight:600; color:var(--text); margin-bottom:10px;">➕ เพิ่ม Platform ใหม่ (กำหนดเอง)</div>
+    <input type="text" id="custom-platform-name" placeholder="ชื่อ platform เช่น tiktok, line" style="margin-bottom:10px;">
+    <input type="text" id="custom-key-name" placeholder="ชื่อ key เช่น TIKTOK_ACCESS_TOKEN" style="margin-bottom:10px;">
+    <input type="text" id="custom-key-value" placeholder="ค่า / token / webhook URL" style="margin-bottom:10px;">
+    <button class="btn-primary" onclick="addCustomPlatformKey()" style="width:auto; padding:10px 20px;">💾 บันทึก Platform ใหม่</button>
+  </div>
+
   <p id="settings-error" class="err"></p>
 </section>
 
@@ -2748,7 +2757,14 @@ function renderPlatformSettings(schema, settings){
   const byKey = {};
   settings.forEach(s => { byKey[s.platform + ':' + s.key_name] = s; });
 
-  listEl.innerHTML = Object.entries(schema).map(([platform, keys]) => {
+  const merged = {};
+  Object.entries(schema).forEach(([p, keys]) => { merged[p] = keys.slice(); });
+  settings.forEach(s => {
+    if (!merged[s.platform]) merged[s.platform] = [];
+    if (!merged[s.platform].includes(s.key_name)) merged[s.platform].push(s.key_name);
+  });
+
+  listEl.innerHTML = Object.entries(merged).map(([platform, keys]) => {
     const rows = keys.map(keyName => {
       const info = byKey[platform + ':' + keyName];
       const isSet = info && info.isSet;
@@ -2804,6 +2820,26 @@ async function deletePlatformKey(platform, keyName){
     loadPlatformSettings();
   } catch (e) {
     alert('ลบไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function addCustomPlatformKey(){
+  const platform = document.getElementById('custom-platform-name').value.trim().toLowerCase();
+  const keyName = document.getElementById('custom-key-name').value.trim();
+  const value = document.getElementById('custom-key-value').value.trim();
+  if (!platform || !keyName || !value) { alert('กรอกให้ครบทั้ง 3 ช่อง'); return; }
+  try {
+    await apiCall('/api/platform-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, key_name: keyName, value })
+    }, 'เพิ่ม Platform ใหม่: ' + platform);
+    document.getElementById('custom-platform-name').value = '';
+    document.getElementById('custom-key-name').value = '';
+    document.getElementById('custom-key-value').value = '';
+    loadPlatformSettings();
+  } catch (e) {
+    alert('เพิ่มไม่สำเร็จ: ' + e.message);
   }
 }
 
