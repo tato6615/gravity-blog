@@ -1974,13 +1974,25 @@ function renderTableGrid(stages){
   updateSysSummary();
 }
 
+function getAdminToken(){
+  let token = sessionStorage.getItem('admin_token');
+  if (!token) {
+    token = prompt('กรุณาใส่ Admin Token:');
+    if (token) sessionStorage.setItem('admin_token', token);
+  }
+  return token || '';
+}
+
 async function apiCall(path, options, label, timeoutMs = 45000){
   const logId = logEvent('pending', label + ' — กำลังเรียก...');
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try{
-    const res = await fetch(API + path, { ...(options || {}), signal: controller.signal });
+    const mergedHeaders = { ...(options && options.headers ? options.headers : {}) };
+    const _tok = getAdminToken();
+    if (_tok) mergedHeaders['x-admin-token'] = _tok;
+    const res = await fetch(API + path, { ...(options || {}), headers: mergedHeaders, signal: controller.signal });
     clearTimeout(timeoutId);
     const data = await res.json();
     if (data.error) {
@@ -2831,7 +2843,7 @@ async function addCustomPlatformKey(){
   try {
     await apiCall('/api/platform-settings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': getAdminToken() },
       body: JSON.stringify({ platform, key_name: keyName, value })
     }, 'เพิ่ม Platform ใหม่: ' + platform);
     document.getElementById('custom-platform-name').value = '';
