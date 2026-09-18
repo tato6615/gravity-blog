@@ -2799,7 +2799,7 @@ async function savePlatformKey(platform, keyName){
   try {
     await apiCall('/api/platform-settings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': getAdminToken() },
       body: JSON.stringify({ platform, key_name: keyName, value })
     }, 'บันทึก ' + platform + '.' + keyName);
     input.value = '';
@@ -2814,7 +2814,7 @@ async function deletePlatformKey(platform, keyName){
   try {
     await apiCall('/api/platform-settings', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': getAdminToken() },
       body: JSON.stringify({ platform, key_name: keyName })
     }, 'ลบ ' + platform + '.' + keyName);
     loadPlatformSettings();
