@@ -2399,9 +2399,9 @@ async function runGenerateAll(){
   try{
     let done = false;
     while(!done){
-      const data = await apiCall('/api/enrich', {
+      const data = await apiCall('/api/enrich', { /* GX-ENRICH-TIMEOUT-PATCH */
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId })
-      }, 'POST /api/enrich (สร้างเนื้อหาขั้นต่อไป)');
+      }, 'POST /api/enrich (สร้างเนื้อหาขั้นต่อไป)', 120000);
       done = data.done;
       if (data.step) {
         btn.textContent = 'กำลังสร้าง: ' + data.step.label + '...';
