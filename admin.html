@@ -2469,10 +2469,10 @@ async function distributeToChannels(channels){
     }
     try{
       const override = window._captionOverrides && window._captionOverrides[ch];
-      const data = await apiCall('/api/distribute', {
+      const data = await apiCall('/api/distribute', { /* GX-DISTRIBUTE-TIMEOUT-PATCH */
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ productId, platform: ch, lang: 'th', captionOverride: override || undefined })
-      }, 'POST /api/distribute (' + (CHANNEL_LABELS[ch] || ch) + ')');
+      }, 'POST /api/distribute (' + (CHANNEL_LABELS[ch] || ch) + ')', 60000);
       results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
     }catch(e){
       results.push({ channel: ch, error: e.message });
