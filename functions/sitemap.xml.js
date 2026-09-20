@@ -10,6 +10,7 @@ import { getLiveArticles } from './_lib/d1-articles.js';
 //    ⚠️ layout.js มี SITE_URL ของตัวเองด้วย — ตอนย้ายโดเมนต้องแก้ทั้งสองที่
 //  - X_DEFAULT_LANG = ภาษาที่ให้ x-default ชี้ไป ต้องตรงกับ layout.js
 //    (ดู hreflang x-default ใน renderPage) ถ้าไม่มีบทความภาษานั้น → ใช้ภาษาที่มี
+//  - หน้าแรก: en = /  , th = /th/  (/en/ redirect มาที่ /)
 
 const DEFAULT_SITE_URL = 'https://gravity-blog.pages.dev';
 const X_DEFAULT_LANG = 'en';
@@ -69,10 +70,10 @@ export async function onRequestGet({ env }) {
     }
 
     const blocks = [
-      // หน้าแรกสองภาษา
+      // หน้าแรกสองภาษา (en อยู่ที่ /, th อยู่ที่ /th/)
       renderEntry([
-        { lang: 'th', url: `${site}/` },
-        { lang: 'en', url: `${site}/en/` }
+        { lang: 'th', url: `${site}/th/` },
+        { lang: 'en', url: `${site}/` }
       ], null)
     ];
 
