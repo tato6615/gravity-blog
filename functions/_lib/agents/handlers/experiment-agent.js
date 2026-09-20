@@ -6,7 +6,7 @@
  * surfaces — products with real clicks but zero conversions.
  *
  * WHAT IT CHANGES, and why it's safe:
- *   - `content` (seo_title, meta_description) is the ONLY thing touched.
+ *   - `content` (meta_description) is the ONLY thing touched.
  *     This is copy the system itself wrote — not real-world data like
  *     product_name/price/affiliate_link, which come straight from Amazon
  *     and must stay 100% truthful/unmodified (Amazon Associates terms +
@@ -17,6 +17,10 @@
  *     touched, so rollback is always possible by construction.
  *   - The new copy is built ONLY from real product fields already on the
  *     page (price, rating, category) — reformatted, not fabricated.
+ *
+ * 🔧 GRAVITY FIX (2026-09-20): เดิมต่อท้าย seo_title ด้วย "(ราคา X ⭐ Y/5)"
+ * ทำให้ชื่อบทความดูเป็น template ซ้ำกันทุกหน้า และตัวเลขราคาอาจล้าสมัย —
+ * ปิดแล้ว (APPEND_PRICE_RATING_TO_TITLE = false) seo_title ไม่ถูกแก้อีก
  *
  * WHAT IT DOES NOT DO: touch price/product_name/affiliate_link, run more
  * than MAX_NEW_EXPERIMENTS_PER_RUN new experiments per cycle, or call any
@@ -29,15 +33,17 @@ import { writeMemory, readMemory, nowIso } from '../db.js';
 const MIN_EXPERIMENT_DAYS = 3;
 const MIN_CLICKS_FOR_DECISION = 10;
 const MAX_NEW_EXPERIMENTS_PER_RUN = 3;
+const APPEND_PRICE_RATING_TO_TITLE = false;
 
 function buildVariantCopy(product, content) {
   const priceText = product.price ? `ราคา ${product.price}` : '';
   const ratingText = product.rating ? `⭐ ${product.rating}/5` : '';
   const categoryText = product.category_th || product.category || '';
 
-  const afterSeoTitle = priceText
-    ? `${content.seo_title || product.product_name} (${[priceText, ratingText].filter(Boolean).join(' ')})`
-    : (content.seo_title || product.product_name);
+  const baseTitle = content.seo_title || product.product_name;
+  const afterSeoTitle = (APPEND_PRICE_RATING_TO_TITLE && priceText)
+    ? `${baseTitle} (${[priceText, ratingText].filter(Boolean).join(' ')})`
+    : content.seo_title;
 
   const bits = [product.product_name, priceText, ratingText, categoryText].filter(Boolean);
   const tail = content.meta_description ? content.meta_description.slice(0, 80) : 'ดูรีวิวเต็มและซื้อสินค้าได้ที่นี่';
@@ -82,7 +88,7 @@ export async function evaluateRunningExperiments(env) {
       note = `หลัง ${daysElapsed.toFixed(1)} วัน มี click ${resultClick} และเกิด conversion ${resultConversion} ครั้ง (เดิมมี click แต่ conversion=0) — สมมติฐานนี้ดูสมเหตุสมผล ควรพิจารณาคงเวอร์ชันใหม่ไว้`;
     } else {
       status = 'lost';
-      note = `หลัง ${daysElapsed.toFixed(1)} วัน มี click ${resultClick} ครั้งแต่ conversion ยังคง 0 — การเปลี่ยน seo_title/meta_description อย่างเดียวไม่พอ ต้องดูสาเหตุอื่น (ราคา/landing/ตัวสินค้าเอง)`;
+      note = `หลัง ${daysElapsed.toFixed(1)} วัน มี click ${resultClick} ครั้งแต่ conversion ยังคง 0 — การเปลี่ยน meta_description อย่างเดียวไม่พอ ต้องดูสาเหตุอื่น (ราคา/landing/ตัวสินค้าเอง)`;
     }
 
     await env.DB.prepare(
@@ -142,7 +148,7 @@ export async function executeExperimentCycle(env, task) {
 
     const newContentId = insertResult.meta.last_row_id;
 
-    const hypothesis = `Conversion Agent พบ click ${candidate.clickCount} ครั้งใน 30 วันล่าสุดแต่ conversion=0 — ทดลองว่า SEO title/meta description ที่ระบุราคา/rating ชัดเจนขึ้นจะช่วยให้ตัดสินใจซื้อง่ายขึ้นหรือไม่ (ทดสอบเฉพาะมุม copy ไม่ใช่ราคา/สินค้าจริงซึ่งไม่เปลี่ยน)`;
+    const hypothesis = `Conversion Agent พบ click ${candidate.clickCount} ครั้งใน 30 วันล่าสุดแต่ conversion=0 — ทดลองว่า meta description ที่ระบุราคา/rating ชัดเจนขึ้นจะช่วยให้ตัดสินใจซื้อง่ายขึ้นหรือไม่ (ทดสอบเฉพาะมุม copy ไม่ใช่ราคา/สินค้าจริงซึ่งไม่เปลี่ยน)`;
 
     const expInsert = await env.DB.prepare(
       `INSERT INTO experiments (
@@ -170,7 +176,7 @@ export async function executeExperimentCycle(env, task) {
 
   const report = {
     generatedAt: nowIso(),
-    note: 'การทดลองเปลี่ยนเฉพาะ seo_title/meta_description (เนื้อหาที่ระบบเขียนเอง) โดยเพิ่มแถวใหม่ใน content แบบ append-only — ไม่แตะราคา/ชื่อสินค้า/affiliate_link ที่เป็นข้อมูลจริงจาก Amazon เลย ย้อนกลับได้เสมอเพราะแถวเก่ายังอยู่ครบ',
+    note: 'การทดลองเปลี่ยนเฉพาะ meta_description (เนื้อหาที่ระบบเขียนเอง) โดยเพิ่มแถวใหม่ใน content แบบ append-only — ไม่แตะ seo_title/ราคา/ชื่อสินค้า/affiliate_link ที่เป็นข้อมูลจริงจาก Amazon เลย ย้อนกลับได้เสมอเพราะแถวเก่ายังอยู่ครบ',
     evaluated,
     created,
     activeExperiments: activeRows.map(r => ({
