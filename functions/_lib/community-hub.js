@@ -1,5 +1,9 @@
 // functions/_lib/community-hub.js
 // 🎪 Community Hub — HTML generator (platform list stored in D1, editable from admin)
+//
+// 🔧 GRAVITY FIX (2026-09-20): compact mode ถูกย้ายไปอยู่ล่างสุดของหน้าแรก —
+// เว้นระยะด้านบน และถ้าไม่มี searchBoxHtml ให้ chip ขึ้นบรรทัดใหม่ได้ + จัดกึ่งกลาง
+// (โหมดเลื่อนแนวนอน nowrap ยังใช้เมื่อมี searchBoxHtml เหมือนเดิม)
 
 export const DEFAULT_PLATFORMS = [
   { key: 'telegram', emoji: '📱', name: 'Telegram', tagline: 'Real-time deals & chat', members: null, memberLabel: 'members', cta: 'Join', url: 'https://t.me/+WGeLknFUTpIzNTJl' },
@@ -80,7 +84,7 @@ function renderChip(p) {
  * @param {object} [opts.env]
  * @param {string} [opts.searchBoxHtml] - Optional raw HTML for a search button/input
  *   (compact mode only). Rendered as the LAST item in the chip row, to the right
- *   of the Telegram/Discord/... chips.
+ *   of the Telegram/Discord/... chips. เว้นว่าง = chip ขึ้นบรรทัดใหม่ + จัดกึ่งกลาง
  */
 export async function renderCommunityHub({ mode = 'compact', showViewAll = true, env, searchBoxHtml = '' } = {}) {
   const platforms = await getPlatforms(env);
@@ -90,14 +94,14 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
 
   if (!isFull) {
     const chips = platforms.map(renderChip).join('');
+    const rowClass = searchBoxHtml ? 'ch-chip-row' : 'ch-chip-row ch-chip-row--wrap';
     return `
       <section class="community-hub community-hub--compact">
         <style>
-          .community-hub--compact { max-width: 100%; margin: 0 auto 20px; }
-          /* UPDATED: no more flex-wrap — the row scrolls horizontally instead of
-             letting the search button (last item) drop to its own line when
-             the chips don't fit on one row. Scrollbar hidden but still
-             swipeable/draggable on touch and mouse-drag/trackpad. */
+          .community-hub--compact { max-width: 100%; margin: 32px auto 20px; }
+          /* no flex-wrap when a search box is present — the row scrolls horizontally
+             so the search button (last item) never drops to its own line.
+             Scrollbar hidden but still swipeable/draggable. */
           .ch-chip-row {
             display: flex; flex-wrap: nowrap; gap: 8px; align-items: center;
             overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -105,6 +109,8 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
             padding-bottom: 2px; /* room so focus rings aren't clipped */
           }
           .ch-chip-row::-webkit-scrollbar { display: none; }
+          /* footer placement (no search box): wrap + center */
+          .ch-chip-row--wrap { flex-wrap: wrap; justify-content: center; overflow: visible; }
           .ch-chip {
             display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
             border-radius: 20px; border: 0.5px solid var(--border, var(--hairline));
@@ -129,7 +135,7 @@ export async function renderCommunityHub({ mode = 'compact', showViewAll = true,
           .sb-input::placeholder { color: var(--text-secondary, var(--ink-muted)); }
           @media (max-width: 480px) { .sb-input { width: 110px; } }
         </style>
-        <div class="ch-chip-row">
+        <div class="${rowClass}">
           ${chips}
           ${searchBoxHtml}
         </div>
