@@ -2,8 +2,18 @@ import { getLiveArticles } from './d1-articles.js';
 import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo } from './layout.js';
 import { renderCommunityHub } from './community-hub.js';
 
-// Cache ค่า toggle 60 วิ (pattern เดียวกับ live-articles cache ด้านล่าง)
-// ถ้า D1 error หรือยังไม่เคยตั้งค่า -> ซ่อนไว้ก่อนเพื่อความปลอดภัย (fail-safe)
+/**
+ * 🔧 GRAVITY FIX (2026-09-20) — สรุปการแก้ (โค้ดเดิมที่เหลือไม่แตะ):
+ *  1) pickProHighlight(): แปลง "\n" literal เป็นบรรทัดจริง, แตก "•" ที่ค้างในบรรทัดเดียว,
+ *     และเลือกเฉพาะจุดเด่นที่ภาษาตรงกับหน้า (TH/EN) — กันข้อความอังกฤษโผล่บนหน้าไทย
+ *  2) ป้าย "🆕 ใหม่"/recency boost: ถ้าสินค้า >50% ถูกนับว่า "ใหม่" (เช่น ตาราง
+ *     product_first_seen ถูก seed พร้อมกันทีเดียว) ถือว่าข้อมูลวันที่ใช้ไม่ได้ ปิดป้ายและ boost
+ *  3) seed first_seen จากวันที่สร้างจริงของบทความ (ถ้ามี) แทน "ตอนนี้" เสมอ
+ *  4) ป้าย "🔥 มาแรง" แปลตามภาษา (เดิม hardcode ไทยบนหน้า EN)
+ *  5) เพิ่ม <h1> (ซ่อนด้วย CSS) ให้หน้าแรก — เดิมไม่มี h1 เลย
+ */
+
+// Cache ค่า toggle 60 วิ ถ้า D1 error หรือยังไม่เคยตั้งค่า -> ซ่อนไว้ก่อน (fail-safe)
 async function isCommunityHubVisible(env) {
   try {
     const cache = caches.default;
@@ -40,6 +50,7 @@ const STRINGS = {
     empty: 'ยังไม่มีบทความ',
     emptySub: 'พอ Generate Everything เสร็จในระบบหลัง บทความจะขึ้นที่นี่อัตโนมัติ',
     newBadge: '🆕 ใหม่',
+    hotBadge: '🔥 มาแรง',
     newArrivalsHeading: 'สินค้าใหม่ล่าสุด',
     newArrivalsSub: 'สินค้าที่เพิ่งเข้าระบบล่าสุด เรียงตามวันที่เจอครั้งแรก ไม่ปนกับยอดคลิก',
     searchPlaceholder: 'ค้นหาสินค้า...',
@@ -66,6 +77,7 @@ const STRINGS = {
     empty: 'No articles yet',
     emptySub: "Once a product finishes running through Generate Everything, it'll show up here automatically.",
     newBadge: '🆕 New',
+    hotBadge: '🔥 Hot',
     newArrivalsHeading: 'Newest arrivals',
     newArrivalsSub: 'Recently added products, sorted purely by first-seen date — not mixed with click count.',
     searchPlaceholder: 'Search products...',
@@ -78,13 +90,34 @@ const STRINGS = {
   }
 };
 
+// ── Text helpers (GRAVITY FIX 2026-09-20) ──────────────────────────────────
+function normalizeNewlines(text) {
+  return String(text ?? '')
+    .replace(/\\r\\n|\\n|\\r/g, '\n')
+    .replace(/\r\n?/g, '\n');
+}
+
+function thaiRatio(s) {
+  const letters = String(s).replace(/[^A-Za-z\u0E00-\u0E7F]/g, '');
+  if (!letters.length) return 0;
+  return (letters.match(/[\u0E00-\u0E7F]/g) || []).length / letters.length;
+}
+
+// เลือกจุดเด่นข้อแรกที่ภาษาตรงกับหน้า ถ้าไม่มีที่ตรงเลย -> null (ไม่โชว์ ดีกว่าโชว์ภาษาปน)
+function pickProHighlight(prosText, lang) {
+  const items = toListItems(normalizeNewlines(prosText))
+    .flatMap(i => i.split(/\s*•\s*/))
+    .map(i => i.trim())
+    .filter(Boolean);
+  for (const item of items) {
+    const r = thaiRatio(item);
+    if (lang === 'th' ? r >= 0.3 : r <= 0.1) return item;
+  }
+  return null;
+}
+
 // ── Pagination ──────────────────────────────────────────────────────────
-// หน้าแรกเดิมโหลดสินค้า "ทั้งหมด" มา render เป็น <div class="card-grid"> เดียว
-// ไม่มี limit เลย — ยิ่งสินค้าในระบบโตขึ้นเรื่อยๆ (ตอนนี้หลักร้อยแล้ว) ยิ่งทำให้
-// หน้าแรกหนักขึ้นเรื่อยๆ ทั้ง initial HTML payload และเวลา render รูปทั้งหมด
-// พร้อมกัน ต่อไปนี้ตัดเป็นหน้าละ PAGE_SIZE ชิ้น โดยยังคง final_score ranking
-// เดิมทั้งชุดไว้ก่อน แล้วค่อย slice เฉพาะหน้าที่ขอมา (ranking ต้องคำนวณจาก
-// สินค้าทั้งหมดเสมอ ตัดหลัง sort ไม่ใช่ตัดก่อน ไม่งั้นอันดับจะผิด)
+// ranking คำนวณจากสินค้าทั้งหมดก่อน แล้วค่อย slice เฉพาะหน้าที่ขอ
 const PAGE_SIZE = 24;
 
 function buildPageHref(base, { selectedCategory, page }) {
@@ -102,8 +135,6 @@ function buildPaginationHtml({ page, totalPages, lang, t, selectedCategory }) {
   const prevHref = page > 1 ? buildPageHref(base, { selectedCategory, page: page - 1 }) : null;
   const nextHref = page < totalPages ? buildPageHref(base, { selectedCategory, page: page + 1 }) : null;
 
-  // แสดงเลขหน้าแบบย่อ: หน้าปัจจุบัน ± 2 เสมอ บวกหน้าแรก/หน้าสุดท้าย พร้อม "…"
-  // คั่นตรงจุดที่ข้าม กันไม่ให้แถวเลขหน้ายาวเกินไปเวลาสินค้าเยอะมากๆ
   const windowSize = 2;
   const pageNums = new Set([1, totalPages]);
   for (let p = page - windowSize; p <= page + windowSize; p++) {
@@ -162,15 +193,8 @@ function buildPaginationHtml({ page, totalPages, lang, t, selectedCategory }) {
 }
 
 // ── Category display-name translations (TH) ────────────────────────────────
-// ⭐ ใช้เฉพาะตอน "แสดงผล" (label บนปุ่ม/dropdown) เท่านั้น — ห้ามใช้ค่าที่แปลแล้ว
-// ไปทำ query/filter หรือ href เด็ดขาด เพราะ a.category ที่ดึงจาก Grist ยังเป็น
-// string ภาษาอังกฤษดิบเสมอ (ไม่มีคอลัมน์แปลไทยแยกต่างหากในต้นทาง) การ filter/
-// เทียบค่าต้อง match กับ string ดิบนั้นเป๊ะๆ — ดูฟังก์ชัน getCategoryLabel() ด้านล่าง
-// ที่ทำหน้าที่เป็น display-layer เท่านั้น ไม่แตะค่าที่ใช้ในลอจิกอื่น
-//
-// ถ้ามีหมวดใหม่โผล่ใน Grist ที่ยังไม่มีคีย์อยู่ในนี้ getCategoryLabel() จะ
-// fallback กลับไปโชว์ชื่ออังกฤษเดิม ไม่ throw ไม่พังหน้าเว็บ — แค่ต้องมาเพิ่ม
-// คีย์ใหม่ในนี้เองเวลามีเวลา (ไม่มี auto-translate)
+// ใช้เฉพาะตอน "แสดงผล" เท่านั้น — ห้ามใช้ค่าที่แปลแล้วไป query/filter/href
+// (a.category จาก Grist เป็นอังกฤษดิบเสมอ) หมวดที่ไม่มีคีย์จะ fallback เป็นอังกฤษ
 const CATEGORY_LABELS_TH = {
   'Pet Supplies': 'อุปกรณ์สัตว์เลี้ยง',
   'Electronics': 'อิเล็กทรอนิกส์',
@@ -187,12 +211,8 @@ const CATEGORY_LABELS_TH = {
 };
 
 /**
- * แปลชื่อหมวด/หมวดย่อยเป็นไทยสำหรับ "แสดงผล" เท่านั้น
- * ลำดับความสำคัญ: 1) categoryThMap ที่มาจาก Grist field `category_th` ต่อ
- * สินค้าจริง (ถ้า AI pipeline เขียนคอลัมน์นี้ตอนสร้างสินค้าแล้ว — auto-sync
- * ของจริง ไม่ต้อง deploy โค้ดใหม่เวลามีหมวดใหม่) 2) dictionary hardcode
- * ด้านบน (safety net สำหรับหมวดเก่า/สินค้าเก่าที่ยังไม่มี category_th)
- * 3) คืนชื่ออังกฤษเดิมเป็น fallback สุดท้าย — ไม่ throw ไม่ว่ากรณีไหน
+ * ลำดับ: 1) categoryThMap จาก Grist `category_th` 2) dictionary ด้านบน
+ * 3) ชื่ออังกฤษเดิม — ไม่ throw ไม่ว่ากรณีไหน
  */
 function getCategoryLabel(name, lang, categoryThMap) {
   if (lang !== 'th') return name;
@@ -201,15 +221,11 @@ function getCategoryLabel(name, lang, categoryThMap) {
   return name;
 }
 
-/**
- * Root-relative link to the given lang's home page.
- */
 function homePath(lang) {
   return lang === 'en' ? '/en/' : '/';
 }
 
-// D1 จำกัด bound parameters ต่อ query ไว้ที่ 100 ตัว — แบ่งเป็น chunk ละ 90
-// เผื่อไว้ (กันชนเพดานพอดีถ้าจำนวนสินค้าโตขึ้นอีกในอนาคต)
+// D1 จำกัด bound parameters ต่อ query ไว้ที่ 100 ตัว — แบ่ง chunk ละ 90
 const D1_CHUNK_SIZE = 90;
 
 function chunkArray(arr, size) {
@@ -220,7 +236,8 @@ function chunkArray(arr, size) {
   return chunks;
 }
 
-async function getOrCreateFirstSeenMap(env, productIds) {
+// seedDates: { [productId]: ISO } วันที่สร้างจริงของบทความ (ถ้ามี) ใช้ seed แทน "ตอนนี้"
+async function getOrCreateFirstSeenMap(env, productIds, seedDates = {}) {
   const firstSeenMap = {};
   const ids = [...new Set(productIds.map(String))].filter(Boolean);
   if (!env.DB || !ids.length) return firstSeenMap;
@@ -242,11 +259,11 @@ async function getOrCreateFirstSeenMap(env, productIds) {
           env.DB.prepare(
             `INSERT INTO product_first_seen (product_id, first_seen_at) VALUES (?, ?)
              ON CONFLICT(product_id) DO NOTHING`
-          ).bind(id, now)
+          ).bind(id, seedDates[id] || now)
         );
         await env.DB.batch(stmts);
       }
-      missingIds.forEach(id => { firstSeenMap[id] = now; });
+      missingIds.forEach(id => { firstSeenMap[id] = seedDates[id] || now; });
     }
   } catch (e) {
     // Table missing or D1 unavailable — fall back to no bonus
@@ -255,37 +272,23 @@ async function getOrCreateFirstSeenMap(env, productIds) {
   return firstSeenMap;
 }
 
-// ── Composite ranking score (แทนระบบ 2 โซนเดิม: Top 3 + Newest arrivals) ──
-//
-// รวม 3 สัญญาณเป็นคะแนนเดียว แล้วเรียงทั้งหน้าจากคะแนนนี้ ไม่แยก section:
-//   1. click score ที่ decay ตามเวลา (สูตรทำนอง Hacker News ranking)
-//   2. Bayesian-weighted rating (กัน rating เพี้ยนจากสินค้าที่เพิ่งเข้าระบบ/มีข้อมูลน้อย)
-//   3. recency boost (สินค้าใหม่ได้แต้มพิเศษที่ค่อยๆ ลดลง ไม่ใช่กันโซนพิเศษให้ตลอดไป)
-//
-// ⭐ หมายเหตุ: ระบบนี้ไม่มีฟิลด์ "จำนวนรีวิว" (มีแค่ rating ตัวเลขเดียว 0-5)
-// สูตร Bayesian ตำรามาตรฐานต้องใช้ v = จำนวนรีวิวจริง แต่เราไม่มีข้อมูลนั้น
-// จึงใช้ "จำนวนคลิก" แทนเป็นตัวแทนความน่าเชื่อถือ (proxy for confidence) —
-// สินค้าที่มีคนคลิกดูเยอะ ถือว่ามีหลักฐานมากพอจะเชื่อ rating ของมันได้มากขึ้น
-// สินค้าที่ยังไม่มีคลิกเลย จะได้ weighted rating ใกล้เคียงค่าเฉลี่ยทั้งเว็บ (C)
-// แทนที่จะโดนตัดสินจาก rating ดิบที่อาจมาจากแหล่งข้อมูลต้นทางเพียงจุดเดียว
+// ── Composite ranking score ────────────────────────────────────────────────
+// รวม 3 สัญญาณ: click score ที่ decay ตามเวลา + Bayesian rating (ใช้จำนวนคลิก
+// เป็น proxy ความน่าเชื่อถือ เพราะไม่มีฟิลด์จำนวนรีวิว) + recency boost
 
-const CLICK_DECAY_EXPONENT = 1.5;   // ยิ่งสูง ยิ่งลดความสำคัญของคลิกเก่าเร็วขึ้น
-const RATING_CONFIDENCE_M = 10;     // pseudo-count ขั้นต่ำก่อนเชื่อ rating ดิบเต็มที่
-const RECENCY_BOOST_DAYS = 7;       // จำนวนวันที่ recency boost ค่อยๆ ลดจนเป็น 0
+const CLICK_DECAY_EXPONENT = 1.5;
+const RATING_CONFIDENCE_M = 10;
+const RECENCY_BOOST_DAYS = 7;
 const SCORE_WEIGHTS = { click: 0.5, rating: 0.3, recency: 0.2 };
 
-// C = ค่าเฉลี่ย rating ของสินค้าทั้งหมดที่มี rating จริง (ไม่นับสินค้าที่ไม่มี rating)
 function computeSiteAverageRating(articles) {
   const rated = articles
     .map(a => a.product && a.product.rating)
     .filter(r => r != null && !isNaN(Number(r)));
-  if (!rated.length) return 4.0; // fallback ถ้ายังไม่มี rating ในระบบเลยสักตัว
+  if (!rated.length) return 4.0;
   return rated.reduce((sum, r) => sum + Number(r), 0) / rated.length;
 }
 
-// weighted_rating = (v × R + m × C) / (v + m)
-// v = clicks (proxy แทนจำนวนรีวิวที่ไม่มีจริงในระบบนี้), R = rating ดิบของสินค้า
-// (หรือ C ถ้าไม่มี rating เลย — ทำให้สูตรได้ค่า = C พอดี ไม่ลงโทษสินค้าที่ยังไม่มี rating)
 function bayesianRating(article, clicks, siteAvgRating) {
   const rawRating = article.product && article.product.rating;
   const R = rawRating != null && !isNaN(Number(rawRating)) ? Number(rawRating) : siteAvgRating;
@@ -294,17 +297,13 @@ function bayesianRating(article, clicks, siteAvgRating) {
   return (v * R + m * siteAvgRating) / (v + m);
 }
 
-// score_from_clicks = clicks / (days_since_first_seen + 2)^1.5 — สูตรทำนอง Hacker News
-// สินค้าใหม่คลิกดีจะแซงสินค้าเก่าคลิกเยอะแต่นิ่งไปแล้วได้ตามธรรมชาติ
 function timeDecayedClickScore(clicks, firstSeenAt, nowMs) {
   const ageDays = firstSeenAt
     ? Math.max(0, (nowMs - new Date(firstSeenAt).getTime()) / (1000 * 60 * 60 * 24))
-    : 9999; // ไม่รู้วันที่ → ถือว่าเก่ามาก กันไม่ให้ได้เปรียบผิดที่
+    : 9999;
   return clicks / Math.pow(ageDays + 2, CLICK_DECAY_EXPONENT);
 }
 
-// recency boost ลดจาก 1 → 0 เชิงเส้นตลอด RECENCY_BOOST_DAYS วัน
-// (แทนการกันโซน "สินค้าใหม่" แยกไว้ถาวร — พอครบวันก็หายไปเอง)
 function recencyBoost(firstSeenAt, nowMs) {
   if (!firstSeenAt) return 0;
   const ageDays = (nowMs - new Date(firstSeenAt).getTime()) / (1000 * 60 * 60 * 24);
@@ -312,9 +311,7 @@ function recencyBoost(firstSeenAt, nowMs) {
   return Math.max(0, (RECENCY_BOOST_DAYS - ageDays) / RECENCY_BOOST_DAYS);
 }
 
-// รวมทุก signal เป็น final_score เดียวต่อสินค้า 1 ชิ้น พร้อม normalize แต่ละส่วนให้อยู่ช่วง 0-1
-// ก่อนถ่วงน้ำหนัก เพื่อไม่ให้สเกลที่ต่างกัน (คลิกเป็นร้อย vs rating 0-5) บิดผลลัพธ์
-function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs) {
+function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs, useRecency = true) {
   const siteAvgRating = computeSiteAverageRating(articles);
 
   const raw = articles.map(a => {
@@ -325,7 +322,7 @@ function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs) {
       id,
       clickScoreRaw: timeDecayedClickScore(clicks, firstSeenAt, nowMs),
       weightedRating: bayesianRating(a, clicks, siteAvgRating),
-      recency: recencyBoost(firstSeenAt, nowMs),
+      recency: useRecency ? recencyBoost(firstSeenAt, nowMs) : 0,
     };
   });
 
@@ -333,8 +330,8 @@ function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs) {
 
   const scoreById = {};
   raw.forEach(r => {
-    const normalizedClick = r.clickScoreRaw / maxClickScore;   // 0..1
-    const normalizedRating = r.weightedRating / 5;              // 0..1 (สเกล rating คือ 0-5)
+    const normalizedClick = r.clickScoreRaw / maxClickScore;
+    const normalizedRating = r.weightedRating / 5;
     scoreById[r.id] =
       normalizedClick * SCORE_WEIGHTS.click +
       normalizedRating * SCORE_WEIGHTS.rating +
@@ -347,7 +344,7 @@ function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs) {
 function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0, newProductIds = new Set() }) {
   return articles.map((a, idx) => {
     const i = startRank + idx;
-    const topPro = a.analysis ? toListItems(a.analysis.pros)[0] : null;
+    const topPro = a.analysis ? pickProHighlight(a.analysis.pros, lang) : null;
     const thumb = a.product.image
       ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
       : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
@@ -361,7 +358,7 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
       <div class="card-body">
         <div class="card-top">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
-          ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? '<span class="badge-hot">🔥 มาแรง</span>' : ''}
+          ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? `<span class="badge-hot">${escapeHtml(t.hotBadge)}</span>` : ''}
           ${newProductIds.has(String(a.id)) ? `<span class="badge-new">${escapeHtml(t.newBadge)}</span>` : ''}
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
@@ -596,11 +593,17 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     // D1/Cache unavailable — fall back to original article order
   }
 
-  const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id));
+  // GRAVITY FIX (2026-09-20): seed first_seen จากวันที่สร้างจริงของบทความ (ถ้ามี)
+  const seedDates = {};
+  articles.forEach(a => {
+    const d = a.createdAt || a.created_at || a.publishedAt;
+    if (d && !isNaN(Date.parse(d))) seedDates[String(a.id)] = new Date(d).toISOString();
+  });
+  const firstSeenMap = await getOrCreateFirstSeenMap(env, articles.map(a => a.id), seedDates);
 
   const NEW_BADGE_DAYS = 3;
   const nowMs = Date.now();
-  const newProductIds = new Set(
+  let newProductIds = new Set(
     articles
       .filter(a => {
         const firstSeen = firstSeenMap[String(a.id)];
@@ -611,9 +614,12 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       .map(a => String(a.id))
   );
 
-  // final_score เดียวต่อสินค้า = click score (decay ตามเวลา) + Bayesian rating + recency boost
-  // แทนที่ "เรียงตามคลิกดิบอย่างเดียว" — ดูรายละเอียดสูตรที่ computeFinalScores() ด้านบน
-  const finalScoreById = computeFinalScores(articles, clickCounts, firstSeenMap, nowMs);
+  // GRAVITY FIX (2026-09-20): ถ้า "ใหม่" เกินครึ่ง แปลว่าวันที่ถูก seed พร้อมกัน
+  // (ไม่ใช่ข้อมูลจริง) ปิดป้ายและ recency boost กันทุกการ์ดขึ้นป้าย "ใหม่"
+  const bulkSeeded = articles.length > 4 && newProductIds.size > articles.length * 0.5;
+  if (bulkSeeded) newProductIds = new Set();
+
+  const finalScoreById = computeFinalScores(articles, clickCounts, firstSeenMap, nowMs, !bulkSeeded);
 
   const scoredArticles = [...articles].sort((a, b) => {
     return (finalScoreById[String(b.id)] || 0) - (finalScoreById[String(a.id)] || 0);
@@ -630,10 +636,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   // ── Category filter ────────────────────────────────────────────────────
   const MIN_PRODUCTS_PER_CATEGORY = 2;
   const categoryCounts = {};
-  // ⭐ ใหม่ — เก็บคำแปลไทยต่อ segment (top/sub/full) จาก field category_th
-  // ของ Grist จริง (ถ้ามี) มา "เรียนรู้" จากสินค้าแต่ละชิ้นที่ผ่านมา แทนที่จะ
-  // พึ่ง dictionary hardcode อย่างเดียว — ถ้า AI pipeline เขียน category_th
-  // ให้ทุกสินค้าใหม่แล้ว หมวดใหม่จะมีคำแปลโผล่มาเองโดยไม่ต้อง deploy โค้ด
   const categoryThMap = {};
   articles.forEach(a => {
     if (a.category) {
@@ -642,9 +644,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
       if (top !== a.category) {
         categoryCounts[top] = (categoryCounts[top] || 0) + 1;
       }
-      // สมมติ category_th ใช้รูปแบบ "Top > Sub" ขนานกับ category (EN) —
-      // ถ้าไม่มี category_th เลย (pipeline ยังไม่ได้เขียนคอลัมน์นี้) ข้ามไปเฉยๆ
-      // ปล่อยให้ getCategoryLabel() fallback ไปที่ dictionary/EN แทน
+      // category_th ใช้รูปแบบ "Top > Sub" ขนานกับ category (EN) ถ้าไม่มีก็ข้าม
       if (a.categoryTh) {
         const { top: topTh, sub: subTh } = splitCategory(a.categoryTh);
         if (!categoryThMap[top]) categoryThMap[top] = topTh;
@@ -672,9 +672,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap });
 
-  // ── Pagination: ตัด final_score ranking ทั้งชุด (คำนวณจากสินค้าทั้งหมด
-  // แล้ว) เหลือแค่หน้าที่ขอมา — เดิมตรงนี้ไม่มี slice เลย ส่ง
-  // displayScoredArticles ทั้งชุดเข้า renderCardGrid ตรงๆ ไม่ว่าจะมีกี่ร้อยชิ้น
+  // ── Pagination (ตัดหลัง sort ด้วย final_score ทั้งชุด) ─────────────────
   const totalCount = displayScoredArticles.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const requestedPage = request ? parseInt(new URL(request.url).searchParams.get('page'), 10) : 1;
@@ -684,19 +682,12 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const pageStart = (page - 1) * PAGE_SIZE;
   const pageArticles = displayScoredArticles.slice(pageStart, pageStart + PAGE_SIZE);
 
-  // ── Ranked grid เดียว ─────────────────────────────────────────────────
-  // เดิมแยก "Top 3" (ตามคลิก) กับ "Newest arrivals" (ตามวันที่) เป็น 2 ก้อน
-  // ตอนนี้ทุกสินค้าเรียงจาก final_score เดียวกันทั้งหน้า (ดู computeFinalScores)
-  // สินค้าใหม่ที่ดีจริงจะขึ้นเร็วเอง ไม่ต้องกันโซนพิเศษให้ — badge "🆕 ใหม่"
-  // ยังติดอยู่กับการ์ดตามปกติ (ดูจาก newProductIds เหมือนเดิม ไม่เกี่ยวกับ section)
-  // startRank ใช้ pageStart แทน 0 เพื่อให้ป้าย "อันดับ N" นับต่อเนื่องข้ามหน้า
   const rankedCardsHtml = renderCardGrid(pageArticles, { t, lang, clickCounts, hotThreshold, startRank: pageStart, newProductIds });
   const paginationHtml = buildPaginationHtml({ page, totalPages, lang, t, selectedCategory });
 
   // ── Search UI ───────────────────────────────────────────────────────────
-  // searchButtonHtml — ส่งไปให้ renderCommunityHub() วางเป็น chip ขวาสุด
-  // ในแถว Telegram/Discord/... เมื่อ hub มองเห็น
-  // เมื่อ hub ซ่อน → render standalone ใน headerExtra แทน (ผ่าน standaloneSearchHtml)
+  // hub มองเห็น -> searchButtonHtml ไปอยู่ในแถว chip ของ community-hub.js
+  // hub ซ่อน -> render standalone ใน headerExtra
   const searchButtonHtml = articles.length ? `
     <div class="sb-wrap">
       <span class="sb-icon" aria-hidden="true">🔍</span>
@@ -707,10 +698,6 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     </div>
   ` : '';
 
-  // NOTE: when the community hub is visible, .sb-wrap/.sb-icon/.sb-input are
-  // already styled by community-hub.js (it renders the same markup inline in
-  // its chip row). This block only needs to style the standalone fallback
-  // case (hub hidden) — kept visually identical to the hub version.
   const searchStylesAndScript = articles.length ? `
   <style>
     .sb-wrap{
@@ -747,15 +734,10 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const communityHubVisible = await isCommunityHubVisible(env);
 
-  // เมื่อ hub มองเห็น: ส่ง searchButtonHtml ไปให้ community-hub.js วาง
-  //   เป็น chip ขวาสุดในแถว Telegram/Discord/... (ไม่ render ซ้ำที่อื่น)
-  // เมื่อ hub ซ่อน: render search button standalone ใน headerExtra แทน
   const communityHubHtml = communityHubVisible
     ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: searchButtonHtml })
     : '';
 
-  // standaloneSearchHtml แสดงเฉพาะตอนที่ hub ซ่อน
-  // ตอนที่ hub โชว์ → '' เพราะ searchButtonHtml อยู่ใน communityHubHtml แล้ว
   const standaloneSearchHtml = communityHubVisible ? '' : searchButtonHtml;
 
   const body = errorMsg
@@ -773,19 +755,15 @@ export async function renderHomePage(env, lang = 'th', request = null) {
 
   const altLangPath = lang === 'en' ? '/' : '/en/';
 
-  // หน้า 2 เป็นต้นไปยังคงมี canonical ชี้กลับไปที่หน้านั้นๆ ของตัวเอง (ไม่ใช่
-  // หน้า 1) ตามแนวทางของ Google สำหรับ paginated series — แต่กัน index เกิน
-  // ความจำเป็นด้วย noindex เฉพาะหน้า >1 (หน้า 1 ยังให้ index ตามปกติ) เพราะ
-  // เนื้อหาหน้าในๆ ของ pagination มักไม่มีค่าต่อ SEO เท่าหน้าแรก และช่วยกัน
-  // duplicate-content signal จากการมีหลาย URL ที่เนื้อหาคาบเกี่ยวกัน
+  // หน้า >1: canonical ชี้หน้านั้นเอง + noindex,follow (หน้าแรก index ปกติ)
   const pageCanonicalPath = page > 1
     ? buildPageHref(homePath(lang), { selectedCategory, page })
     : homePath(lang);
   const robotsMeta = page > 1 ? '<meta name="robots" content="noindex,follow">' : '';
 
-  // UPDATED: community hub + search now render as headerExtra so they sit
-  // inside <header class="site">, on the same row as the GRAVITY OS logo
-  // (wraps to its own full-width line under the logo on narrow screens).
+  // GRAVITY FIX (2026-09-20): <h1> ซ่อนด้วย CSS (เดิมหน้าแรกไม่มี h1)
+  const h1Html = errorMsg ? '' : `<h1 style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">${escapeHtml(t.heading)}</h1>`;
+
   const html = renderPage({
     title: page > 1 ? `${t.pageTitle} — ${t.pageOf(page, totalPages)}` : t.pageTitle,
     description: t.pageDescription,
@@ -796,6 +774,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     headerExtra: `${communityHubHtml}${standaloneSearchHtml}`,
     extraHead: robotsMeta,
     bodyHtml: `${searchStylesAndScript}
+${h1Html}
 ${body}`
   });
 
