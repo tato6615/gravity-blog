@@ -136,7 +136,10 @@ function buildAttentionTrackerScript(productId, variantId, channel) {
 
 export async function renderArticlePage(env, slug, lang = 'th', request) {
   const t = STRINGS[lang] || STRINGS.th;
+  // prefix ใช้กับ URL บทความ (คงโครงเดิม: th = /product/..., en = /en/product/...)
   const prefix = lang === 'en' ? '/en' : '';
+  // 🔧 (2026-09-20c): หน้าแรก en = /  , th = /th/
+  const homeHref = lang === 'en' ? '/' : '/th/';
 
   try {
     let article;
@@ -155,7 +158,7 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
         canonicalPath: `${prefix}/product/${encodeURIComponent(slug)}`,
         lang,
         // GRAVITY FIX (2026-09-20): ogType:'website' (default) ถูกต้องสำหรับ 404
-        bodyHtml: `<p class="empty">${t.notFoundBody}</p><p><a href="${prefix}/">${t.backHome}</a></p>`
+        bodyHtml: `<p class="empty">${t.notFoundBody}</p><p><a href="${homeHref}">${t.backHome}</a></p>`
       }), { status: 404, headers: { 'content-type': 'text/html; charset=UTF-8' } });
     }
 
@@ -230,7 +233,7 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       <div data-section="cta">${buyBtn}</div>
       ${renderAuthorSection(authorId, lang)}
       ${tagsHtml}
-      <p style="margin-top:32px;"><a href="${prefix}/">${t.moreReviews}</a></p>
+      <p style="margin-top:32px;"><a href="${homeHref}">${t.moreReviews}</a></p>
       ${buildAttentionTrackerScript(article.id, attentionVariantId, attentionChannel)}
     `;
 
