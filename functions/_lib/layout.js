@@ -405,11 +405,13 @@ export function renderPage({
   if (altLangPath) {
     const otherLang = lang === 'en' ? 'th' : 'en';
     const otherUrl = toAbsoluteUrl(altLangPath);
-    const thUrl = lang === 'th' ? canonicalUrl : otherUrl;
+    // GRAVITY ENHANCEMENT (2026-09-20): ตลาดโลก → x-default ชี้ไปหน้าอังกฤษ
+    // (ต้องตรงกับ X_DEFAULT_LANG ใน functions/sitemap.xml.js)
+    const enUrl = lang === 'en' ? canonicalUrl : otherUrl;
     hreflangHtml = `
 <link rel="alternate" hreflang="${lang}" href="${escapeHtml(canonicalUrl)}">
 <link rel="alternate" hreflang="${otherLang}" href="${escapeHtml(otherUrl)}">
-<link rel="alternate" hreflang="x-default" href="${escapeHtml(thUrl)}">`;
+<link rel="alternate" hreflang="x-default" href="${escapeHtml(enUrl)}">`;
   }
 
   return `<!DOCTYPE html>
