@@ -13,20 +13,11 @@
  *    on the same row as the GRAVITY OS logo (wraps under it on narrow screens).
  *
  * --- GRAVITY FIX (2026-08-22): hreflang tags added ---
- * renderPage() previously only used `altLangPath` to render the clickable
- * .lang-switch button for humans — it never told search engines that the
- * TH/EN pages are language variants of the same content, so Google could
- * treat them as duplicate/canonical-confused pages instead of a th/en pair.
- * This matters more than usual here because content_th/content_en are
- * separate AI calls, not translations of each other, so the pages are
- * genuinely not identical — hreflang is what tells Google "these are
- * intentionally different-language versions of one product", not "pick
- * one, ignore the other". Self-referencing hreflang for the current page
- * is included too (expected pattern: every page in a language group should
- * list itself as well as its alternates). x-default points at the Thai
- * version, since Thai is this site's primary/default audience and language.
- * No signature change — still driven entirely by the existing altLangPath
- * param, so every existing caller of renderPage() is unaffected.
+ * --- GRAVITY FIX (2026-09-20): ogType param + rating hardcode removed ---
+ *  1) renderPage() รับ ogType param (default 'website') แทน hardcode 'article'
+ *     ทุกหน้า — article page ส่ง ogType:'article' เอง
+ *  2) generateProductJsonLd() ไม่ใส่ review/rating block ถ้าไม่มีค่า rating
+ *     จริงในข้อมูล แทนการใส่ค่า 3.5 ปลอม
  */
 
 const SITE_URL = 'https://gravity-blog.pages.dev';
@@ -55,23 +46,7 @@ export const TOKENS = {
   radius: '10px'
 };
 
-// Author registry — single source of truth for all reviewers.
-// Add/remove reviewers here, and they automatically appear in author
-// sections + share bio links across the site.
-//
-// IMPORTANT: `id` must match the value you put in Grist's CONTENT.reviewer_id
-// field (or whatever you call it). When AI generates content, it should
-// always fill this field with one of these IDs.
 export const AUTHOR_REGISTRY = {
-  // GRAVITY FIX (2026-09-05): bios rewritten to stop overclaiming human
-  // authorship. Original copy ("Product experts who test and verify every
-  // recommendation") reads as a claim of human hands-on review, but content
-  // on this site is produced by an AI pipeline (see AI_DISCLOSURE in
-  // UI_STRINGS below) — leaving the old wording in place alongside author
-  // avatars/names risks misattributing AI output to human reviewers, which
-  // is exactly what AI-content transparency rules (e.g. EU AI Act Art. 50)
-  // care about. New copy is honest about the AI + human-oversight process
-  // without pretending nobody automated is involved.
   'gravity-os-team': {
     id: 'gravity-os-team',
     name: 'GRAVITY OS Editorial Team',
@@ -107,7 +82,6 @@ export const AUTHOR_REGISTRY = {
   }
 };
 
-// Returns author info by ID, or a safe fallback if not found
 export function getAuthorInfo(authorId = 'gravity-os-team') {
   return AUTHOR_REGISTRY[authorId] || {
     id: 'gravity-os-team',
@@ -122,16 +96,6 @@ export function getAuthorInfo(authorId = 'gravity-os-team') {
   };
 }
 
-// GRAVITY FIX (2026-09-05): added AI-content disclosure strings.
-// Previously the only disclosure on the whole site was the affiliate-link
-// one below — nothing anywhere told visitors the articles themselves are
-// AI-generated. That's a separate disclosure obligation from "we may earn
-// a commission" (which is about money, not authorship), and matters for
-// audiences in jurisdictions with AI-content transparency rules (e.g. EU
-// AI Act Art. 50 on labelling AI-generated content). aiDisclosureFull is
-// shown as its own line in the site footer (renderPage) on every page;
-// aiDisclosureShort is the fallback used in renderAuthorSection() if an
-// author entry is ever missing a bio.
 const UI_STRINGS = {
   th: {
     footerDisclaimer: 'บทความนี้อาจมีลิงก์พันธมิตร หากคุณซื้อสินค้าผ่านลิงก์ในบทความ เราอาจได้รับค่าคอมมิชชั่นเล็กน้อยโดยไม่มีค่าใช้จ่ายเพิ่มกับคุณ',
@@ -418,10 +382,12 @@ const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="
   <text x="13" y="18.5" text-anchor="middle" font-family="'Noto Serif Thai', serif" font-weight="700" font-size="14" fill="#FFFFFF">G</text>
 </svg>`;
 
+// GRAVITY FIX (2026-09-20): เพิ่ม ogType param (default 'website')
+// article page ส่ง ogType:'article' เอง — หน้าอื่นไม่ต้องส่ง
 export function renderPage({
   title, description, canonicalPath = '/', image, lang = 'th',
   altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false,
-  headerExtra = '', extraHead = ''
+  headerExtra = '', extraHead = '', ogType = 'website'
 }) {
   const t = uiStrings(lang);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
@@ -433,24 +399,8 @@ export function renderPage({
   const langSwitchHtml = altLangPath
     ? `<a class="lang-switch" href="${escapeHtml(altLangPath)}">${escapeHtml(t.langSwitchLabel)}</a>`
     : '';
-  // headerExtra (e.g. community-hub social row + search box) renders
-  // inside the header, on the same visual row as the GRAVITY OS logo.
   const headerExtraHtml = headerExtra ? `<div class="site-header-extra">${headerExtra}</div>` : '';
 
-  // GRAVITY FIX (2026-08-22): hreflang tags. Previously altLangPath was
-  // ONLY used to render the clickable .lang-switch button for humans — it
-  // never told Google that the TH/EN pages are language variants of the
-  // same content, so search engines could treat them as duplicate/canonical-
-  // confused pages instead of a th/en pair. This matters more than usual
-  // here because content_th/content_en are separate AI calls, not
-  // translations of each other, so the pages are genuinely not identical —
-  // hreflang is what tells Google "these are intentionally different-
-  // language versions of one product", not "pick one, ignore the other".
-  // Self-referencing hreflang for the CURRENT page is included too, since
-  // that's part of Google's expected pattern (every page in a language
-  // group should list itself as well as its alternates).
-  // x-default points at the Thai version, since this site's primary/
-  // default audience and canonical language is Thai.
   let hreflangHtml = '';
   if (altLangPath) {
     const otherLang = lang === 'en' ? 'th' : 'en';
@@ -473,7 +423,7 @@ ${GA_SNIPPET}
 <link rel="canonical" href="${canonicalUrl}">${hreflangHtml}
 
 <!-- Open Graph (Facebook, Line, most link-preview scrapers) -->
-<meta property="og:type" content="article">
+<meta property="og:type" content="${escapeHtml(ogType)}">
 <meta property="og:site_name" content="GRAVITY OS">
 <meta property="og:title" content="${escapeHtml(title)}">
 <meta property="og:description" content="${escapeHtml(desc)}">
@@ -507,16 +457,11 @@ ${extraHead}
 </html>`;
 }
 
-// Render author section for article pages
 export function renderAuthorSection(authorId, lang = 'th') {
   const author = getAuthorInfo(authorId);
   const t = uiStrings(lang);
   if (!author) return '';
 
-  // GRAVITY FIX (2026-09-05): author.bio is now { th, en } (was a single
-  // English-only string rendered on both TH and EN pages regardless of
-  // `lang`). Fall back to th then en then a generic AI-disclosure line so
-  // this never renders blank if a future registry entry forgets a locale.
   const bioText = (author.bio && (author.bio[lang] || author.bio.th || author.bio.en))
     || uiStrings(lang).aiDisclosureShort;
 
@@ -555,10 +500,6 @@ export function renderShareButtons(canonicalPath, title, lang = 'th', image) {
     instagram: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zm0-2.16C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.31-.79-.72-1.46-1.38-2.13C19.32 1.35 18.65.94 17.86.63c-.76-.3-1.64-.5-2.91-.56C13.67.01 13.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4zm6.4-10.4a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>'
   };
 
-  // 🔧 GRAVITY FIX (2026-09-13): แต่ก่อนแชร์ลิงก์เปล่าๆ ไม่เคยแปะ utm_source
-  // เลยสักครั้ง — Traffic Agent เลยเห็น click ทุกอันเป็น "direct/unknown"
-  // หมด ทั้งที่มีคนมาจาก Facebook/Line/ฯลฯ จริง ตอนนี้ทุกปุ่มแชร์แปะ
-  // utm_source ตามช่องทางของตัวเองอัตโนมัติ
   const withUtm = (source) => `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}utm_source=${source}&utm_medium=social&utm_campaign=share_button`;
   const urlFor = (source) => encodeURIComponent(withUtm(source));
 
@@ -645,11 +586,11 @@ export function formatArticleBody(text) {
     }
 
     if (lines.length === 1) {
-    if (/^###\s+/.test(lines[0])) return `<h3>${escapeHtml(lines[0].replace(/^###\s+/, ''))}</h3>`;
-    if (/^##\s+/.test(lines[0]))  return `<h2>${escapeHtml(lines[0].replace(/^##\s+/, ''))}</h2>`;
-    if (/^#\s+/.test(lines[0]))   return `<h2>${escapeHtml(lines[0].replace(/^#\s+/, ''))}</h2>`;
-    if (lines[0].length <= 50 && !/[.!?…""]$/.test(lines[0])) return `<h3>${escapeHtml(lines[0])}</h3>`;
-  }
+      if (/^###\s+/.test(lines[0])) return `<h3>${escapeHtml(lines[0].replace(/^###\s+/, ''))}</h3>`;
+      if (/^##\s+/.test(lines[0]))  return `<h2>${escapeHtml(lines[0].replace(/^##\s+/, ''))}</h2>`;
+      if (/^#\s+/.test(lines[0]))   return `<h2>${escapeHtml(lines[0].replace(/^#\s+/, ''))}</h2>`;
+      if (lines[0].length <= 50 && !/[.!?…""]$/.test(lines[0])) return `<h3>${escapeHtml(lines[0])}</h3>`;
+    }
 
     return `<p>${escapeHtml(lines.join(' '))}</p>`;
   }).join('');
@@ -667,9 +608,6 @@ export function renderBreadcrumb(items) {
   return parts.join('<span class="sep">›</span>');
 }
 
-/**
- * IMPROVED formatPrice — handles multiple currencies with proper localization
- */
 export function formatPrice(price, lang = 'th') {
   if (price == null || price === '') return '';
   const num = Number(String(price).replace(/[^\d.]/g, ''));
@@ -678,21 +616,12 @@ export function formatPrice(price, lang = 'th') {
   return `<span class="price-tag"><span class="currency">฿</span>${num.toLocaleString(locale)}</span>`;
 }
 
-/**
- * IMPROVED formatPriceWithCurrency — when you have explicit currency code
- * (from parsePrice() in grist.js)
- */
 export function formatPriceWithCurrency(amount, currency, lang = 'th') {
   if (amount == null || !currency) return formatPrice(amount, lang);
   
   const currencySymbols = {
-    'USD': '$',
-    'GBP': '£',
-    'EUR': '€',
-    'JPY': '¥',
-    'THB': '฿',
-    'HKD': 'HK$',
-    'KRW': '₩'
+    'USD': '$', 'GBP': '£', 'EUR': '€', 'JPY': '¥',
+    'THB': '฿', 'HKD': 'HK$', 'KRW': '₩'
   };
   const symbol = currencySymbols[currency] || currency;
   const locale = lang === 'en' ? 'en-US' : 'th-TH';
@@ -712,13 +641,19 @@ export function sanitizeUrl(url) {
 }
 
 /**
- * IMPROVED generateProductJsonLd — more complete schema with author, sub-ratings
+ * GRAVITY FIX (2026-09-20): ไม่ hardcode rating 3.5
+ * ถ้าไม่มี rating จริงในข้อมูล → ไม่ใส่ review block เลย
+ * ดีกว่าใส่ค่าปลอมที่ Google อาจ penalize
  */
 export function generateProductJsonLd(article, canonicalPath, authorId = 'gravity-os-team') {
   const SITE_URL_BASE = 'https://gravity-blog.pages.dev';
   const url = `${SITE_URL_BASE}${canonicalPath}`;
   const image = toAbsoluteUrl(article.product?.image_url) || DEFAULT_OG_IMAGE;
   const author = getAuthorInfo(authorId);
+
+  const ratingValue = article.product?.rating != null && !isNaN(Number(article.product.rating))
+    ? Number(article.product.rating)
+    : null;
 
   const schema = {
     '@context': 'https://schema.org',
@@ -727,26 +662,27 @@ export function generateProductJsonLd(article, canonicalPath, authorId = 'gravit
     description: article.metaDescription || '',
     image: image,
     url: url,
-    ...(article.product?.brand ? { 
-      brand: {
-        '@type': 'Brand',
-        name: article.product.brand
-      }
+    ...(article.product?.brand ? {
+      brand: { '@type': 'Brand', name: article.product.brand }
     } : {}),
-    review: {
-      '@type': 'Review',
-      reviewRating: {
-        '@type': 'Rating',
-        ratingValue: String(article.product?.rating || 3.5),
-        bestRating: '5'
-      },
-      author: {
-        '@type': 'Organization',
-        name: author.name || 'GRAVITY OS'
-      },
-      reviewBody: article.metaDescription || '',
-      datePublished: article.updatedAt ? new Date(article.updatedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
-    }
+    ...(ratingValue !== null ? {
+      review: {
+        '@type': 'Review',
+        reviewRating: {
+          '@type': 'Rating',
+          ratingValue: String(ratingValue),
+          bestRating: '5'
+        },
+        author: {
+          '@type': 'Organization',
+          name: author.name || 'GRAVITY OS'
+        },
+        reviewBody: article.metaDescription || '',
+        datePublished: article.updatedAt
+          ? new Date(article.updatedAt).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10)
+      }
+    } : {})
   };
 
   if (article.product?.buyUrl) {
