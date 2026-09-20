@@ -17,20 +17,27 @@
  * pattern", not "inherit whatever Experiment Agent's logic happens to be
  * today"; keeping them independent means a future change to Experiment
  * Agent's hypothesis logic can't silently change what Growth Agent scales.
+ *
+ * 🔧 GRAVITY FIX (2026-09-20): ไม่ต่อท้าย seo_title ด้วย "(ราคา X ⭐ Y/5)" อีก
+ * (ชื่อบทความดูเป็น template ซ้ำและราคาอาจล้าสมัย) ขยายผลเฉพาะ meta_description
+ * และเปลี่ยนตัวกันซ้ำ: เดิมใช้ seo_title NOT LIKE '%(ราคา%' ตอนนี้ใช้ "ไม่เคยมี
+ * growth_actions / experiments ของสินค้านี้" แทน
  */
 
 import { writeMemory, nowIso } from '../db.js';
 
 const MAX_GROWTH_ACTIONS_PER_RUN = 5;
+const APPEND_PRICE_RATING_TO_TITLE = false;
 
 function buildVariantCopy(product, content) {
   const priceText = product.price ? `ราคา ${product.price}` : '';
   const ratingText = product.rating ? `⭐ ${product.rating}/5` : '';
   const categoryText = product.category_th || product.category || '';
 
-  const afterSeoTitle = priceText
-    ? `${content.seo_title || product.product_name} (${[priceText, ratingText].filter(Boolean).join(' ')})`
-    : (content.seo_title || product.product_name);
+  const baseTitle = content.seo_title || product.product_name;
+  const afterSeoTitle = (APPEND_PRICE_RATING_TO_TITLE && priceText)
+    ? `${baseTitle} (${[priceText, ratingText].filter(Boolean).join(' ')})`
+    : content.seo_title;
 
   const bits = [product.product_name, priceText, ratingText, categoryText].filter(Boolean);
   const tail = content.meta_description ? content.meta_description.slice(0, 80) : 'ดูรีวิวเต็มและซื้อสินค้าได้ที่นี่';
@@ -74,8 +81,8 @@ export async function executeGrowthCycle(env, task) {
     WHERE p.pipeline_status IN ('enriched', 'published')
       AND c.slug IS NOT NULL AND c.slug != ''
       AND c.blog_draft IS NOT NULL AND c.blog_draft != ''
-      AND (c.seo_title IS NULL OR c.seo_title NOT LIKE '%(ราคา%')
-      AND NOT EXISTS (SELECT 1 FROM experiments e WHERE e.product_id = CAST(p.id AS TEXT) AND e.status = 'running')
+      AND NOT EXISTS (SELECT 1 FROM growth_actions g WHERE g.product_id = CAST(p.id AS TEXT))
+      AND NOT EXISTS (SELECT 1 FROM experiments e WHERE e.product_id = CAST(p.id AS TEXT))
     LIMIT 200
   `).all();
 
@@ -142,7 +149,7 @@ export async function executeGrowthCycle(env, task) {
       id: sourceExperiment.id, productId: sourceExperiment.product_id,
       hypothesis: sourceExperiment.hypothesis, resultNote: sourceExperiment.result_note
     },
-    note: `ใช้สูตรที่พิสูจน์แล้วจาก experiment #${sourceExperiment.id} (ใส่ราคา/rating ใน seo_title/meta_description) ขยายผลไปยังสินค้าอื่นที่ยังไม่เคยได้รับสูตรนี้ สูงสุด ${MAX_GROWTH_ACTIONS_PER_RUN} รายการ/รอบ — append-only เหมือนเดิม ย้อนกลับได้เสมอ`,
+    note: `ใช้สูตรที่พิสูจน์แล้วจาก experiment #${sourceExperiment.id} (ใส่ราคา/rating ใน meta_description) ขยายผลไปยังสินค้าอื่นที่ยังไม่เคยได้รับสูตรนี้ สูงสุด ${MAX_GROWTH_ACTIONS_PER_RUN} รายการ/รอบ — ไม่แตะ seo_title, append-only เหมือนเดิม ย้อนกลับได้เสมอ`,
     applied,
     recentActions: recentActions.map(r => ({
       id: r.id, productId: r.product_id, productName: r.product_name || `Product #${r.product_id}`,
