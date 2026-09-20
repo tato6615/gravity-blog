@@ -18,6 +18,9 @@
  *     ทุกหน้า — article page ส่ง ogType:'article' เอง
  *  2) generateProductJsonLd() ไม่ใส่ review/rating block ถ้าไม่มีค่า rating
  *     จริงในข้อมูล แทนการใส่ค่า 3.5 ปลอม
+ * --- GRAVITY CHANGE (2026-09-20c): สลับโครงหน้าแรก ---
+ *  หน้าแรก: en = /  , th = /th/  (/en/ redirect มาที่ /)
+ *  ลิงก์โลโก้ใน renderPage() ปรับตามนี้
  */
 
 const SITE_URL = 'https://gravity-blog.pages.dev';
@@ -446,7 +449,7 @@ ${extraHead}
 </head>
 <body>
 <header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
-  <a class="brand" href="${lang === 'en' ? '/en/' : '/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
+  <a class="brand" href="${lang === 'en' ? '/' : '/th/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
   ${headerExtraHtml}
   ${langSwitchHtml}
 </div></header>
