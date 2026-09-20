@@ -80,9 +80,6 @@ function renderSpecifications(analysis, t) {
   </div>`;
 }
 
-// --- P0.2: attention tracker script (inline) ---
-// ฝังตรงใน HTML แทนการโหลด external file เพื่อลด round-trip
-// session_id เป็น in-memory เท่านั้น ไม่ใช้ localStorage/cookie
 function buildAttentionTrackerScript(productId, variantId, channel) {
   return `<script>
 (function () {
@@ -108,10 +105,8 @@ function buildAttentionTrackerScript(productId, variantId, channel) {
     }
   }
 
-  // view
   send('view');
 
-  // scroll depth
   var milestones = { 25: false, 50: false, 75: false, 100: false };
   window.addEventListener('scroll', function () {
     var el = document.documentElement;
@@ -121,7 +116,6 @@ function buildAttentionTrackerScript(productId, variantId, channel) {
     });
   }, { passive: true });
 
-  // affiliate click
   document.addEventListener('click', function (e) {
     var el = e.target.closest('a[href],button');
     if (!el) return;
@@ -132,7 +126,6 @@ function buildAttentionTrackerScript(productId, variantId, channel) {
     if (isAffiliate || isCTA) send('click', section || 'cta');
   });
 
-  // exit
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') send('exit');
   });
@@ -161,6 +154,7 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
         title: t.notFoundTitle,
         canonicalPath: `${prefix}/product/${encodeURIComponent(slug)}`,
         lang,
+        // GRAVITY FIX (2026-09-20): ogType:'website' (default) ถูกต้องสำหรับ 404
         bodyHtml: `<p class="empty">${t.notFoundBody}</p><p><a href="${prefix}/">${t.backHome}</a></p>`
       }), { status: 404, headers: { 'content-type': 'text/html; charset=UTF-8' } });
     }
@@ -213,9 +207,7 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       ? renderStars(article.product.rating)
       : '';
 
-    // P0.2: detect channel จาก utm_source ที่ incoming URL
     const attentionChannel = incomingUtmSource || 'direct';
-    // variant_id มาจาก article.variantId ถ้า d1-articles ดึงมาด้วย ไม่งั้น null
     const attentionVariantId = article.variantId || null;
 
     const body = `
@@ -248,6 +240,10 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       canonicalPath,
       image: article.product.image_url,
       lang,
+      altLangPath: null, // article.js ยังไม่ได้ใช้ getAvailableLanguages — ถ้าจะเพิ่มทีหลังใส่ตรงนี้
+      // GRAVITY FIX (2026-09-20): เพิ่ม ogType:'article' — เดิมไม่ส่งค่านี้
+      // ทำให้ layout.js ใช้ default 'website' ทุกหน้าสินค้า
+      ogType: 'article',
       bodyHtml: body
     });
 
