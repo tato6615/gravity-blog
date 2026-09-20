@@ -18,6 +18,10 @@ import { renderCommunityHub } from './community-hub.js';
  *     ตั้ง HOME_NICHE=all เพื่อปิดการกรอง (บทความนอก niche ยังเข้าได้ทาง URL/sitemap)
  *     ตัวกรองด้านบนเหลือ "ทั้งหมด" + dropdown หมวดย่อยของ niche
  *  7) ย้าย Community Hub (ปุ่มโซเชียล) ลงล่างสุดของหน้า ช่องค้นหาอยู่บนหัวหน้าเสมอ
+ *
+ * 🔧 GRAVITY CHANGE (2026-09-20c) — สลับโครงหน้าแรก:
+ *  8) หน้าแรก: en = /  , th = /th/  (/en/ redirect มาที่ /)
+ *     แก้ที่ homePath() และ altLangPath เท่านั้น
  */
 
 // Cache ค่า toggle 60 วิ ถ้า D1 error หรือยังไม่เคยตั้งค่า -> ซ่อนไว้ก่อน (fail-safe)
@@ -228,8 +232,9 @@ function getCategoryLabel(name, lang, categoryThMap) {
   return name;
 }
 
+// 🔧 (2026-09-20c): en = /  , th = /th/
 function homePath(lang) {
-  return lang === 'en' ? '/en/' : '/';
+  return lang === 'en' ? '/' : '/th/';
 }
 
 // D1 จำกัด bound parameters ต่อ query ไว้ที่ 100 ตัว — แบ่ง chunk ละ 90
@@ -794,7 +799,8 @@ export async function renderHomePage(env, lang = 'th', request = null) {
           <p>${escapeHtml(t.emptySub)}</p>
         </div>`);
 
-  const altLangPath = lang === 'en' ? '/' : '/en/';
+  // 🔧 (2026-09-20c): en = /  , th = /th/
+  const altLangPath = lang === 'en' ? '/th/' : '/';
 
   // หน้า >1: canonical ชี้หน้านั้นเอง + noindex,follow (หน้าแรก index ปกติ)
   const pageCanonicalPath = page > 1
