@@ -11,6 +11,13 @@ import { renderCommunityHub } from './community-hub.js';
  *  3) seed first_seen จากวันที่สร้างจริงของบทความ (ถ้ามี) แทน "ตอนนี้" เสมอ
  *  4) ป้าย "🔥 มาแรง" แปลตามภาษา (เดิม hardcode ไทยบนหน้า EN)
  *  5) เพิ่ม <h1> (ซ่อนด้วย CSS) ให้หน้าแรก — เดิมไม่มี h1 เลย
+ *
+ * 🔧 GRAVITY FIX (2026-09-20b) — หน้าแรกสำหรับตลาดโลก:
+ *  6) หน้าแรกโชว์ niche เดียว: ใช้ env HOME_NICHE (ชื่อหมวดหลักภาษาอังกฤษ เช่น
+ *     "Pet Supplies") ถ้าไม่ตั้งจะเลือกหมวดหลักที่มีบทความมากที่สุดให้อัตโนมัติ
+ *     ตั้ง HOME_NICHE=all เพื่อปิดการกรอง (บทความนอก niche ยังเข้าได้ทาง URL/sitemap)
+ *     ตัวกรองด้านบนเหลือ "ทั้งหมด" + dropdown หมวดย่อยของ niche
+ *  7) ย้าย Community Hub (ปุ่มโซเชียล) ลงล่างสุดของหน้า ช่องค้นหาอยู่บนหัวหน้าเสมอ
  */
 
 // Cache ค่า toggle 60 วิ ถ้า D1 error หรือยังไม่เคยตั้งค่า -> ซ่อนไว้ก่อน (fail-safe)
@@ -382,7 +389,29 @@ function splitCategory(cat) {
   return { top: cat.slice(0, idx), sub: cat.slice(idx + 3) };
 }
 
-function buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap }) {
+// 🔧 (2026-09-20b): เลือก niche เดียวของหน้าแรก — env HOME_NICHE / 'all' = ปิด / ไม่ตั้ง = หมวดหลักที่มากที่สุด
+function pickHomeNiche(articles, env) {
+  const configured = String((env && env.HOME_NICHE) || '').trim();
+  if (configured.toLowerCase() === 'all') return null;
+  if (configured) return configured;
+
+  const counts = {};
+  articles.forEach(a => {
+    if (a.category) {
+      const top = splitCategory(a.category).top;
+      counts[top] = (counts[top] || 0) + 1;
+    }
+  });
+  const sorted = Object.entries(counts).sort((x, y) => y[1] - x[1]);
+  return sorted.length ? sorted[0][0] : null;
+}
+
+function inNiche(article, niche) {
+  return !!article.category &&
+    (article.category === niche || article.category.startsWith(niche + ' > '));
+}
+
+function buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap, niche = null }) {
   if (!categories.length) return '';
 
   const base = homePath(lang);
@@ -401,7 +430,8 @@ function buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap 
 
   const tops = Object.keys(topMap).sort((a, b) => topMap[b] - topMap[a]);
 
-  const activeTop = selectedCategory ? splitCategory(selectedCategory).top : null;
+  // 🔧 (2026-09-20b): โหมด niche เดียว — ไม่โชว์ปุ่มหมวดหลักอื่น เหลือ "ทั้งหมด" + dropdown หมวดย่อย
+  const activeTop = niche || (selectedCategory ? splitCategory(selectedCategory).top : null);
 
   const activeSubs = activeTop ? (subMap[activeTop] || []) : [];
 
@@ -473,14 +503,17 @@ function buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap 
 .cf-dd-btn[hidden]{ display:none; }
 </style>`;
 
-  const pillsHtml = [
-    `<a href="${base}" class="cf-pill${!selectedCategory ? ' is-active' : ''}">${escapeHtml(t.filterAll)}</a>`,
-    ...tops.map(top => {
-      const href = `${base}?category=${encodeURIComponent(top)}`;
-      const isActive = activeTop === top;
-      return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(getCategoryLabel(top, lang, categoryThMap))}</a>`;
-    })
-  ].join('\n    ');
+  const allPillHtml = `<a href="${base}" class="cf-pill${!selectedCategory ? ' is-active' : ''}">${escapeHtml(t.filterAll)}</a>`;
+  const pillsHtml = niche
+    ? allPillHtml
+    : [
+        allPillHtml,
+        ...tops.map(top => {
+          const href = `${base}?category=${encodeURIComponent(top)}`;
+          const isActive = activeTop === top;
+          return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(getCategoryLabel(top, lang, categoryThMap))}</a>`;
+        })
+      ].join('\n    ');
 
   const hasSubs = activeSubs.length > 0;
 
@@ -570,6 +603,17 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     }
   } catch (e) {
     errorMsg = e.message;
+  }
+
+  // 🔧 (2026-09-20b): หน้าแรกโชว์ niche เดียว (ถ้ากรองแล้วว่าง ให้ย้อนกลับไปโชว์ทั้งหมด)
+  let niche = null;
+  if (!errorMsg && articles.length) {
+    niche = pickHomeNiche(articles, env);
+    if (niche) {
+      const inside = articles.filter(a => inNiche(a, niche));
+      if (inside.length) articles = inside;
+      else niche = null;
+    }
   }
 
   let clickCounts = {};
@@ -670,7 +714,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     });
   }
 
-  const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap });
+  const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap, niche });
 
   // ── Pagination (ตัดหลัง sort ด้วย final_score ทั้งชุด) ─────────────────
   const totalCount = displayScoredArticles.length;
@@ -686,8 +730,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const paginationHtml = buildPaginationHtml({ page, totalPages, lang, t, selectedCategory });
 
   // ── Search UI ───────────────────────────────────────────────────────────
-  // hub มองเห็น -> searchButtonHtml ไปอยู่ในแถว chip ของ community-hub.js
-  // hub ซ่อน -> render standalone ใน headerExtra
+  // 🔧 (2026-09-20b): ช่องค้นหาอยู่บนหัวหน้าเสมอ (ไม่ผูกกับ community hub อีก)
   const searchButtonHtml = articles.length ? `
     <div class="sb-wrap">
       <span class="sb-icon" aria-hidden="true">🔍</span>
@@ -732,13 +775,11 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   </script>
 ` : '';
 
-  const communityHubVisible = await isCommunityHubVisible(env);
-
+  // 🔧 (2026-09-20b): community hub (ปุ่มโซเชียล) ย้ายลงล่างสุดของหน้า
+  const communityHubVisible = !errorMsg && await isCommunityHubVisible(env);
   const communityHubHtml = communityHubVisible
-    ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: searchButtonHtml })
+    ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: '' })
     : '';
-
-  const standaloneSearchHtml = communityHubVisible ? '' : searchButtonHtml;
 
   const body = errorMsg
     ? `<div class="error-page">
@@ -771,11 +812,12 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     lang,
     altLangPath,
     wide: true,
-    headerExtra: `${communityHubHtml}${standaloneSearchHtml}`,
+    headerExtra: searchButtonHtml,
     extraHead: robotsMeta,
     bodyHtml: `${searchStylesAndScript}
 ${h1Html}
-${body}`
+${body}
+${communityHubHtml}`
   });
 
   return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });
