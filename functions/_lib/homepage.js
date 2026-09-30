@@ -1,5 +1,5 @@
 import { getLiveArticles } from './d1-articles.js';
-import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo } from './layout.js';
+import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo, formatPriceWithCurrency } from './layout.js';
 import { renderCommunityHub } from './community-hub.js';
 
 /**
@@ -361,22 +361,30 @@ function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRan
       ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
       : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
     const stars = renderStars(a.product.rating);
+    const priceHtml = (a.product.priceAmount && a.product.priceCurrency)
+      ? `<div class="card-price">${formatPriceWithCurrency(a.product.priceAmount, a.product.priceCurrency, lang)}</div>`
+      : '';
     const href = `${lang === 'en' ? '/en' : ''}/product/${encodeURIComponent(a.slug)}`;
     const searchText = `${a.seoTitle || ''} ${(a.product && a.product.brand) || ''}`.toLowerCase().replace(/"/g, '');
 
     return `
     <a class="card" href="${href}" data-search="${escapeHtml(searchText)}">
-      ${thumb}
-      <div class="card-body">
-        <div class="card-top">
+      <div class="card-media">
+        ${thumb}
+        <div class="card-badges">
           <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
           ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? `<span class="badge-hot">${escapeHtml(t.hotBadge)}</span>` : ''}
           ${newProductIds.has(String(a.id)) ? `<span class="badge-new">${escapeHtml(t.newBadge)}</span>` : ''}
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-top">
           <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
           ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
         </div>
         <h2>${escapeHtml(a.seoTitle)}</h2>
         ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
+        ${priceHtml}
         <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
         ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
         <div class="cta-btn">${escapeHtml(t.ctaBtn)}</div>

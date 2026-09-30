@@ -291,6 +291,38 @@ const BASE_CSS = `
     text-decoration:none; margin-top:auto;
   }
   .cta-btn:hover{ opacity:.92; }
+  .card-media{ position:relative; border-bottom:1px solid var(--hairline); }
+  .card-media .card-thumb, .card-media .card-thumb-placeholder{ border-bottom:none; }
+  .card-badges{ position:absolute; top:10px; left:10px; display:flex; gap:6px; flex-wrap:wrap; z-index:1; }
+  .card-badges .rank-badge, .card-badges .badge-hot, .card-badges .badge-new{
+    margin-left:0; border-radius:9999px; padding:3px 10px;
+    font-family:'Space Grotesk','IBM Plex Sans Thai',sans-serif;
+    font-size:11px; font-weight:700; letter-spacing:.04em;
+    box-shadow:0 1px 2px rgba(15,23,42,.14);
+  }
+  .card-badges .rank-badge{ background:var(--ink); }
+  .card-badges .rank-badge.is-top{ background:var(--accent); }
+  .card-badges .badge-hot{ background:var(--accent2); }
+  .card-badges .badge-new{ background:#059669; }
+  .card-price{
+    font-family:'Space Grotesk','IBM Plex Sans Thai',sans-serif; font-weight:700;
+    font-size:22px; line-height:28px; letter-spacing:-0.01em;
+    color:var(--accent2); margin:2px 0 10px;
+  }
+  .cta-btn{
+    background:var(--surface); color:var(--accent) !important;
+    border:1px solid #CBD5E1; font-weight:700;
+  }
+  .cta-btn:hover{ opacity:1; background:var(--accent-soft); border-color:var(--accent); }
+  @media (max-width:559px){
+    .card-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+    .card .excerpt, .card .pro-highlight{ display:none; }
+    .card h2{ font-size:15px; }
+    .card-thumb, .card-thumb-placeholder{ height:130px; padding:10px 12px; }
+    .card-body{ padding:12px; }
+    .card-price{ font-size:18px; line-height:24px; margin-bottom:8px; }
+    .cta-btn{ font-size:13px; padding:9px 6px; }
+  }
   .updated-line{
     color:var(--ink-muted); font-size:12px; margin-top:10px; padding-top:10px;
     border-top:1px solid var(--hairline);
