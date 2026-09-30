@@ -1,5 +1,10 @@
 import { getLiveArticles } from './d1-articles.js';
-import { renderPage, escapeHtml, toListItems, renderStars, getAuthorInfo, formatPriceWithCurrency } from './layout.js';
+import { renderPage, escapeHtml, toListItems, uiStrings } from './layout.js';
+import {
+  DEAL_CSS, DEAL_FONT_LINK, SEARCH_SCRIPT,
+  renderTrustBar, renderChips, renderHero, renderCardGrid, renderFeed,
+  renderComparison, renderAlertCard, renderPagination, renderDealBody,
+} from './deal-ui.js';
 import { renderCommunityHub } from './community-hub.js';
 
 /**
@@ -18,6 +23,11 @@ import { renderCommunityHub } from './community-hub.js';
  *     ตั้ง HOME_NICHE=all เพื่อปิดการกรอง (บทความนอก niche ยังเข้าได้ทาง URL/sitemap)
  *     ตัวกรองด้านบนเหลือ "ทั้งหมด" + dropdown หมวดย่อยของ niche
  *  7) ย้าย Community Hub (ปุ่มโซเชียล) ลงล่างสุดของหน้า ช่องค้นหาอยู่บนหัวหน้าเสมอ
+ *
+ * 🎨 GRAVITY UI (2026-09-30) — หน้าแรกใช้ดีไซน์ Deal-style ใหม่ (deal-ui.js):
+ *  - เปลี่ยนเฉพาะการแสดงผล (UI) — ตรรกะดึงข้อมูล/จัดอันดับ/กรอง/แบ่งหน้าเหมือนเดิมทุกอย่าง
+ *  - ทุกตัวเลข/ข้อความที่โชว์มาจากข้อมูลจริงเท่านั้น (ราคา เรตติ้ง แบรนด์ หมวด อันดับ)
+ *    ส่วนที่ระบบไม่มีข้อมูล (ส่วนลด %, ราคาเดิม, สต็อก, โค้ดคูปอง, นับถอยหลัง) จะไม่ถูกแสดง
  *
  * 🔧 GRAVITY CHANGE (2026-09-20c) — สลับโครงหน้าแรก:
  *  8) หน้าแรก: en = /  , th = /th/  (/en/ redirect มาที่ /)
@@ -71,6 +81,29 @@ const STRINGS = {
     pagePrev: '← ก่อนหน้า',
     pageNext: 'ถัดไป →',
     pageOf: (p, total) => `หน้า ${p} จาก ${total}`,
+    trustLine: 'คัดสรรโดยทีมงาน อัปเดตอัตโนมัติ',
+    trustCount: n => `${Number(n).toLocaleString('th-TH')} รีวิว`,
+    trustRating: r => `เรตติ้งเฉลี่ย ${r}/5`,
+    liveLabel: 'อัปเดตอัตโนมัติ',
+    heroLabel: 'รีวิวอันดับ 1',
+    ctaRead: 'อ่านรีวิวฉบับเต็ม',
+    buyBtn: 'ดูราคา / ซื้อสินค้า',
+    cardCta: 'อ่านรีวิว',
+    feedHeading: 'รีวิวยอดนิยม',
+    viewAll: 'ดูทั้งหมด',
+    cmpHeading: 'ตารางเทียบสินค้า',
+    cmpModel: 'รุ่น',
+    cmpBrand: 'แบรนด์',
+    cmpRating: 'เรตติ้ง',
+    cmpPrice: 'ราคา',
+    cmpVerdict: n => `สรุป: ${n} ได้อันดับ 1 จากคะแนนรวมของระบบ 🏆`,
+    alertTitle: 'ติดตามรีวิวและดีลใหม่',
+    alertSub: 'เข้าร่วมชุมชนของเราเพื่อรับอัปเดตสินค้า',
+    disclosureTitle: 'คำชี้แจงโปร่งใส (Affiliate Disclosure)',
+    navHome: 'หน้าแรก',
+    navCategories: 'หมวดหมู่',
+    navCompare: 'เทียบสินค้า',
+    navAlerts: 'แจ้งเตือนดีล',
   },
   en: {
     pageTitle: 'GRAVITY OS — Curated product reviews',
@@ -98,6 +131,29 @@ const STRINGS = {
     pagePrev: '← Previous',
     pageNext: 'Next →',
     pageOf: (p, total) => `Page ${p} of ${total}`,
+    trustLine: 'Curated by our team, auto-updated.',
+    trustCount: n => `${Number(n).toLocaleString('en-US')} reviews`,
+    trustRating: r => `Avg. rating ${r}/5`,
+    liveLabel: 'Auto-updated',
+    heroLabel: 'Top-ranked review',
+    ctaRead: 'Read the full review',
+    buyBtn: 'Check price / Buy',
+    cardCta: 'Read review',
+    feedHeading: 'Top-ranked reviews',
+    viewAll: 'View all',
+    cmpHeading: 'Side-by-side',
+    cmpModel: 'Model',
+    cmpBrand: 'Brand',
+    cmpRating: 'Rating',
+    cmpPrice: 'Price',
+    cmpVerdict: n => `Verdict: ${n} ranks #1 on our combined score 🏆`,
+    alertTitle: 'Follow new reviews & deals',
+    alertSub: 'Join our community for product updates.',
+    disclosureTitle: 'Affiliate Disclosure',
+    navHome: 'Home',
+    navCategories: 'Categories',
+    navCompare: 'Compare',
+    navAlerts: 'Deal alerts',
   }
 };
 
@@ -140,67 +196,11 @@ function buildPageHref(base, { selectedCategory, page }) {
 }
 
 function buildPaginationHtml({ page, totalPages, lang, t, selectedCategory }) {
-  if (totalPages <= 1) return '';
   const base = homePath(lang);
-
-  const prevHref = page > 1 ? buildPageHref(base, { selectedCategory, page: page - 1 }) : null;
-  const nextHref = page < totalPages ? buildPageHref(base, { selectedCategory, page: page + 1 }) : null;
-
-  const windowSize = 2;
-  const pageNums = new Set([1, totalPages]);
-  for (let p = page - windowSize; p <= page + windowSize; p++) {
-    if (p >= 1 && p <= totalPages) pageNums.add(p);
-  }
-  const sortedPages = [...pageNums].sort((a, b) => a - b);
-
-  let numbersHtml = '';
-  let prevNum = 0;
-  for (const p of sortedPages) {
-    if (prevNum && p - prevNum > 1) {
-      numbersHtml += `<span class="pg-ellipsis">…</span>`;
-    }
-    const isActive = p === page;
-    const href = buildPageHref(base, { selectedCategory, page: p });
-    numbersHtml += isActive
-      ? `<span class="pg-num pg-active" aria-current="page">${p}</span>`
-      : `<a class="pg-num" href="${escapeHtml(href)}">${p}</a>`;
-    prevNum = p;
-  }
-
-  const css = `
-<style id="pg-style">
-.pg-wrap{
-  display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
-  gap:6px; margin:32px 0 8px;
-}
-.pg-num, .pg-nav{
-  display:inline-flex; align-items:center; justify-content:center;
-  min-width:36px; height:36px; padding:0 10px; border-radius:8px;
-  border:1px solid var(--hairline); font-size:14px; color:var(--ink);
-  text-decoration:none; -webkit-tap-highlight-color:transparent;
-}
-.pg-num:hover, .pg-nav:hover{ border-color:var(--accent); color:var(--accent); }
-.pg-active{
-  background:var(--ink); border-color:var(--ink); color:#fff !important;
-  font-weight:600;
-}
-.pg-ellipsis{ color:var(--ink-muted); padding:0 4px; user-select:none; }
-.pg-nav.is-disabled{
-  opacity:.35; pointer-events:none;
-}
-.pg-status{
-  width:100%; text-align:center; font-size:12px; color:var(--ink-muted);
-  margin-top:6px;
-}
-</style>`;
-
-  return `${css}
-<nav class="pg-wrap" aria-label="Pagination">
-  ${prevHref ? `<a class="pg-nav" href="${escapeHtml(prevHref)}">${escapeHtml(t.pagePrev)}</a>` : `<span class="pg-nav is-disabled">${escapeHtml(t.pagePrev)}</span>`}
-  ${numbersHtml}
-  ${nextHref ? `<a class="pg-nav" href="${escapeHtml(nextHref)}">${escapeHtml(t.pageNext)}</a>` : `<span class="pg-nav is-disabled">${escapeHtml(t.pageNext)}</span>`}
-  <div class="pg-status">${escapeHtml(t.pageOf(page, totalPages))}</div>
-</nav>`;
+  return renderPagination({
+    page, totalPages, t,
+    hrefFor: p => buildPageHref(base, { selectedCategory, page: p }),
+  });
 }
 
 // ── Category display-name translations (TH) ────────────────────────────────
@@ -353,47 +353,6 @@ function computeFinalScores(articles, clickCounts, firstSeenMap, nowMs, useRecen
   return scoreById;
 }
 
-function renderCardGrid(articles, { t, lang, clickCounts, hotThreshold, startRank = 0, newProductIds = new Set() }) {
-  return articles.map((a, idx) => {
-    const i = startRank + idx;
-    const topPro = a.analysis ? pickProHighlight(a.analysis.pros, lang) : null;
-    const thumb = a.product.image
-      ? `<img class="card-thumb" src="${escapeHtml(a.product.image)}" alt="${escapeHtml(a.seoTitle)}" loading="lazy">`
-      : `<div class="card-thumb-placeholder">${escapeHtml(t.noImage)}</div>`;
-    const stars = renderStars(a.product.rating);
-    const priceHtml = (a.product.priceAmount && a.product.priceCurrency)
-      ? `<div class="card-price">${formatPriceWithCurrency(a.product.priceAmount, a.product.priceCurrency, lang)}</div>`
-      : '';
-    const href = `${lang === 'en' ? '/en' : ''}/product/${encodeURIComponent(a.slug)}`;
-    const searchText = `${a.seoTitle || ''} ${(a.product && a.product.brand) || ''}`.toLowerCase().replace(/"/g, '');
-
-    return `
-    <a class="card" href="${href}" data-search="${escapeHtml(searchText)}">
-      <div class="card-media">
-        ${thumb}
-        <div class="card-badges">
-          <span class="rank-badge${i === 0 ? ' is-top' : ''}">${escapeHtml(t.rankLabel)} ${i + 1}</span>
-          ${i < 3 && (clickCounts[String(a.id)] || 0) >= hotThreshold ? `<span class="badge-hot">${escapeHtml(t.hotBadge)}</span>` : ''}
-          ${newProductIds.has(String(a.id)) ? `<span class="badge-new">${escapeHtml(t.newBadge)}</span>` : ''}
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="card-top">
-          <div class="eyebrow">${escapeHtml(a.product.brand || t.fallbackEyebrow)}</div>
-          ${a.authorId ? `<span class="author-badge">${escapeHtml(getAuthorInfo(a.authorId).short)}</span>` : ''}
-        </div>
-        <h2>${escapeHtml(a.seoTitle)}</h2>
-        ${stars ? `<div style="margin-bottom:10px;">${stars}</div>` : ''}
-        ${priceHtml}
-        <p class="excerpt">${escapeHtml(a.metaDescription)}</p>
-        ${topPro ? `<div class="pro-highlight"><span class="check">✓</span><span>${escapeHtml(topPro)}</span></div>` : ''}
-        <div class="cta-btn">${escapeHtml(t.ctaBtn)}</div>
-      </div>
-    </a>
-  `;
-  }).join('');
-}
-
 // ── Category filter helpers ────────────────────────────────────────────────
 
 function splitCategory(cat) {
@@ -424,162 +383,40 @@ function inNiche(article, niche) {
     (article.category === niche || article.category.startsWith(niche + ' > '));
 }
 
-function buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap, niche = null }) {
+// Category chips (horizontal scroll). Same data + same links as the old pill/dropdown filter:
+// "All" + (niche mode: sub-categories of the niche | otherwise: top-level categories).
+function buildChips({ categories, selectedCategory, lang, t, categoryThMap, niche = null }) {
   if (!categories.length) return '';
-
   const base = homePath(lang);
 
   const topMap = {};
   const subMap = {};
-
   categories.forEach(cat => {
     const { top, sub } = splitCategory(cat);
     topMap[top] = (topMap[top] || 0) + 1;
-    if (sub) {
-      if (!subMap[top]) subMap[top] = [];
-      subMap[top].push({ sub, fullCat: cat });
-    }
+    if (sub) (subMap[top] = subMap[top] || []).push({ sub, fullCat: cat });
   });
-
   const tops = Object.keys(topMap).sort((a, b) => topMap[b] - topMap[a]);
-
-  // 🔧 (2026-09-20b): โหมด niche เดียว — ไม่โชว์ปุ่มหมวดหลักอื่น เหลือ "ทั้งหมด" + dropdown หมวดย่อย
   const activeTop = niche || (selectedCategory ? splitCategory(selectedCategory).top : null);
-
   const activeSubs = activeTop ? (subMap[activeTop] || []) : [];
 
-  const css = `
-<style id="cf-style">
-.cf-wrap{
-  display:flex; align-items:center; flex-wrap:wrap;
-  gap:8px; margin-bottom:20px; position:relative;
-}
-.cf-pill{
-  display:inline-flex; align-items:center;
-  padding:7px 16px; border-radius:99px;
-  border:1px solid var(--hairline);
-  font-size:13px; color:var(--ink);
-  text-decoration:none; white-space:nowrap;
-  transition:background .15s, border-color .15s;
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-}
-@media (hover: hover) and (pointer: fine) {
-  .cf-pill:hover{ background:var(--surface); border-color:var(--accent); }
-}
-.cf-pill.is-active{
-  background:var(--ink); color:var(--surface);
-  border-color:var(--ink);
-}
-.cf-dd-btn{
-  display:inline-flex; align-items:center; gap:5px;
-  padding:7px 14px; border-radius:99px;
-  border:1px solid var(--hairline);
-  font-size:13px; color:var(--ink);
-  background:var(--bg,#fff); cursor:pointer;
-  white-space:nowrap; transition:border-color .15s;
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-}
-@media (hover: hover) and (pointer: fine) {
-  .cf-dd-btn:hover{ border-color:var(--accent); }
-}
-.cf-dd-btn.has-active{
-  border-color:var(--accent); color:var(--accent);
-}
-.cf-dd-btn .cf-chevron{
-  font-size:10px; transition:transform .2s; display:inline-block;
-}
-.cf-dd-btn.open .cf-chevron{ transform:rotate(180deg); }
-.cf-dd-panel{
-  position:absolute; top:calc(100% + 6px); left:0;
-  min-width:220px; max-width:320px;
-  background:var(--surface,#fff);
-  border:1px solid var(--hairline);
-  border-radius:12px; padding:6px;
-  box-shadow:0 4px 16px rgba(0,0,0,.10);
-  z-index:99; display:none; flex-direction:column; gap:2px;
-  pointer-events:none;
-}
-.cf-dd-panel.open{ display:flex; pointer-events:auto; }
-.cf-dd-item{
-  display:block; padding:8px 12px; border-radius:8px;
-  font-size:13px; color:var(--ink);
-  text-decoration:none; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis;
-  transition:background .12s;
-}
-.cf-dd-item:hover{ background:var(--surface); }
-.cf-dd-item.is-active{
-  background:var(--ink); color:var(--surface);
-}
-.cf-dd-btn[hidden]{ display:none; }
-</style>`;
+  const chips = [{ label: t.filterAll, href: base, active: !selectedCategory, kind: 'all' }];
+  if (!niche) {
+    tops.forEach(top => chips.push({
+      label: getCategoryLabel(top, lang, categoryThMap),
+      href: `${base}?category=${encodeURIComponent(top)}`,
+      active: activeTop === top && selectedCategory === top,
+      kind: 'cat',
+    }));
+  }
+  activeSubs.forEach(({ sub, fullCat }) => chips.push({
+    label: getCategoryLabel(sub, lang, categoryThMap),
+    href: `${base}?category=${encodeURIComponent(fullCat)}`,
+    active: selectedCategory === fullCat,
+    kind: 'cat',
+  }));
 
-  const allPillHtml = `<a href="${base}" class="cf-pill${!selectedCategory ? ' is-active' : ''}">${escapeHtml(t.filterAll)}</a>`;
-  const pillsHtml = niche
-    ? allPillHtml
-    : [
-        allPillHtml,
-        ...tops.map(top => {
-          const href = `${base}?category=${encodeURIComponent(top)}`;
-          const isActive = activeTop === top;
-          return `<a href="${href}" class="cf-pill${isActive ? ' is-active' : ''}">${escapeHtml(getCategoryLabel(top, lang, categoryThMap))}</a>`;
-        })
-      ].join('\n    ');
-
-  const hasSubs = activeSubs.length > 0;
-
-  const selectedSub = selectedCategory && activeTop && selectedCategory !== activeTop
-    ? splitCategory(selectedCategory).sub
-    : null;
-  const ddLabel = selectedSub
-    ? truncateLabel(getCategoryLabel(selectedSub, lang, categoryThMap), 28)
-    : escapeHtml(t.filterSubcategory);
-  const ddHasActive = !!selectedSub;
-
-  const ddItemsHtml = activeSubs.map(({ sub, fullCat }) => {
-    const isActive = selectedCategory === fullCat;
-    const href = `${base}?category=${encodeURIComponent(fullCat)}`;
-    const label = getCategoryLabel(sub, lang, categoryThMap);
-    return `<a href="${href}" class="cf-dd-item${isActive ? ' is-active' : ''}" title="${escapeHtml(label)}">${truncateLabel(label, 36)}</a>`;
-  }).join('\n      ');
-
-  const dropdownHtml = hasSubs ? `
-  <div style="position:relative;">
-    <button class="cf-dd-btn${ddHasActive ? ' has-active' : ''}" id="cf-dd-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
-      ${ddLabel} <span class="cf-chevron">▾</span>
-    </button>
-    <div class="cf-dd-panel" id="cf-dd-panel" role="listbox">
-      ${ddItemsHtml}
-    </div>
-  </div>` : '';
-
-  const js = hasSubs ? `
-<script>
-(function(){
-  var btn = document.getElementById('cf-dd-btn');
-  var panel = document.getElementById('cf-dd-panel');
-  if(!btn||!panel) return;
-  btn.addEventListener('click', function(e){
-    e.stopPropagation();
-    var open = panel.classList.toggle('open');
-    btn.classList.toggle('open', open);
-    btn.setAttribute('aria-expanded', open);
-  });
-  document.addEventListener('click', function(){
-    panel.classList.remove('open');
-    btn.classList.remove('open');
-    btn.setAttribute('aria-expanded', false);
-  });
-})();
-</script>` : '';
-
-  return `${css}
-<div class="cf-wrap">
-  ${pillsHtml}
-  ${dropdownHtml}
-</div>${js}`;
+  return chips.length > 1 ? renderChips(chips) : '';
 }
 
 /** ตัดชื่อยาวให้สั้น พร้อม ellipsis */
@@ -727,7 +564,7 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     });
   }
 
-  const filterHtml = buildFilterHtml({ categories, selectedCategory, lang, t, categoryThMap, niche });
+  const chipsHtml = buildChips({ categories, selectedCategory, lang, t, categoryThMap, niche });
 
   // ── Pagination (ตัดหลัง sort ด้วย final_score ทั้งชุด) ─────────────────
   const totalCount = displayScoredArticles.length;
@@ -739,73 +576,91 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const pageStart = (page - 1) * PAGE_SIZE;
   const pageArticles = displayScoredArticles.slice(pageStart, pageStart + PAGE_SIZE);
 
-  const rankedCardsHtml = renderCardGrid(pageArticles, { t, lang, clickCounts, hotThreshold, startRank: pageStart, newProductIds });
+  // หน้า 1: อันดับ 1 = การ์ดเด่น (hero) ที่เหลือเป็นกริด — หน้าอื่นเป็นกริดล้วน
+  const heroArticle = page === 1 ? (pageArticles[0] || null) : null;
+  const gridArticles = heroArticle ? pageArticles.slice(1) : pageArticles;
+  const gridStartRank = pageStart + (heroArticle ? 1 : 0);
+
+  const cardOpts = { t, lang, clickCounts, hotThreshold, startRank: gridStartRank, newProductIds };
   const paginationHtml = buildPaginationHtml({ page, totalPages, lang, t, selectedCategory });
 
-  // ── Search UI ───────────────────────────────────────────────────────────
-  // 🔧 (2026-09-20b): ช่องค้นหาอยู่บนหัวหน้าเสมอ (ไม่ผูกกับ community hub อีก)
-  const searchButtonHtml = articles.length ? `
-    <div class="sb-wrap">
-      <span class="sb-icon" aria-hidden="true">🔍</span>
-      <input type="text" id="sbInput" class="sb-input"
-        placeholder="${escapeHtml(t.searchPlaceholder)}"
-        aria-label="${escapeHtml(t.searchPlaceholder)}"
-        autocomplete="off" oninput="filterProductCards(this.value)">
-    </div>
-  ` : '';
+  // ── Real-data summary for the trust bar ────────────────────────────────
+  const ratedValues = displayScoredArticles
+    .map(a => a.product && a.product.rating)
+    .filter(r => r != null && !isNaN(Number(r)))
+    .map(Number);
+  const avgRating = ratedValues.length
+    ? ratedValues.reduce((sum, r) => sum + r, 0) / ratedValues.length
+    : null;
 
-  const searchStylesAndScript = articles.length ? `
-  <style>
-    .sb-wrap{
-      display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
-      height:38px; padding:0 14px; box-sizing:border-box;
-      border:1px solid var(--hairline); border-radius:19px;
-      background:var(--surface);
-    }
-    .sb-icon{ font-size:14px; line-height:1; opacity:.6; flex-shrink:0; }
-    .sb-input{
-      border:none; outline:none; background:transparent; color:var(--ink);
-      font-size:15px; font-family:inherit; width:180px; padding:0;
-    }
-    .sb-input::placeholder{ color:var(--ink-muted); }
-    @media(max-width:480px){ .sb-input{ width:130px; } }
-    .sb-no-results{ display:none; color:var(--ink-muted); padding:12px 0 4px; font-size:14px; }
-  </style>
-  <p id="searchNoResults" class="sb-no-results">${escapeHtml(t.searchNoResults)}</p>
-  <script>
-    function filterProductCards(query) {
-      var q = query.trim().toLowerCase();
-      var cards = document.querySelectorAll('.card[data-search]');
-      var visible = 0;
-      cards.forEach(function(card) {
-        var match = !q || card.getAttribute('data-search').indexOf(q) !== -1;
-        card.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      var noRes = document.getElementById('searchNoResults');
-      if (noRes) noRes.style.display = (q && visible === 0) ? 'block' : 'none';
-    }
-  </script>
-` : '';
+  const catLabelOf = a => {
+    if (!a || !a.category) return '';
+    const { top, sub } = splitCategory(a.category);
+    return getCategoryLabel(sub || top, lang, categoryThMap);
+  };
 
-  // 🔧 (2026-09-20b): community hub (ปุ่มโซเชียล) ย้ายลงล่างสุดของหน้า
+  const heroHtml = heroArticle
+    ? renderHero(heroArticle, {
+        t, lang, clickCounts, hotThreshold,
+        isNew: newProductIds.has(String(heroArticle.id)),
+        topPro: heroArticle.analysis ? pickProHighlight(heroArticle.analysis.pros, lang) : null,
+        categoryLabel: catLabelOf(heroArticle),
+      })
+    : '';
+
+  const nextPageHref = page < totalPages
+    ? buildPageHref(homePath(lang), { selectedCategory, page: page + 1 })
+    : null;
+  const feedHtml = renderFeed({
+    cardsHtml: renderCardGrid(gridArticles, cardOpts),
+    t,
+    moreHref: nextPageHref,
+  });
+
+  // ตารางเทียบ: top 3 ตามอันดับจริงของชุดที่กำลังดู (หน้า 1 เท่านั้น, ต้องมีอย่างน้อย 2 รายการ)
+  const cmpLabel = selectedCategory
+    ? getCategoryLabel(splitCategory(selectedCategory).sub || splitCategory(selectedCategory).top, lang, categoryThMap)
+    : (niche ? getCategoryLabel(niche, lang, categoryThMap) : '');
+  const compareHtml = page === 1
+    ? renderComparison(displayScoredArticles.slice(0, 3), { t, lang, label: cmpLabel })
+    : '';
+
+  // 🔧 (2026-09-20b): community hub ยังควบคุมด้วย toggle เดิม — ตอนนี้แสดงในการ์ด "ติดตามดีล"
   const communityHubVisible = !errorMsg && await isCommunityHubVisible(env);
   const communityHubHtml = communityHubVisible
     ? await renderCommunityHub({ mode: 'compact', env, searchBoxHtml: '' })
     : '';
+  const alertHtml = renderAlertCard({ t, hubHtml: communityHubHtml });
 
-  const body = errorMsg
-    ? `<div class="error-page">
+  const hasSearch = articles.length > 0 && !errorMsg;
+  const noResultsHtml = hasSearch
+    ? `<p id="searchNoResults" class="dl-none">${escapeHtml(t.searchNoResults)}</p>`
+    : '';
+
+  let contentHtml;
+  if (errorMsg) {
+    contentHtml = `<div class="dl-empty">
         <h1>⚠️</h1>
         <p>${escapeHtml(t.loadErrorPrefix)} ${escapeHtml(errorMsg)}</p>
-        <p><a href="${homePath(lang)}">${t.retry}</a></p>
-      </div>`
-    : (displayScoredArticles.length
-      ? `${filterHtml}<div class="card-grid">${rankedCardsHtml}</div>${paginationHtml}`
-      : `${filterHtml}<div class="error-page">
+        <p><a href="${homePath(lang)}" style="color:var(--primary)">${escapeHtml(t.retry)}</a></p>
+      </div>`;
+  } else if (displayScoredArticles.length) {
+    contentHtml = [
+      renderTrustBar({ t, count: totalCount, avgRating }),
+      chipsHtml,
+      noResultsHtml,
+      heroHtml,
+      feedHtml,
+      paginationHtml,
+      compareHtml,
+      alertHtml,
+    ].join('\n');
+  } else {
+    contentHtml = `${chipsHtml}<div class="dl-empty">
           <p>${escapeHtml(t.empty)}</p>
           <p>${escapeHtml(t.emptySub)}</p>
-        </div>`);
+        </div>`;
+  }
 
   // 🔧 (2026-09-20c): en = /  , th = /th/
   const altLangPath = lang === 'en' ? '/th/' : '/';
@@ -817,7 +672,27 @@ export async function renderHomePage(env, lang = 'th', request = null) {
   const robotsMeta = page > 1 ? '<meta name="robots" content="noindex,follow">' : '';
 
   // GRAVITY FIX (2026-09-20): <h1> ซ่อนด้วย CSS (เดิมหน้าแรกไม่มี h1)
-  const h1Html = errorMsg ? '' : `<h1 style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">${escapeHtml(t.heading)}</h1>`;
+  const h1Html = errorMsg ? '' : `<h1 class="dl-h1">${escapeHtml(t.heading)}</h1>`;
+
+  // Bottom nav — ทุกปุ่มชี้ไปที่ส่วนที่มีอยู่จริงบนหน้านี้เท่านั้น
+  const showContent = !errorMsg && displayScoredArticles.length > 0;
+  const navItems = [{ href: homePath(lang), icon: 'local_fire_department', label: t.navHome, active: true }];
+  if (chipsHtml) navItems.push({ href: '#categories', icon: 'category', label: t.navCategories });
+  if (showContent && compareHtml) navItems.push({ href: '#compare', icon: 'compare', label: t.navCompare });
+  if (showContent && alertHtml) navItems.push({ href: '#alerts', icon: 'campaign', label: t.navAlerts });
+
+  const ui = uiStrings(lang);
+  const bodyHtml = renderDealBody({
+    t,
+    homeHref: homePath(lang),
+    altLangPath,
+    langLabel: ui.langSwitchLabel,
+    hasSearch,
+    hasAlerts: showContent && !!alertHtml,
+    mainHtml: `${h1Html}\n${contentHtml}\n${hasSearch ? SEARCH_SCRIPT : ''}`,
+    footerParagraphs: [ui.aiDisclosureFull, ui.footerDisclaimer],
+    navItems,
+  });
 
   const html = renderPage({
     title: page > 1 ? `${t.pageTitle} — ${t.pageOf(page, totalPages)}` : t.pageTitle,
@@ -825,13 +700,9 @@ export async function renderHomePage(env, lang = 'th', request = null) {
     canonicalPath: pageCanonicalPath,
     lang,
     altLangPath,
-    wide: true,
-    headerExtra: searchButtonHtml,
     extraHead: robotsMeta,
-    bodyHtml: `${searchStylesAndScript}
-${h1Html}
-${body}
-${communityHubHtml}`
+    bodyHtml: '',
+    deal: { css: DEAL_CSS, fontLink: DEAL_FONT_LINK, bodyClass: 'dl', bodyHtml },
   });
 
   return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });

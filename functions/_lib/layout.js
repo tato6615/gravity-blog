@@ -37,16 +37,16 @@ const GA_SNIPPET = `<!-- Google tag (gtag.js) -->
 </script>`;
 
 export const TOKENS = {
-  bg: '#F8FAFC',
+  bg: '#F5F6F3',
   surface: '#FFFFFF',
-  ink: '#0F172A',
-  inkMuted: '#64748B',
-  accent: '#0D9488',
-  accentSoft: '#CCFBF1',
-  accent2: '#F97316',
-  accent2Soft: '#FFEDD5',
-  hairline: '#E2E8F0',
-  radius: '8px'
+  ink: '#1E2320',
+  inkMuted: '#5B655F',
+  accent: '#2F6B5E',
+  accentSoft: '#E3EEEA',
+  accent2: '#C1603E',
+  accent2Soft: '#F3E2DA',
+  hairline: '#DCDFD9',
+  radius: '10px'
 };
 
 export const AUTHOR_REGISTRY = {
@@ -124,14 +124,14 @@ const UI_STRINGS = {
   }
 };
 
-function uiStrings(lang) {
+export function uiStrings(lang) {
   return UI_STRINGS[lang] || UI_STRINGS.th;
 }
 
 const FONT_LINK =
   '<link rel="preconnect" href="https://fonts.googleapis.com">' +
   '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-  '<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">';
+  '<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">';
 
 const BASE_CSS = `
   :root{
@@ -144,19 +144,16 @@ const BASE_CSS = `
   html{ -webkit-text-size-adjust:100%; }
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:'Hanken Grotesk','IBM Plex Sans Thai', system-ui, sans-serif;
+    font-family:'IBM Plex Sans Thai', system-ui, sans-serif;
     line-height:1.75; font-size:17px;
   }
-  h1,h2,h3{ font-family:'Space Grotesk','IBM Plex Sans Thai', system-ui, sans-serif; font-weight:700; line-height:1.35; letter-spacing:-0.01em; margin:0 0 .5em; }
+  h1,h2,h3{ font-family:'Noto Serif Thai', serif; font-weight:700; line-height:1.35; margin:0 0 .5em; }
   a{ color:var(--accent); text-decoration-thickness:1px; }
   a:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .wrap{ max-width:720px; margin:0 auto; padding:0 20px; }
   .wrap-wide{ max-width:1240px; margin:0 auto; padding:0 20px; }
   header.site{
-    position:sticky; top:0; z-index:50;
-    background:rgba(255,255,255,0.85);
-    -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
-    border-bottom:1px solid rgba(226,232,240,0.8); padding:14px 0; margin-bottom:8px;
+    border-bottom:1px solid var(--hairline); padding:22px 0; margin-bottom:8px;
   }
   .site-header-row{
     display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px;
@@ -172,20 +169,14 @@ const BASE_CSS = `
   }
   header.site a.brand{
     display:inline-flex; align-items:center; gap:9px;
-    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px;
-    color:var(--ink); text-decoration:none; letter-spacing:-0.02em;
+    font-family:'Noto Serif Thai', serif; font-weight:700; font-size:19px;
+    color:var(--ink); text-decoration:none; letter-spacing:.01em;
   }
   .brand-mark{ flex-shrink:0; display:block; }
-  .brand-accent{ color:var(--accent); }
-  .brand-pro{
-    font-family:'Space Grotesk', sans-serif; font-size:10px; font-weight:700;
-    letter-spacing:.04em; color:#EA580C; background:var(--accent2-soft);
-    padding:2px 6px; border-radius:5px; margin-left:-2px;
-  }
   .lang-switch{
     display:inline-flex; align-items:center; justify-content:center;
     font-size:13px; font-weight:600; color:var(--ink-muted); text-decoration:none;
-    border:1px solid var(--hairline); border-radius:8px; padding:5px 10px;
+    border:1px solid var(--hairline); border-radius:6px; padding:5px 10px;
   }
   .lang-switch:hover{ border-color:var(--accent); color:var(--accent); }
   main{ padding:36px 0 80px; }
@@ -199,14 +190,13 @@ const BASE_CSS = `
   }
   .card{
     background:var(--surface); border:1px solid var(--hairline);
-    border-radius:16px; margin-bottom:16px; overflow:hidden;
-    box-shadow:0 1px 3px 0 rgba(15,23,42,0.04), 0 1px 2px -1px rgba(15,23,42,0.04);
+    border-radius:12px; margin-bottom:16px; overflow:hidden;
     height:100%; display:flex; flex-direction:column;
     color:inherit; text-decoration:none; cursor:pointer;
     transition:box-shadow .15s ease, border-color .15s ease;
   }
   .card:hover{
-    box-shadow:0 8px 24px -4px rgba(15,23,42,0.08); border-color:#CBD5E1;
+    box-shadow:0 6px 16px rgba(30,35,32,0.10); border-color:var(--accent);
   }
   .card-thumb{
     width:100%; height:220px; object-fit:contain; display:block;
@@ -291,38 +281,6 @@ const BASE_CSS = `
     text-decoration:none; margin-top:auto;
   }
   .cta-btn:hover{ opacity:.92; }
-  .card-media{ position:relative; border-bottom:1px solid var(--hairline); }
-  .card-media .card-thumb, .card-media .card-thumb-placeholder{ border-bottom:none; }
-  .card-badges{ position:absolute; top:10px; left:10px; display:flex; gap:6px; flex-wrap:wrap; z-index:1; }
-  .card-badges .rank-badge, .card-badges .badge-hot, .card-badges .badge-new{
-    margin-left:0; border-radius:9999px; padding:3px 10px;
-    font-family:'Space Grotesk','IBM Plex Sans Thai',sans-serif;
-    font-size:11px; font-weight:700; letter-spacing:.04em;
-    box-shadow:0 1px 2px rgba(15,23,42,.14);
-  }
-  .card-badges .rank-badge{ background:var(--ink); }
-  .card-badges .rank-badge.is-top{ background:var(--accent); }
-  .card-badges .badge-hot{ background:var(--accent2); }
-  .card-badges .badge-new{ background:#059669; }
-  .card-price{
-    font-family:'Space Grotesk','IBM Plex Sans Thai',sans-serif; font-weight:700;
-    font-size:22px; line-height:28px; letter-spacing:-0.01em;
-    color:var(--accent2); margin:2px 0 10px;
-  }
-  .cta-btn{
-    background:var(--surface); color:var(--accent) !important;
-    border:1px solid #CBD5E1; font-weight:700;
-  }
-  .cta-btn:hover{ opacity:1; background:var(--accent-soft); border-color:var(--accent); }
-  @media (max-width:559px){
-    .card-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
-    .card .excerpt, .card .pro-highlight{ display:none; }
-    .card h2{ font-size:15px; }
-    .card-thumb, .card-thumb-placeholder{ height:130px; padding:10px 12px; }
-    .card-body{ padding:12px; }
-    .card-price{ font-size:18px; line-height:24px; margin-bottom:8px; }
-    .cta-btn{ font-size:13px; padding:9px 6px; }
-  }
   .updated-line{
     color:var(--ink-muted); font-size:12px; margin-top:10px; padding-top:10px;
     border-top:1px solid var(--hairline);
@@ -409,12 +367,12 @@ const BASE_CSS = `
 
   .category-filter{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
   .filter-pill{
-    display:inline-block; padding:6px 14px; border-radius:8px;
+    display:inline-block; padding:6px 14px; border-radius:999px;
     border:1px solid var(--hairline); color:var(--ink-muted); font-size:13px;
     font-weight:600; text-decoration:none; background:var(--surface);
   }
   .filter-pill:hover{ border-color:var(--accent); color:var(--accent); }
-  .filter-pill.is-active{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  .filter-pill.is-active{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .author-badge{
     font-size:11px; font-weight:600; color:var(--accent);
     background:var(--accent-soft); padding:2px 8px; border-radius:999px;
@@ -422,11 +380,9 @@ const BASE_CSS = `
   }
 `;
 
-const BRAND_MARK_SVG = `<svg class="brand-mark" width="30" height="30" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-  <rect width="44" height="44" rx="12" fill="var(--accent)"/>
-  <path d="M22 8L14 20H22L20 32L30 19H21L24 8H22Z" fill="#ffffff"/>
-  <circle cx="13" cy="16" r="2" fill="#a7f3d0"/>
-  <circle cx="31" cy="16" r="2" fill="#a7f3d0"/>
+const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <rect x="0.5" y="0.5" width="25" height="25" rx="7" fill="var(--accent)"/>
+  <text x="13" y="18.5" text-anchor="middle" font-family="'Noto Serif Thai', serif" font-weight="700" font-size="14" fill="#FFFFFF">G</text>
 </svg>`;
 
 // GRAVITY FIX (2026-09-20): เพิ่ม ogType param (default 'website')
@@ -434,7 +390,10 @@ const BRAND_MARK_SVG = `<svg class="brand-mark" width="30" height="30" viewBox="
 export function renderPage({
   title, description, canonicalPath = '/', image, lang = 'th',
   altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false,
-  headerExtra = '', extraHead = '', ogType = 'website'
+  headerExtra = '', extraHead = '', ogType = 'website',
+  // GRAVITY UI (2026-09-30): opt-in full-page shell ({ css, fontLink, bodyClass, bodyHtml }).
+  // เมื่อส่งมา จะใช้แทน BASE_CSS/header/footer เดิมทั้งชุด — หน้าอื่นที่ไม่ส่ง `deal` ไม่ถูกกระทบ
+  deal = null
 }) {
   const t = uiStrings(lang);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
@@ -487,13 +446,13 @@ ${GA_SNIPPET}
 <meta name="twitter:image" content="${escapeHtml(ogImage)}">
 
 ${jsonLdScript}
-${FONT_LINK}
-<style>${BASE_CSS}</style>
+${deal ? deal.fontLink : FONT_LINK}
+<style>${deal ? deal.css : BASE_CSS}</style>
 ${extraHead}
 </head>
-<body>
-<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
-  <a class="brand" href="${lang === 'en' ? '/' : '/th/'}">${BRAND_MARK_SVG}<span>Deal<span class="brand-accent">Bot</span></span><span class="brand-pro">PRO</span></a>
+<body${deal ? ` class="${deal.bodyClass}"` : ''}>
+${deal ? deal.bodyHtml : `<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
+  <a class="brand" href="${lang === 'en' ? '/' : '/th/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
   ${headerExtraHtml}
   ${langSwitchHtml}
 </div></header>
@@ -502,7 +461,7 @@ ${extraHead}
   <p style="margin:0 0 6px;">${escapeHtml(t.aiDisclosureFull)}</p>
   <p style="margin:0;">${escapeHtml(t.footerDisclaimer)}</p>
 </footer>
-</body>
+`}</body>
 </html>`;
 }
 
