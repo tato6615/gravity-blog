@@ -37,16 +37,16 @@ const GA_SNIPPET = `<!-- Google tag (gtag.js) -->
 </script>`;
 
 export const TOKENS = {
-  bg: '#F5F6F3',
+  bg: '#F8FAFC',
   surface: '#FFFFFF',
-  ink: '#1E2320',
-  inkMuted: '#5B655F',
-  accent: '#2F6B5E',
-  accentSoft: '#E3EEEA',
-  accent2: '#C1603E',
-  accent2Soft: '#F3E2DA',
-  hairline: '#DCDFD9',
-  radius: '10px'
+  ink: '#0F172A',
+  inkMuted: '#64748B',
+  accent: '#0D9488',
+  accentSoft: '#CCFBF1',
+  accent2: '#F97316',
+  accent2Soft: '#FFEDD5',
+  hairline: '#E2E8F0',
+  radius: '8px'
 };
 
 export const AUTHOR_REGISTRY = {
@@ -131,7 +131,7 @@ function uiStrings(lang) {
 const FONT_LINK =
   '<link rel="preconnect" href="https://fonts.googleapis.com">' +
   '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-  '<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">';
+  '<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">';
 
 const BASE_CSS = `
   :root{
@@ -144,16 +144,19 @@ const BASE_CSS = `
   html{ -webkit-text-size-adjust:100%; }
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:'IBM Plex Sans Thai', system-ui, sans-serif;
+    font-family:'Hanken Grotesk','IBM Plex Sans Thai', system-ui, sans-serif;
     line-height:1.75; font-size:17px;
   }
-  h1,h2,h3{ font-family:'Noto Serif Thai', serif; font-weight:700; line-height:1.35; margin:0 0 .5em; }
+  h1,h2,h3{ font-family:'Space Grotesk','IBM Plex Sans Thai', system-ui, sans-serif; font-weight:700; line-height:1.35; letter-spacing:-0.01em; margin:0 0 .5em; }
   a{ color:var(--accent); text-decoration-thickness:1px; }
   a:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .wrap{ max-width:720px; margin:0 auto; padding:0 20px; }
   .wrap-wide{ max-width:1240px; margin:0 auto; padding:0 20px; }
   header.site{
-    border-bottom:1px solid var(--hairline); padding:22px 0; margin-bottom:8px;
+    position:sticky; top:0; z-index:50;
+    background:rgba(255,255,255,0.85);
+    -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+    border-bottom:1px solid rgba(226,232,240,0.8); padding:14px 0; margin-bottom:8px;
   }
   .site-header-row{
     display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px;
@@ -169,14 +172,20 @@ const BASE_CSS = `
   }
   header.site a.brand{
     display:inline-flex; align-items:center; gap:9px;
-    font-family:'Noto Serif Thai', serif; font-weight:700; font-size:19px;
-    color:var(--ink); text-decoration:none; letter-spacing:.01em;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px;
+    color:var(--ink); text-decoration:none; letter-spacing:-0.02em;
   }
   .brand-mark{ flex-shrink:0; display:block; }
+  .brand-accent{ color:var(--accent); }
+  .brand-pro{
+    font-family:'Space Grotesk', sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:.04em; color:#EA580C; background:var(--accent2-soft);
+    padding:2px 6px; border-radius:5px; margin-left:-2px;
+  }
   .lang-switch{
     display:inline-flex; align-items:center; justify-content:center;
     font-size:13px; font-weight:600; color:var(--ink-muted); text-decoration:none;
-    border:1px solid var(--hairline); border-radius:6px; padding:5px 10px;
+    border:1px solid var(--hairline); border-radius:8px; padding:5px 10px;
   }
   .lang-switch:hover{ border-color:var(--accent); color:var(--accent); }
   main{ padding:36px 0 80px; }
@@ -190,13 +199,14 @@ const BASE_CSS = `
   }
   .card{
     background:var(--surface); border:1px solid var(--hairline);
-    border-radius:12px; margin-bottom:16px; overflow:hidden;
+    border-radius:16px; margin-bottom:16px; overflow:hidden;
+    box-shadow:0 1px 3px 0 rgba(15,23,42,0.04), 0 1px 2px -1px rgba(15,23,42,0.04);
     height:100%; display:flex; flex-direction:column;
     color:inherit; text-decoration:none; cursor:pointer;
     transition:box-shadow .15s ease, border-color .15s ease;
   }
   .card:hover{
-    box-shadow:0 6px 16px rgba(30,35,32,0.10); border-color:var(--accent);
+    box-shadow:0 8px 24px -4px rgba(15,23,42,0.08); border-color:#CBD5E1;
   }
   .card-thumb{
     width:100%; height:220px; object-fit:contain; display:block;
@@ -367,12 +377,12 @@ const BASE_CSS = `
 
   .category-filter{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
   .filter-pill{
-    display:inline-block; padding:6px 14px; border-radius:999px;
+    display:inline-block; padding:6px 14px; border-radius:8px;
     border:1px solid var(--hairline); color:var(--ink-muted); font-size:13px;
     font-weight:600; text-decoration:none; background:var(--surface);
   }
   .filter-pill:hover{ border-color:var(--accent); color:var(--accent); }
-  .filter-pill.is-active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .filter-pill.is-active{ background:var(--ink); border-color:var(--ink); color:#fff; }
   .author-badge{
     font-size:11px; font-weight:600; color:var(--accent);
     background:var(--accent-soft); padding:2px 8px; border-radius:999px;
@@ -380,9 +390,11 @@ const BASE_CSS = `
   }
 `;
 
-const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-  <rect x="0.5" y="0.5" width="25" height="25" rx="7" fill="var(--accent)"/>
-  <text x="13" y="18.5" text-anchor="middle" font-family="'Noto Serif Thai', serif" font-weight="700" font-size="14" fill="#FFFFFF">G</text>
+const BRAND_MARK_SVG = `<svg class="brand-mark" width="30" height="30" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <rect width="44" height="44" rx="12" fill="var(--accent)"/>
+  <path d="M22 8L14 20H22L20 32L30 19H21L24 8H22Z" fill="#ffffff"/>
+  <circle cx="13" cy="16" r="2" fill="#a7f3d0"/>
+  <circle cx="31" cy="16" r="2" fill="#a7f3d0"/>
 </svg>`;
 
 // GRAVITY FIX (2026-09-20): เพิ่ม ogType param (default 'website')
@@ -449,7 +461,7 @@ ${extraHead}
 </head>
 <body>
 <header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
-  <a class="brand" href="${lang === 'en' ? '/' : '/th/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
+  <a class="brand" href="${lang === 'en' ? '/' : '/th/'}">${BRAND_MARK_SVG}<span>Deal<span class="brand-accent">Bot</span></span><span class="brand-pro">PRO</span></a>
   ${headerExtraHtml}
   ${langSwitchHtml}
 </div></header>
