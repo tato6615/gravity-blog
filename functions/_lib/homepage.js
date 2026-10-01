@@ -361,12 +361,21 @@ function splitCategory(cat) {
   return { top: cat.slice(0, idx), sub: cat.slice(idx + 3) };
 }
 
-// 🔧 (2026-09-20b): เลือก niche เดียวของหน้าแรก — env HOME_NICHE / 'all' = ปิด / ไม่ตั้ง = โชว์ทุกหมวด (แก้ 2026-10-01)
+// 🔧 (2026-09-20b): เลือก niche เดียวของหน้าแรก — env HOME_NICHE = ชื่อหมวดหลัก / 'all' = โชว์ทุกหมวด / ไม่ตั้ง = หมวดหลักที่มีบทความมากที่สุด (ตอนนี้คือสัตว์เลี้ยง: Dogs + Cats)
 function pickHomeNiche(articles, env) {
   const configured = String((env && env.HOME_NICHE) || '').trim();
-  // ไม่ตั้ง HOME_NICHE หรือตั้งเป็น 'all' = โชว์ทุกหมวด (ตั้งชื่อหมวดหลักเพื่อโฟกัส niche เดียว)
-  if (!configured || configured.toLowerCase() === 'all') return null;
-  return configured;
+  if (configured.toLowerCase() === 'all') return null;
+  if (configured) return configured;
+
+  const counts = {};
+  articles.forEach(a => {
+    if (a.category) {
+      const top = splitCategory(a.category).top;
+      counts[top] = (counts[top] || 0) + 1;
+    }
+  });
+  const sorted = Object.entries(counts).sort((x, y) => y[1] - x[1]);
+  return sorted.length ? sorted[0][0] : null;
 }
 
 function inNiche(article, niche) {
