@@ -153,7 +153,7 @@ export async function getLiveArticles(env, lang = 'th') {
   // Harmless to keep for callers that don't already cache (e.g. a future
   // article.js call), so left in for parity rather than removed here.
   const cache = caches.default;
-  const cacheKey = new Request(`https://cache.internal/live-articles-${lang}`);
+  const cacheKey = new Request(`https://cache.internal/live-articles-v2-${lang}`);
   const cached = await cache.match(cacheKey);
   if (cached) return await cached.json();
 
