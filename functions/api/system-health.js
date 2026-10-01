@@ -120,7 +120,9 @@ async function checkWorkerAfActivity(env) {
   // System Health dashboard, independent of whether af's homepage responds.
   const c = check("worker_af_activity", "Worker af — Last Activity", "automation");
   try {
-    const res = await withTimeout((s) => fetch(`${CONFIG.AF_WORKER_URL}/api/agent-health`, { signal: s }), 6000);
+    // ส่ง x-admin-token ไปด้วย (ค่าต้องตรงกับ ADMIN_TOKEN ของ Worker af) ไม่งั้น af ตอบ Unauthorized
+    const afHeaders = env && env.ADMIN_TOKEN ? { "x-admin-token": env.ADMIN_TOKEN } : {};
+    const res = await withTimeout((s) => fetch(`${CONFIG.AF_WORKER_URL}/api/agent-health`, { headers: afHeaders, signal: s }), 6000);
     const data = await res.json();
     if (!res.ok || data.error) {
       c.status = "error";
