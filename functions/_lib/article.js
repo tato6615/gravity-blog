@@ -31,7 +31,9 @@ const STRINGS = {
     reviewedBy: 'ตรวจสอบและปรับปรุงข้อมูลโดย',
     specifications: 'ข้อมูลสินค้า',
     notApprovedFor: 'ไม่เหมาะสำหรับ',
-    disclosureTitle: 'คำชี้แจงโปร่งใส (Affiliate Disclosure)'
+    disclosureTitle: 'คำชี้แจงโปร่งใส (Affiliate Disclosure)',
+    priceNote: 'ราคาอาจเปลี่ยนแปลงได้ โปรดตรวจสอบราคาล่าสุดบนหน้าร้านก่อนซื้อ',
+    notTested: 'เรายังไม่ได้ทดสอบสินค้านี้ด้วยตัวเอง บทความนี้สรุปจากข้อมูลของผู้ผลิตและรีวิวของลูกค้า'
   },
   en: {
     loadErrorPrefix: 'Failed to load article:',
@@ -50,9 +52,18 @@ const STRINGS = {
     reviewedBy: 'Reviewed and verified by',
     specifications: 'Product specs',
     notApprovedFor: 'Not recommended for',
-    disclosureTitle: 'Affiliate Disclosure'
+    disclosureTitle: 'Affiliate Disclosure',
+    priceNote: 'Price may change. Check the current price on the retailer\'s page before you buy.',
+    notTested: "We have not tested this product. This summary is based on the manufacturer's listing and customer reviews."
   }
 };
+
+// Amazon Associates: ข้อความบังคับ — ตรวจคำต่อคำกับ Operating Agreement ของบัญชีคุณ
+const AMAZON_STATEMENT = 'As an Amazon Associate I earn from qualifying purchases.';
+const isAmazonUrl = (u) => /(^|\.)(amazon\.[a-z.]+|amzn\.to|a\.co)(\/|$)/i.test(String(u || '').replace(/^https?:\/\//i, ''));
+
+// FAQ ที่ AI สร้างเองไม่ได้มาจากหน้า Amazon จริง → ปิดไว้ก่อน
+const SHOW_FAQ = false;
 
 function buildProductJsonLd(article, canonicalUrl, authorId = 'gravity-os-team') {
   return `<script type="application/ld+json">${generateProductJsonLd(article, canonicalUrl, authorId)}<\/script>`;
@@ -256,7 +267,16 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
     const priceHtml = article.product.priceAmount && article.product.priceCurrency
       ? formatPriceWithCurrency(article.product.priceAmount, article.product.priceCurrency, lang)
       : '';
-    const barPrice = priceText(article.product, lang);
+    const rawBarPrice = priceText(article.product, lang);
+    const barPrice = rawBarPrice && article.product.priceCurrency && article.product.priceCurrency !== 'THB'
+      ? `${rawBarPrice} ${article.product.priceCurrency}`
+      : rawBarPrice;
+    const priceBlock = priceHtml
+      ? `${priceHtml}${article.product.priceCurrency && article.product.priceCurrency !== 'THB' ? `<span class="dl-disc"> ${escapeHtml(article.product.priceCurrency)}</span>` : ''}<p class="dl-disc">${escapeHtml(t.priceNote)}</p>`
+      : '';
+    const disclosureFull = isAmazonUrl(article.product.buyUrl)
+      ? `${t.disclosureText} ${AMAZON_STATEMENT}`
+      : t.disclosureText;
 
     const ratingHtml = article.product.rating
       ? renderStars(article.product.rating)
@@ -280,9 +300,10 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
             ${ratingHtml}
           </div>
           <h1>${escapeHtml(article.seoTitle)}</h1>
-          ${priceHtml}
+          ${priceBlock}
           <div data-section="cta">${buyBtn}</div>
-          <p class="dl-disc">${escapeHtml(t.disclosureText)}</p>
+          <p class="dl-disc">${escapeHtml(disclosureFull)}</p>
+          <p class="dl-disc">${escapeHtml(t.notTested)}</p>
           ${renderShareButtons(canonicalPath, article.seoTitle, lang, article.product.image_url)}
           <div class="dl-meta">${escapeHtml(dateText)} · ${escapeHtml(t.reviewedBy)} ${escapeHtml(article.analysis?.reviewer_name || 'GRAVITY OS')}</div>
         </section>
@@ -291,7 +312,7 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
         <div class="dl-prose" data-section="review">${formatArticleBody(article.blogDraft)}</div>
         ${article.buyingGuide ? `<section class="dl-vcard"><h2 class="dl-card-h">${escapeHtml(t.buyingGuideTitle)}</h2><div class="dl-prose" data-section="buying_guide" style="padding:0;box-shadow:none;background:transparent">${formatArticleBody(article.buyingGuide)}</div></section>` : ''}
         ${renderNotApprovedFor(article.analysis, t)}
-        <div data-section="faq">${renderFaq(article.faq, t)}</div>
+        ${SHOW_FAQ ? `<div data-section="faq">${renderFaq(article.faq, t)}</div>` : ''}
         ${renderAuthorSection(authorId, lang)}
         ${tagsHtml}
         ${backHtml}
