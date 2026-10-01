@@ -124,7 +124,7 @@ const UI_STRINGS = {
   }
 };
 
-function uiStrings(lang) {
+export function uiStrings(lang) {
   return UI_STRINGS[lang] || UI_STRINGS.th;
 }
 
@@ -390,7 +390,10 @@ const BRAND_MARK_SVG = `<svg class="brand-mark" width="26" height="26" viewBox="
 export function renderPage({
   title, description, canonicalPath = '/', image, lang = 'th',
   altLangPath, bodyHtml, jsonLd, breadcrumb, wide = false,
-  headerExtra = '', extraHead = '', ogType = 'website'
+  headerExtra = '', extraHead = '', ogType = 'website',
+  // GRAVITY UI (2026-09-30): opt-in full-page shell ({ css, fontLink, bodyClass, bodyHtml }).
+  // เมื่อส่งมา จะใช้แทน BASE_CSS/header/footer เดิมทั้งชุด — หน้าอื่นที่ไม่ส่ง `deal` ไม่ถูกกระทบ
+  deal = null
 }) {
   const t = uiStrings(lang);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
@@ -443,12 +446,12 @@ ${GA_SNIPPET}
 <meta name="twitter:image" content="${escapeHtml(ogImage)}">
 
 ${jsonLdScript}
-${FONT_LINK}
-<style>${BASE_CSS}</style>
+${deal ? deal.fontLink : FONT_LINK}
+<style>${deal ? deal.css : BASE_CSS}</style>
 ${extraHead}
 </head>
-<body>
-<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
+<body${deal ? ` class="${deal.bodyClass}"` : ''}>
+${deal ? deal.bodyHtml : `<header class="site"><div class="${wide ? 'wrap-wide' : 'wrap'} site-header-row">
   <a class="brand" href="${lang === 'en' ? '/' : '/th/'}">${BRAND_MARK_SVG}GRAVITY OS</a>
   ${headerExtraHtml}
   ${langSwitchHtml}
@@ -458,7 +461,7 @@ ${extraHead}
   <p style="margin:0 0 6px;">${escapeHtml(t.aiDisclosureFull)}</p>
   <p style="margin:0;">${escapeHtml(t.footerDisclaimer)}</p>
 </footer>
-</body>
+`}</body>
 </html>`;
 }
 

@@ -1,9 +1,17 @@
 import { getArticleBySlug, getAvailableLanguages } from './d1-articles.js';
-import { 
+import {
   renderPage, renderShareButtons, renderGallery, renderAuthorSection,
-  escapeHtml, formatArticleBody, toListItems, renderStars, 
-  generateProductJsonLd, formatPriceWithCurrency
+  escapeHtml, formatArticleBody, toListItems, renderStars,
+  generateProductJsonLd, formatPriceWithCurrency, uiStrings
 } from './layout.js';
+import { DEAL_CSS, DEAL_FONT_LINK, renderDealBody, icon, priceText } from './deal-ui.js';
+
+/**
+ * 🎨 GRAVITY UI (2026-10-01) — หน้าบทความใช้ดีไซน์ Deal-style เดียวกับหน้าแรก (deal-ui.js)
+ *  - เปลี่ยนเฉพาะการแสดงผล: การดึงข้อมูล, JSON-LD, ลิงก์ซื้อ /go/ (พร้อม utm), attention tracker
+ *    และ data-section ทั้งหมดคงเดิม
+ *  - ปุ่มซื้อยังมี class "buy-btn" เพื่อให้ tracker นับคลิก CTA ได้เหมือนเดิม
+ */
 
 const STRINGS = {
   th: {
@@ -22,7 +30,8 @@ const STRINGS = {
     dateLocale: 'th-TH',
     reviewedBy: 'ตรวจสอบและปรับปรุงข้อมูลโดย',
     specifications: 'ข้อมูลสินค้า',
-    notApprovedFor: 'ไม่เหมาะสำหรับ'
+    notApprovedFor: 'ไม่เหมาะสำหรับ',
+    disclosureTitle: 'คำชี้แจงโปร่งใส (Affiliate Disclosure)'
   },
   en: {
     loadErrorPrefix: 'Failed to load article:',
@@ -40,12 +49,31 @@ const STRINGS = {
     dateLocale: 'en-US',
     reviewedBy: 'Reviewed and verified by',
     specifications: 'Product specs',
-    notApprovedFor: 'Not recommended for'
+    notApprovedFor: 'Not recommended for',
+    disclosureTitle: 'Affiliate Disclosure'
   }
 };
 
 function buildProductJsonLd(article, canonicalUrl, authorId = 'gravity-os-team') {
   return `<script type="application/ld+json">${generateProductJsonLd(article, canonicalUrl, authorId)}<\/script>`;
+}
+
+
+// ── helpers (presentation only) ───────────────────────────────────────────
+// pros/cons ในฐานข้อมูลบางแถวถูกเก็บเป็นบรรทัดเดียวคั่นด้วย "•" — แตกให้เป็นข้อๆ
+function toBullets(text) {
+  return toListItems(String(text ?? '').replace(/\\r\\n|\\n|\\r/g, '\n'))
+    .flatMap(i => i.split(/\s*[•●▪]\s*/))
+    .map(i => i.trim())
+    .filter(Boolean);
+}
+
+function stripArrow(label) {
+  return String(label || '').replace(/\s*→\s*$/, '');
+}
+
+function renderBulletList(items, kind, iconName) {
+  return `<ul class="dl-list ${kind}">${items.map(i => `<li>${icon(iconName)}<span>${escapeHtml(i)}</span></li>`).join('')}</ul>`;
 }
 
 function renderFaq(faqText, t) {
@@ -55,29 +83,45 @@ function renderFaq(faqText, t) {
     const q = (b.match(/Q:\s*(.*)/) || [])[1];
     const a = (b.match(/A:\s*([\s\S]*)/) || [])[1];
     if (!q || !a) return '';
-    return `<div style="margin-bottom:18px;"><strong>${escapeHtml(q)}</strong><p style="margin:6px 0 0;color:var(--ink-muted);">${escapeHtml(a)}</p></div>`;
+    return `<details><summary><span>${escapeHtml(q)}</span>${icon('expand_more')}</summary><p>${escapeHtml(a)}</p></details>`;
   }).join('');
-  return items ? `<hr class="hairline"><h3>${escapeHtml(t.faqTitle)}</h3>${items}` : '';
+  return items
+    ? `<section class="dl-vcard"><h2 class="dl-card-h">${escapeHtml(t.faqTitle)}</h2><div class="dl-faq">${items}</div></section>`
+    : '';
 }
 
 function renderNotApprovedFor(analysis, t) {
   if (!analysis || !analysis.not_approved_for) return '';
-  const items = toListItems(analysis.not_approved_for);
+  const items = toBullets(analysis.not_approved_for);
   if (!items.length) return '';
-  return `<div style="background:var(--accent2-soft);border:1px solid var(--hairline);border-left:4px solid var(--accent2);padding:14px 16px;margin:18px 0;border-radius:4px;">
-    <h4 style="color:var(--accent2);margin:0 0 8px;font-size:14px;text-transform:uppercase;font-weight:600;">${escapeHtml(t.notApprovedFor)}</h4>
-    <ul style="margin:0;padding-left:1.2em;">${items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
-  </div>`;
+  return `<section class="dl-warn"><h2 class="dl-card-h">${icon('error')}${escapeHtml(t.notApprovedFor)}</h2>${renderBulletList(items, 'con', 'error')}</section>`;
 }
 
 function renderSpecifications(analysis, t) {
   if (!analysis || !analysis.specifications) return '';
-  const specs = toListItems(analysis.specifications);
+  const specs = toBullets(analysis.specifications);
   if (!specs.length) return '';
-  return `<div style="background:var(--surface);border:1px solid var(--hairline);padding:16px;margin:18px 0;border-radius:8px;">
-    <h3 style="font-size:16px;margin:0 0 12px;">${escapeHtml(t.specifications)}</h3>
-    <ul style="margin:0;padding-left:1.2em;font-size:14px;color:var(--ink-muted);">${specs.map(s => `<li style="margin-bottom:6px;">${escapeHtml(s)}</li>`).join('')}</ul>
-  </div>`;
+  const pairs = specs.map(s => s.match(/^([^:]{1,40}):\s*(.+)$/));
+  const allPairs = pairs.every(Boolean);
+  const body = allPairs
+    ? `<dl class="dl-spec">${pairs.map(m => `<div><dt>${escapeHtml(m[1])}</dt><dd>${escapeHtml(m[2])}</dd></div>`).join('')}</dl>`
+    : `<ul class="dl-spec-plain">${specs.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`;
+  return `<section class="dl-vcard"><h2 class="dl-card-h">${escapeHtml(t.specifications)}</h2>${body}</section>`;
+}
+
+function renderShell({ t, lang, homeHref, mainHtml, bottomHtml, hasBar }) {
+  const ui = uiStrings(lang);
+  return renderDealBody({
+    t,
+    homeHref,
+    altLangPath: null,
+    langLabel: ui.langSwitchLabel,
+    hasSearch: false,
+    hasAlerts: false,
+    mainHtml,
+    footerParagraphs: [ui.aiDisclosureFull, ui.footerDisclaimer],
+    bottomHtml: bottomHtml ?? '',
+  });
 }
 
 function buildAttentionTrackerScript(productId, variantId, channel) {
@@ -140,6 +184,8 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
   const prefix = lang === 'en' ? '/en' : '';
   // 🔧 (2026-09-20c): หน้าแรก en = /  , th = /th/
   const homeHref = lang === 'en' ? '/' : '/th/';
+  const backLabel = String(t.moreReviews).replace(/^\s*←\s*/, '');
+  const backHtml = `<a class="dl-back" href="${homeHref}">${icon('arrow_back')}<span>${escapeHtml(backLabel)}</span></a>`;
 
   try {
     let article;
@@ -153,28 +199,33 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
     }
 
     if (!article) {
+      const notFoundBody = renderShell({
+        t, lang, homeHref,
+        mainHtml: `<div class="dl-art"><div class="dl-empty"><p>${escapeHtml(t.notFoundBody)}</p><p>${backHtml}</p></div></div>`,
+      });
       return new Response(renderPage({
         title: t.notFoundTitle,
         canonicalPath: `${prefix}/product/${encodeURIComponent(slug)}`,
         lang,
         // GRAVITY FIX (2026-09-20): ogType:'website' (default) ถูกต้องสำหรับ 404
-        bodyHtml: `<p class="empty">${t.notFoundBody}</p><p><a href="${homeHref}">${t.backHome}</a></p>`
+        bodyHtml: '',
+        deal: { css: DEAL_CSS, fontLink: DEAL_FONT_LINK, bodyClass: 'dl', bodyHtml: notFoundBody },
       }), { status: 404, headers: { 'content-type': 'text/html; charset=UTF-8' } });
     }
 
-    const pros = article.analysis ? toListItems(article.analysis.pros) : [];
-    const cons = article.analysis ? toListItems(article.analysis.cons) : [];
+    const pros = article.analysis ? toBullets(article.analysis.pros) : [];
+    const cons = article.analysis ? toBullets(article.analysis.cons) : [];
     const audience = article.analysis?.target_audience || '';
-    
+
     const authorId = article.analysis?.reviewer_id || 'gravity-os-team';
 
     const verdict = (pros.length || cons.length || audience)
-      ? `<div class="verdict">
-          <h3>${escapeHtml(t.whoFor)}</h3>
-          ${audience ? `<p style="margin:0 0 10px;font-weight:500;">${escapeHtml(audience)}</p>` : ''}
-          ${pros.length ? `<p style="margin:0 0 4px;font-weight:600;font-size:14px;color:var(--accent);">${escapeHtml(t.pros)}</p><ul>${pros.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}
-          ${cons.length ? `<p style="margin:12px 0 4px;font-weight:600;font-size:14px;color:var(--accent);">${escapeHtml(t.cons)}</p><ul>${cons.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>` : ''}
-        </div>`
+      ? `<section class="dl-vcard">
+          <h2 class="dl-card-h">${icon('verified_user')}${escapeHtml(t.whoFor)}</h2>
+          ${audience ? `<p class="dl-aud">${escapeHtml(audience)}</p>` : ''}
+          ${pros.length ? `<div><p class="dl-sub pro">${escapeHtml(t.pros)}</p>${renderBulletList(pros, 'pro', 'check_circle')}</div>` : ''}
+          ${cons.length ? `<div><p class="dl-sub con">${escapeHtml(t.cons)}</p>${renderBulletList(cons, 'con', 'error')}</div>` : ''}
+        </section>`
       : '';
 
     const incomingUrl = request ? new URL(request.url) : null;
@@ -188,8 +239,9 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       ? `/go/${encodeURIComponent(article.id)}${buyUrlQuery ? `?${buyUrlQuery}` : ''}`
       : '';
     article.product.trackedBuyUrl = trackedBuyUrl;
+    const buyLabel = stripArrow(t.buyBtn);
     const buyBtn = trackedBuyUrl
-      ? `<a class="buy-btn" href="${escapeHtml(trackedBuyUrl)}" rel="nofollow sponsored noopener" target="_blank">${t.buyBtn}</a>`
+      ? `<a class="buy-btn dl-btn main" href="${escapeHtml(trackedBuyUrl)}" rel="nofollow sponsored noopener" target="_blank"><span>${escapeHtml(buyLabel)}</span>${icon('north_east')}</a>`
       : '';
 
     const tagsHtml = article.tags.length
@@ -199,12 +251,12 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
     const canonicalPath = `${prefix}/product/${encodeURIComponent(article.slug)}`;
     const galleryHtml = renderGallery(article.product.gallery, article.seoTitle);
 
-    const absoluteUrl = `https://gravity-blog.pages.dev${canonicalPath}`;
     const jsonLd = buildProductJsonLd(article, canonicalPath, authorId);
 
     const priceHtml = article.product.priceAmount && article.product.priceCurrency
       ? formatPriceWithCurrency(article.product.priceAmount, article.product.priceCurrency, lang)
       : '';
+    const barPrice = priceText(article.product, lang);
 
     const ratingHtml = article.product.rating
       ? renderStars(article.product.rating)
@@ -213,29 +265,46 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
     const attentionChannel = incomingUtmSource || 'direct';
     const attentionVariantId = article.variantId || null;
 
-    const body = `
+    const dateText = article.updatedAt
+      ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })
+      : '';
+
+    const main = `
       ${jsonLd}
-      ${article.product.brand ? `<div class="eyebrow">${escapeHtml(article.product.brand)}</div>` : ''}
-      <h1 style="font-size:28px;margin-bottom:12px;">${escapeHtml(article.seoTitle)}</h1>
-      ${ratingHtml ? `<div style="margin-bottom:16px;">${ratingHtml}</div>` : ''}
-      ${priceHtml}
-      ${galleryHtml}
-      <p class="disclosure" style="font-size:13px;color:#8a90a0;margin:8px 0;">${escapeHtml(t.disclosureText)}</p>
-      ${renderShareButtons(canonicalPath, article.seoTitle, lang, article.product.image_url)}
-      <div class="meta" style="margin-bottom:16px;">${article.updatedAt ? new Date(article.updatedAt).toLocaleDateString(t.dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · ${escapeHtml(t.reviewedBy)} ${escapeHtml(article.analysis?.reviewer_name || 'GRAVITY OS')}</div>
-      <div data-section="cta">${buyBtn}</div>
-      ${verdict}
-      ${renderSpecifications(article.analysis, t)}
-      <div class="article-body" data-section="review">${formatArticleBody(article.blogDraft)}</div>
-      ${article.buyingGuide ? `<hr class="hairline"><h3>${escapeHtml(t.buyingGuideTitle)}</h3><div class="article-body" data-section="buying_guide">${formatArticleBody(article.buyingGuide)}</div>` : ''}
-      ${renderNotApprovedFor(article.analysis, t)}
-      <div data-section="faq">${renderFaq(article.faq, t)}</div>
-      <div data-section="cta">${buyBtn}</div>
-      ${renderAuthorSection(authorId, lang)}
-      ${tagsHtml}
-      <p style="margin-top:32px;"><a href="${homeHref}">${t.moreReviews}</a></p>
+      <div class="dl-art">
+        ${backHtml}
+        <section class="dl-art-card">
+          ${galleryHtml}
+          <div class="dl-art-tags">
+            ${article.product.brand ? `<span class="dl-mini">${escapeHtml(article.product.brand)}</span>` : ''}
+            ${ratingHtml}
+          </div>
+          <h1>${escapeHtml(article.seoTitle)}</h1>
+          ${priceHtml}
+          <div data-section="cta">${buyBtn}</div>
+          <p class="dl-disc">${escapeHtml(t.disclosureText)}</p>
+          ${renderShareButtons(canonicalPath, article.seoTitle, lang, article.product.image_url)}
+          <div class="dl-meta">${escapeHtml(dateText)} · ${escapeHtml(t.reviewedBy)} ${escapeHtml(article.analysis?.reviewer_name || 'GRAVITY OS')}</div>
+        </section>
+        ${verdict}
+        ${renderSpecifications(article.analysis, t)}
+        <div class="dl-prose" data-section="review">${formatArticleBody(article.blogDraft)}</div>
+        ${article.buyingGuide ? `<section class="dl-vcard"><h2 class="dl-card-h">${escapeHtml(t.buyingGuideTitle)}</h2><div class="dl-prose" data-section="buying_guide" style="padding:0;box-shadow:none;background:transparent">${formatArticleBody(article.buyingGuide)}</div></section>` : ''}
+        ${renderNotApprovedFor(article.analysis, t)}
+        <div data-section="faq">${renderFaq(article.faq, t)}</div>
+        ${renderAuthorSection(authorId, lang)}
+        ${tagsHtml}
+        ${backHtml}
+      </div>
       ${buildAttentionTrackerScript(article.id, attentionVariantId, attentionChannel)}
     `;
+
+    // แถบซื้อลอยด้านล่าง (ราคา + ปุ่ม) — แสดงเมื่อมีลิงก์ซื้อ
+    const bottomHtml = trackedBuyUrl
+      ? `<div class="dl-buybar" data-section="cta"><div class="dl-buybar-in">${barPrice ? `<span class="dl-buybar-price">${escapeHtml(barPrice)}</span>` : ''}${buyBtn}</div></div>`
+      : '';
+
+    const bodyHtml = renderShell({ t, lang, homeHref, mainHtml: main, bottomHtml });
 
     const html = renderPage({
       title: article.seoTitle,
@@ -247,7 +316,8 @@ export async function renderArticlePage(env, slug, lang = 'th', request) {
       // GRAVITY FIX (2026-09-20): เพิ่ม ogType:'article' — เดิมไม่ส่งค่านี้
       // ทำให้ layout.js ใช้ default 'website' ทุกหน้าสินค้า
       ogType: 'article',
-      bodyHtml: body
+      bodyHtml: '',
+      deal: { css: DEAL_CSS, fontLink: DEAL_FONT_LINK, bodyClass: trackedBuyUrl ? 'dl dl-has-bar' : 'dl', bodyHtml },
     });
 
     return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8' } });
