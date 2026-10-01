@@ -6,6 +6,10 @@
 import { escapeHtml } from './layout.js';
 
 const ICON_PATHS = {
+  arrow_back: 'm274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z',
+  check: 'M378-246 154-470l43-43 181 181 384-384 43 43-427 427Z',
+  error: 'M503.5-289.48q9.5-9.48 9.5-23.5t-9.48-23.52q-9.48-9.5-23.5-9.5t-23.52 9.48q-9.5 9.48-9.5 23.5t9.48 23.52q9.48 9.5 23.5 9.5t23.52-9.48ZM453-433h60v-253h-60v253Zm27.27 353q-82.74 0-155.5-31.5Q252-143 197.5-197.5t-86-127.34Q80-397.68 80-480.5t31.5-155.66Q143-709 197.5-763t127.34-85.5Q397.68-880 480.5-880t155.66 31.5Q709-817 763-763t85.5 127Q880-563 880-480.27q0 82.74-31.5 155.5Q817-252 763-197.68q-54 54.31-127 86Q563-80 480.27-80Zm.23-60Q622-140 721-239.5t99-241Q820-622 721.19-721T480-820q-141 0-240.5 98.81T140-480q0 141 99.5 240.5t241 99.5Zm-.5-340Z',
+  expand_more: 'M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z',
   verified_user: 'm436-347 228-228-42-41-183 183-101-101-44 44 142 143Zm44 266q-140-35-230-162.5T160-523v-238l320-120 320 120v238q0 152-90 279.5T480-81Zm0-62q115-38 187.5-143.5T740-523v-196l-260-98-260 98v196q0 131 72.5 236.5T480-143Zm0-337Z',
   local_fire_department: 'M220-400q0 63 28.5 118.5T328-189q-4-12-6-24.5t-2-24.5q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60q0 12-2 24.5t-6 24.5q51-37 79.5-92.5T740-400q0-54-23-105.5T651-600q-21 15-44 23.5t-46 8.5q-61 0-101-41.5T420-714v-20q-46 33-83 73t-63 83.5q-26 43.5-40 89T220-400Zm260 24-71 70q-14 14-21.5 31t-7.5 37q0 41 29 69.5t71 28.5q42 0 71-28.5t29-69.5q0-20-7.5-37T551-306l-71-70Zm0-464v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-128 86-246.5T480-840Z',
   star_fill: 'm233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z',
@@ -38,7 +42,7 @@ export const DEAL_FONT_LINK =
   '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
   '<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">';
 
-export const DEAL_CSS = `
+const HOME_CSS = `
 :root{
   --surface:#faf8ff; --lowest:#ffffff; --c-low:#f2f3ff; --c:#eaedff; --c-high:#e2e7ff; --c-highest:#dae2fd;
   --on-surface:#131b2e; --on-variant:#3d4947; --outline:#6d7a77;
@@ -235,6 +239,84 @@ html{scroll-behavior:smooth;scroll-padding-top:76px}
 }
 `;
 
+const ARTICLE_CSS = `
+/* ───────── article page (.dl-art) ───────── */
+body.dl-has-bar{padding-bottom:92px!important}
+.dl-art{max-width:760px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:16px}
+.dl-back{display:inline-flex;align-items:center;gap:4px;width:fit-content;color:var(--primary)!important;font:600 13px/18px var(--f-body);letter-spacing:.01em}
+.dl-back .ic{font-size:18px}
+.dl-art-card{background:var(--lowest);border-radius:12px;padding:16px;box-shadow:0 4px 8px rgba(19,27,46,.08);display:flex;flex-direction:column;gap:12px}
+.dl-art-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dl-art h1{font:700 26px/34px var(--f-head);letter-spacing:-.02em}
+.dl-art .gallery{margin:0}
+.dl-art .gallery-main{width:100%;height:300px;object-fit:contain;display:block;background:#fff;border-radius:8px;padding:8px;box-shadow:inset 0 0 0 1px var(--c-highest)}
+.dl-art .gallery-strip{display:flex;gap:8px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+.dl-art .gallery-strip::-webkit-scrollbar{display:none}
+.dl-art .gallery-thumb{flex:none;width:60px;height:60px;object-fit:contain;background:#fff;border-radius:8px;padding:4px;cursor:pointer;box-shadow:inset 0 0 0 1px var(--c-highest)}
+.dl-art .gallery-thumb.is-active{box-shadow:inset 0 0 0 2px var(--orange)}
+.dl-art .stars{color:var(--orange);font-size:14px;letter-spacing:1px}
+.dl-art .stars .rating-num{color:var(--on-variant);font-size:13px;letter-spacing:0;margin-left:6px}
+.dl-art .price-tag{display:block;font:700 32px/36px var(--f-head);letter-spacing:-.02em;color:var(--orange);margin:0}
+.dl-art .price-tag .currency{font-size:22px;font-weight:600;margin-right:2px}
+.dl-disc{font:400 12px/16px var(--f-body);color:var(--outline)}
+.dl-art .share-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0}
+.dl-art .share-label{font:600 12px/16px var(--f-body);color:var(--on-variant);margin-right:2px}
+.dl-art .share-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--c);color:var(--primary)!important;border:0;padding:0;cursor:pointer;font:inherit}
+.dl-art .share-btn:hover{background:var(--primary);color:#fff!important}
+.dl-meta{font:400 12px/16px var(--f-body);color:var(--on-variant)}
+.dl-art .dl-btn.main{width:100%}
+.dl-vcard{background:var(--c-low);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.dl-card-h{display:flex;align-items:center;gap:6px;font:600 18px/26px var(--f-head);letter-spacing:-.01em}
+.dl-card-h .ic{font-size:22px;color:var(--secondary)}
+.dl-aud{font:600 15px/22px var(--f-body)}
+.dl-sub{font:700 13px/18px var(--f-head);letter-spacing:.01em;margin-bottom:6px}
+.dl-sub.pro{color:var(--tertiary)}
+.dl-sub.con{color:var(--secondary)}
+.dl-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.dl-list li{display:flex;gap:8px;align-items:flex-start;font:400 15px/22px var(--f-body)}
+.dl-list li .ic{font-size:18px;margin-top:2px}
+.dl-list.pro li .ic{color:var(--tertiary-c)}
+.dl-list.con li .ic{color:var(--secondary)}
+.dl-spec{margin:0;display:flex;flex-direction:column}
+.dl-spec div{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--c)}
+.dl-spec div:last-child{border-bottom:0}
+.dl-spec dt{color:var(--on-variant);font:400 14px/20px var(--f-body)}
+.dl-spec dd{margin:0;text-align:right;font:600 14px/20px var(--f-body)}
+.dl-spec-plain{margin:0;padding-left:1.2em;font:400 14px/22px var(--f-body);color:var(--on-variant)}
+.dl-prose{background:var(--lowest);border-radius:12px;padding:16px;box-shadow:0 1px 2px rgba(19,27,46,.06)}
+.dl-prose h2{font:600 22px/30px var(--f-head);letter-spacing:-.01em;margin:24px 0 8px}
+.dl-prose h3{font:600 18px/26px var(--f-head);letter-spacing:-.01em;margin:20px 0 6px}
+.dl-prose p{margin:0 0 14px;font:400 16px/1.75 var(--f-body)}
+.dl-prose ul,.dl-prose ol{margin:0 0 14px;padding-left:1.3em;font:400 16px/1.7 var(--f-body)}
+.dl-prose li{margin-bottom:6px}
+.dl-prose>:first-child{margin-top:0}
+.dl-prose>:last-child{margin-bottom:0}
+.dl-warn{background:var(--orange-fixed);color:var(--on-orange-fixed);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.dl-warn .dl-card-h .ic{color:var(--secondary)}
+.dl-warn .dl-list li .ic{color:var(--secondary)}
+.dl-faq{display:flex;flex-direction:column;gap:8px}
+.dl-faq details{background:var(--c-low);border-radius:8px}
+.dl-faq summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px;font:600 15px/22px var(--f-body)}
+.dl-faq summary::-webkit-details-marker{display:none}
+.dl-faq summary .ic{font-size:22px;color:var(--primary);transition:transform .15s}
+.dl-faq details[open] summary .ic{transform:rotate(180deg)}
+.dl-faq details p{margin:0;padding:0 12px 12px;color:var(--on-variant);font:400 15px/22px var(--f-body)}
+.dl-art .author-section{display:flex;gap:12px;align-items:flex-start;background:var(--lowest);border-radius:12px;padding:16px;box-shadow:0 1px 2px rgba(19,27,46,.06)}
+.dl-art .author-avatar{width:44px;height:44px;border-radius:50%;flex:none;background:var(--c)}
+.dl-art .author-info h4{margin:0 0 2px;font:600 15px/22px var(--f-head)}
+.dl-art .author-info p{margin:0;font:400 13px/18px var(--f-body);color:var(--on-variant)}
+.dl-art .author-role{font-weight:600;color:var(--primary)}
+.dl-art .tags{display:flex;flex-wrap:wrap;gap:6px}
+.dl-art .tag{background:var(--c);color:var(--primary);font:600 12px/16px var(--f-body);padding:4px 10px;border-radius:999px}
+.dl-buybar{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(250,248,255,.94);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 -2px 12px rgba(0,0,0,.06);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.dl-buybar-in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.dl-buybar-price{font:700 22px/28px var(--f-head);letter-spacing:-.01em;color:var(--orange);white-space:nowrap}
+.dl-buybar .dl-btn.main{flex:1;width:auto;font-size:16px;line-height:24px;padding:10px 14px}
+@media (min-width:720px){.dl-art .gallery-main{height:380px}.dl-art h1{font-size:30px;line-height:38px}}
+`;
+
+export const DEAL_CSS = HOME_CSS + ARTICLE_CSS;
+
 const BRAND_MARK = `<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="9" fill="#00685f"/><text x="16" y="22.5" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="18" fill="#fff">G</text></svg>`;
 
 // ── small helpers ─────────────────────────────────────────────────────────
@@ -249,6 +331,16 @@ export function priceText(product, lang) {
     return sym + product.priceAmount.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
   return product.price ? String(product.price).trim() : '';
+}
+
+/** ตัดเส้นทางหมวดหมู่ยาวๆ ("A > B > C > D") ให้สั้นพอใส่ชิป โดยคงส่วนท้ายที่เจาะจงที่สุดไว้ */
+export function shortCat(label, max = 26) {
+  const parts = String(label || '').split('>').map(x => x.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  let out = parts.join(' > ');
+  if (out.length > max && parts.length > 1) out = parts.slice(-2).join(' > ');
+  if (out.length > max && parts.length > 1) out = parts[parts.length - 1];
+  return clip(out, max);
 }
 
 function clip(str, max) {
@@ -291,7 +383,7 @@ export function renderTrustBar({ t, count, avgRating }) {
 export function renderChips(chips) {
   if (!chips.length) return '';
   return `<nav class="dl-chips" id="categories" aria-label="Categories">${chips.map(c =>
-    `<a class="dl-chip${c.active ? ' on' : ''}" href="${escapeHtml(c.href)}"${c.active ? ' aria-current="page"' : ''}>${icon(c.kind === 'all' ? 'apps' : 'sell')}<span>${escapeHtml(c.label)}</span></a>`
+    `<a class="dl-chip${c.active ? ' on' : ''}" href="${escapeHtml(c.href)}" title="${escapeHtml(c.label)}"${c.active ? ' aria-current="page"' : ''}>${icon(c.kind === 'all' ? 'apps' : 'sell')}<span>${escapeHtml(shortCat(c.label))}</span></a>`
   ).join('')}</nav>`;
 }
 
@@ -319,7 +411,7 @@ export function renderHero(a, { t, lang, clickCounts, hotThreshold, isNew, topPr
     <a class="dl-hero-media" href="${href}" tabindex="-1" aria-hidden="true">${media}${p.brand ? `<span class="dl-tag">${escapeHtml(p.brand)}</span>` : ''}</a>
     <div class="dl-hero-txt">
       <a href="${href}"><h2 class="dl-hero-title">${escapeHtml(a.seoTitle)}</h2></a>
-      ${categoryLabel ? `<div class="dl-hero-cat">${icon('trending_up')}<span>${escapeHtml(categoryLabel)}</span></div>` : ''}
+      ${categoryLabel ? `<div class="dl-hero-cat">${icon('trending_up')}<span title="${escapeHtml(categoryLabel)}">${escapeHtml(shortCat(categoryLabel, 40))}</span></div>` : ''}
       ${price ? `<div class="dl-price-xl">${escapeHtml(price)}</div>` : ''}
     </div>
   </div>
@@ -397,7 +489,7 @@ export function renderComparison(items, { t, lang, label }) {
 <section class="dl-sec" id="compare" style="display:flex;flex-direction:column;gap:8px">
   <div class="dl-sec-head">
     <div class="dl-sec-title">${icon('compare')}<h2>${escapeHtml(t.cmpHeading)}</h2></div>
-    ${label ? `<span class="dl-cmp-label">${escapeHtml(label)}</span>` : ''}
+    ${label ? `<span class="dl-cmp-label" title="${escapeHtml(label)}">${escapeHtml(shortCat(label, 24))}</span>` : ''}
   </div>
   <div class="dl-cmp-wrap"><table class="dl-cmp"><thead>${head}</thead><tbody>${body}</tbody></table></div>
   <div class="dl-verdict">${escapeHtml(t.cmpVerdict(clip(top.p.brand || top.p.name, 32)))}</div>
@@ -460,7 +552,7 @@ function filterProductCards(query){
  * Full page body: sticky header, main content, footer note, bottom nav.
  * `nav` items are built by the caller from real anchors only.
  */
-export function renderDealBody({ t, homeHref, altLangPath, langLabel, hasSearch, hasAlerts, mainHtml, footerParagraphs, navItems }) {
+export function renderDealBody({ t, homeHref, altLangPath, langLabel, hasSearch, hasAlerts, mainHtml, footerParagraphs, navItems = [], bottomHtml = null }) {
   const search = hasSearch ? `
     <div class="dl-search">${icon('search')}<input type="text" id="sbInput" placeholder="${escapeHtml(t.searchPlaceholder)}" aria-label="${escapeHtml(t.searchPlaceholder)}" autocomplete="off" oninput="filterProductCards(this.value)"></div>` : '<div style="flex:1"></div>';
   const bell = hasAlerts ? `<a class="dl-bell" href="#alerts" aria-label="${escapeHtml(t.alertTitle)}">${icon('notifications')}</a>` : '';
@@ -478,6 +570,6 @@ ${mainHtml}
     ${footerParagraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}
   </footer>
 </main>
-<nav class="dl-nav" aria-label="Primary"><div class="dl-nav-in">${navItems.map(n =>
-  `<a href="${escapeHtml(n.href)}"${n.active ? ' class="on" aria-current="page"' : ''}>${icon(n.icon)}<span>${escapeHtml(n.label)}</span></a>`).join('')}</div></nav>`;
+${bottomHtml !== null ? bottomHtml : `<nav class="dl-nav" aria-label="Primary"><div class="dl-nav-in">${navItems.map(n =>
+  `<a href="${escapeHtml(n.href)}"${n.active ? ' class="on" aria-current="page"' : ''}>${icon(n.icon)}<span>${escapeHtml(n.label)}</span></a>`).join('')}</div></nav>`}`;
 }
