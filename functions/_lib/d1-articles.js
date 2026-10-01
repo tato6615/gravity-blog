@@ -211,6 +211,18 @@ export async function getLiveArticles(env, lang = 'th') {
     WHERE p.pipeline_status IN (${statusPlaceholders})
       AND c.slug IS NOT NULL AND c.slug != ''
       AND c.blog_draft IS NOT NULL AND c.blog_draft != ''
+      AND c.blog_draft NOT LIKE '%As a cat owner%'
+      AND c.blog_draft NOT LIKE '%As a dog owner%'
+      AND c.blog_draft NOT LIKE '%I bought%'
+      AND c.blog_draft NOT LIKE '%I tried%'
+      AND c.blog_draft NOT LIKE '%I was excited%'
+      AND c.blog_draft NOT LIKE '%hands-on experience%'
+      AND c.blog_draft NOT LIKE '%my experience%'
+      AND c.blog_draft NOT LIKE '%ฉันซื้อ%'
+      AND c.blog_draft NOT LIKE '%แมวของฉัน%'
+      AND c.blog_draft NOT LIKE '%ฉันลอง%'
+      AND c.blog_draft NOT LIKE '%ประสบการณ์ของฉัน%'
+      AND c.blog_draft NOT LIKE '%ในฐานะเจ้าของ%'
   `;
 
   const { results } = await env.DB.prepare(query)
@@ -315,6 +327,18 @@ export async function getAvailableLanguages(env, productId) {
         ) AS rn
         FROM content
         WHERE product_id = ? AND slug IS NOT NULL AND slug != ''
+          AND blog_draft NOT LIKE '%As a cat owner%'
+          AND blog_draft NOT LIKE '%As a dog owner%'
+          AND blog_draft NOT LIKE '%I bought%'
+          AND blog_draft NOT LIKE '%I tried%'
+          AND blog_draft NOT LIKE '%I was excited%'
+          AND blog_draft NOT LIKE '%hands-on experience%'
+          AND blog_draft NOT LIKE '%my experience%'
+          AND blog_draft NOT LIKE '%ฉันซื้อ%'
+          AND blog_draft NOT LIKE '%แมวของฉัน%'
+          AND blog_draft NOT LIKE '%ฉันลอง%'
+          AND blog_draft NOT LIKE '%ประสบการณ์ของฉัน%'
+          AND blog_draft NOT LIKE '%ในฐานะเจ้าของ%'
       ) WHERE rn = 1
     `).bind(productId).all();
     for (const r of results) {
