@@ -44,6 +44,7 @@
 
   .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:20px; background:var(--panel-2); color:var(--text-faint); }
   .tag.imported{ background:rgba(79,209,197,0.12); color:var(--teal); }
+  .tag.importing{ background:rgba(232,163,61,0.12); color:var(--amber); }
   .tag.enriching{ background:rgba(232,163,61,0.12); color:var(--amber); }
   .tag.enriched{ background:rgba(79,209,197,0.12); color:var(--teal); }
   .tag.published{ background:rgba(79,209,197,0.2); color:var(--teal); }
@@ -53,6 +54,15 @@
   .note{ color:var(--text-faint); font-size:12.5px; margin-top:16px; text-align:center; }
   .hidden{ display:none !important; }
   .sub{ color:var(--text-dim); font-size:13px; line-height:1.55; }
+
+  /* ═══ Import: แนบภาพหน้าจอ ═══ */
+  .imp-attach-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .imp-attach-info{ font-size:12px; color:var(--text-faint); }
+  .imp-thumbs{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .imp-thumb{ position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--panel-2); }
+  .imp-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .imp-thumb button{ position:absolute; top:2px; right:2px; width:20px; height:20px; padding:0; border-radius:50%;
+    background:rgba(0,0,0,0.7); color:#fff; font-size:12px; line-height:20px; font-weight:500; }
 
   /* ═══ Tabs ═══ */
   .tab-nav{ display:flex; gap:4px; max-width:100%; margin:0; padding:6px 8px; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; position:sticky; top:0; z-index:10; }
@@ -848,7 +858,13 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="tl-card-sub" id="psub-import">วาง URL สินค้าหรือพิมพ์รายละเอียด</div>
         <div class="tl-card-body">
-          <input type="text" id="in" placeholder="วาง URL สินค้า หรือพิมพ์รายละเอียด...">
+          <input type="text" id="in" placeholder="วาง URL สินค้า (Shopee: วางลิงก์ + รายละเอียด หรือแนบภาพด้านล่าง)...">
+          <div class="imp-attach-row">
+            <input type="file" id="importImagesInput" accept="image/png,image/jpeg,image/webp" multiple class="hidden" onchange="onImportImagesPicked(this)">
+            <button type="button" class="btn-ghost" id="importAttachBtn" onclick="document.getElementById('importImagesInput').click()">📎 แนบภาพหน้าจอ</button>
+            <span class="imp-attach-info" id="importImagesInfo">หน้าสินค้า / ตารางคอมมิชชั่น (สูงสุด 4 ภาพ) — ใช้คู่กับลิงก์</span>
+          </div>
+          <div class="imp-thumbs hidden" id="importImagesThumbs"></div>
           <button class="btn-primary" id="importBtn" onclick="doImport()">Import</button>
           <div class="err" id="importErr"></div>
         </div>
@@ -1697,6 +1713,8 @@ function getFieldsProgress(){
 
 function getCurrentStepKey(){
   if (!productId) return 'import';
+  // 🔧 (2026-10-06): กำลัง import เบื้องหลัง (อ่านลิงก์/ภาพ) → ยังอยู่ที่ขั้น Import
+  if (latestPipelineStatus === 'importing') return 'import';
   if (latestPipelineStatus === 'published') return 'results';
   if (latestPipelineStatus === 'enriched') return 'publish';
   return 'generate';
@@ -1704,7 +1722,7 @@ function getCurrentStepKey(){
 
 function isPanelLocked(key){
   if (key === 'import') return false;
-  if (key === 'generate') return !productId;
+  if (key === 'generate') return !productId || latestPipelineStatus === 'importing';
   if (key === 'publish') return !(latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published');
   if (key === 'results') return latestPipelineStatus !== 'published';
   return false;
@@ -1755,7 +1773,7 @@ function renderStepper(){
   lastAutoKey = current;
 
   const doneFlags = {
-    import: !!productId,
+    import: !!productId && latestPipelineStatus !== 'importing',
     generate: latestPipelineStatus === 'enriched' || latestPipelineStatus === 'published',
     publish: latestPipelineStatus === 'published',
     results: latestPipelineStatus === 'published'
@@ -1763,9 +1781,12 @@ function renderStepper(){
   const { done: fDone, total: fTotal } = getFieldsProgress();
 
   const subText = {
-    import: productId ? ('นำเข้าแล้ว — ' + (latestProduct && (latestProduct.name || latestProduct.title) || ('สินค้า #' + productId))) : 'วาง URL สินค้าหรือพิมพ์รายละเอียด',
+    import: latestPipelineStatus === 'importing'
+      ? 'กำลังอ่านข้อมูลสินค้า (ลิงก์/ภาพ) แล้วให้ AI ดึงข้อมูล…'
+      : (productId ? ('นำเข้าแล้ว — ' + (latestProduct && (latestProduct.name || latestProduct.title) || ('สินค้า #' + productId))) : 'วาง URL สินค้าหรือพิมพ์รายละเอียด'),
     generate: (() => {
       if (!productId) return 'รอนำเข้าสินค้าก่อน';
+      if (latestPipelineStatus === 'importing') return 'รอนำเข้าสินค้าให้เสร็จก่อน';
       if (latestPipelineStatus === 'error') return 'เกิดข้อผิดพลาด — แตะเพื่อลองอีกครั้ง';
       if (latestPipelineStatus === 'skipped_market_not_approved') return 'ข้าม — หมวดหมู่ยังไม่ผ่าน Market Discovery';
       if (latestPipelineStatus === 'skipped_low_demand') return 'ข้าม — demand score ต่ำเกินเกณฑ์';
@@ -1846,6 +1867,8 @@ function startNewProduct(){
   window._captionOverrides = {};
   window._lastDistributeResults = null;
   distributeResultsRestoredFor = null;
+  importImages = [];
+  renderImportImages();
 
   const statusTag = document.getElementById('statusTag');
   if (statusTag) { statusTag.textContent = ''; statusTag.className = 'tag'; }
@@ -1877,6 +1900,8 @@ function startNewProduct(){
   renderFieldChecklist({});
 
   document.getElementById('in').value = '';
+  const importBtn = document.getElementById('importBtn');
+  if (importBtn) importBtn.textContent = 'Import';
   lastAutoKey = null;
   renderStepper();
   document.getElementById('panel-import').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -2021,11 +2046,124 @@ async function apiCall(path, options, label, timeoutMs = 45000){
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   🔧 (2026-10-06): แนบภาพหน้าจอเข้า Import
+   - ย่อภาพฝั่งเบราว์เซอร์ (ด้านยาวสุด 1600px, JPEG 0.85) ก่อนส่ง เพื่อไม่ให้เกินเพดานของ Worker
+   - ส่งเป็น body.images (data URL) คู่กับลิงก์ใน body.input — Worker อ่านภาพด้วย vision
+   ═══════════════════════════════════════════════════════════════════ */
+const MAX_IMPORT_IMAGES = 4;
+let importImages = []; // data URL (image/jpeg)
+
+function fileToResizedDataUrl(file, maxSide, quality){
+  maxSide = maxSide || 1600;
+  quality = quality || 0.85;
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (e) {
+        reject(e);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('อ่านไฟล์ภาพไม่ได้: ' + (file && file.name ? file.name : '')));
+    };
+    img.src = url;
+  });
+}
+
+async function onImportImagesPicked(input){
+  hideErr('importErr');
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  const info = document.getElementById('importImagesInfo');
+  if (info) info.textContent = 'กำลังเตรียมภาพ...';
+  try {
+    for (const f of files) {
+      if (importImages.length >= MAX_IMPORT_IMAGES) {
+        showErr('importErr', 'แนบได้สูงสุด ' + MAX_IMPORT_IMAGES + ' ภาพ');
+        break;
+      }
+      if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+        showErr('importErr', 'รองรับเฉพาะ PNG / JPEG / WEBP (' + f.name + ')');
+        continue;
+      }
+      importImages.push(await fileToResizedDataUrl(f));
+    }
+  } catch (e) {
+    showErr('importErr', e.message);
+  }
+  renderImportImages();
+}
+
+function removeImportImage(i){
+  importImages.splice(i, 1);
+  renderImportImages();
+}
+
+function renderImportImages(){
+  const wrap = document.getElementById('importImagesThumbs');
+  const info = document.getElementById('importImagesInfo');
+  const attachBtn = document.getElementById('importAttachBtn');
+  if (!wrap || !info) return;
+  if (!importImages.length) {
+    wrap.classList.add('hidden');
+    wrap.innerHTML = '';
+    info.textContent = 'หน้าสินค้า / ตารางคอมมิชชั่น (สูงสุด ' + MAX_IMPORT_IMAGES + ' ภาพ) — ใช้คู่กับลิงก์';
+  } else {
+    wrap.classList.remove('hidden');
+    wrap.innerHTML = importImages.map((src, i) =>
+      '<div class="imp-thumb"><img src="' + src + '" alt="">' +
+      '<button type="button" onclick="removeImportImage(' + i + ')" aria-label="ลบภาพ">×</button></div>'
+    ).join('');
+    info.textContent = 'แนบแล้ว ' + importImages.length + '/' + MAX_IMPORT_IMAGES + ' ภาพ';
+  }
+  if (attachBtn) attachBtn.disabled = importImages.length >= MAX_IMPORT_IMAGES;
+}
+
+// 🔧 (2026-10-06): Import ทำงานเบื้องหลังที่ Worker (status 'importing') — poll จนกว่าจะเสร็จ/ล้มเหลว
+async function waitForImport(btn){
+  const started = Date.now();
+  while (true) {
+    const data = await refreshStatus();
+    const st = data && data.pipeline && data.pipeline.status;
+    if (st !== 'importing') {
+      if (st === 'error') throw new Error(latestPipelineError || 'Import ไม่สำเร็จ');
+      return;
+    }
+    if (Date.now() - started > 180000) {
+      throw new Error('Import ใช้เวลานานเกิน 3 นาที — เช็คสถานะที่แท็บ สถานะระบบ แล้วลองใหม่อีกครั้ง');
+    }
+    if (btn) btn.textContent = 'กำลังอ่านข้อมูลสินค้า... (' + Math.round((Date.now() - started) / 1000) + ' วิ)';
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+
 async function doImport(){
   const btn = document.getElementById('importBtn');
   const val = document.getElementById('in').value.trim();
   hideErr('importErr');
   if(!val){ showErr('importErr', 'ใส่ลิงก์หรือรายละเอียดก่อนครับ'); return; }
+  if (importImages.length && !/https?:\/\//i.test(val)) {
+    showErr('importErr', 'แนบภาพได้เมื่อวางลิงก์ affiliate ของสินค้าในช่องเดียวกันด้วย');
+    return;
+  }
 
   productId = null;
   latestPipelineStatus = null;
@@ -2063,13 +2201,19 @@ async function doImport(){
 
   renderStepper();
 
-  btn.disabled = true; btn.textContent = 'กำลังนำเข้า...';
+  btn.disabled = true; btn.textContent = importImages.length ? 'กำลังส่งภาพ...' : 'กำลังนำเข้า...';
   try{
+    const payload = { input: val };
+    if (importImages.length) payload.images = importImages;
     const data = await apiCall('/api/import', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ input: val })
-    }, 'POST /api/import');
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    }, 'POST /api/import' + (importImages.length ? ' (+' + importImages.length + ' ภาพ)' : ''), 90000);
     productId = data.productId;
+    btn.textContent = 'กำลังอ่านข้อมูลสินค้า...';
     await refreshStatus();
+    await waitForImport(btn);
+    importImages = [];
+    renderImportImages();
     btn.textContent = 'Import สำเร็จ ✓';
   }catch(e){
     showErr('importErr', e.message);
@@ -2486,7 +2630,11 @@ async function distributeToChannels(channels){
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ productId, platform: ch, lang: 'th', captionOverride: override || undefined })
       }, 'POST /api/distribute (' + (CHANNEL_LABELS[ch] || ch) + ')', 60000);
-      results.push({ channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId });
+      // 🔧 (2026-10-06): Worker ตอบ status: posted | already_posted | in_progress
+      results.push({
+        channel: ch, status: data.status, link: data.postUrl || data.link, postId: data.postId,
+        message: data.message, warning: data.warning
+      });
     }catch(e){
       results.push({ channel: ch, error: e.message });
     }
@@ -2512,10 +2660,13 @@ function renderDistributeResults(results){
   saveDistributeResults(productId, results);
   const rows = results.map(r => {
     const label = CHANNEL_LABELS[r.channel] || r.channel;
+    const linkHtml = r.link ? ' — <a href="' + escapeHtml(r.link) + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '';
     let val;
-    if (r.skipped) val = 'ข้าม — ' + r.reason;
-    else if (r.error) val = '❌ ' + r.error;
-    else val = '✓ โพสต์สำเร็จ' + (r.link ? ' — <a href="' + r.link + '" target="_blank" rel="noopener" style="color:var(--teal)">ดูโพสต์</a>' : '');
+    if (r.skipped) val = 'ข้าม — ' + escapeHtml(r.reason);
+    else if (r.error) val = '❌ ' + escapeHtml(r.error);
+    else if (r.status === 'already_posted') val = '↩︎ โพสต์ไปแล้ว — ไม่โพสต์ซ้ำ' + linkHtml;
+    else if (r.status === 'in_progress') val = '⏳ กำลังโพสต์อยู่ — รอสักครู่ ไม่ต้องกดซ้ำ';
+    else val = '✓ โพสต์สำเร็จ' + linkHtml + (r.warning ? '<div style="color:var(--amber); margin-top:4px;">⚠️ ' + escapeHtml(r.warning) + '</div>' : '');
     return '<div class="rt-row"><div class="rt-label">' + label + '</div><div class="rt-val">' + val + '</div></div>';
   }).join('');
 
@@ -2534,7 +2685,7 @@ function renderDistributeResults(results){
 }
 
 const PL_STATUS_LABELS = {
-  imported: 'IMPORTED', enriching: 'ENRICHING', enriched: 'ENRICHED',
+  imported: 'IMPORTED', importing: 'IMPORTING', enriching: 'ENRICHING', enriched: 'ENRICHED',
   error: 'ERROR', published: 'PUBLISHED'
 };
 
@@ -2716,6 +2867,7 @@ function renderSyncSummary(sync){
 /* ---------- boot ---------- */
 renderTableGrid({});
 renderFieldChecklist({});
+renderImportImages();
 renderStepper();
 loadAiStatus();
 
