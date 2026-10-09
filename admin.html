@@ -2277,6 +2277,11 @@ async function getConnectedChannels(){
   const connected = new Set(['website']);
   try{
     const data = await apiCall('/api/platform-settings', { method: 'GET' }, 'เช็คช่องทางที่เชื่อมต่อ');
+    // ถ้า worker ส่ง data.connected มา (เช็คทั้ง D1 + Cloudflare secrets ตามที่ distribute.js ใช้จริง) ใช้ค่านั้นเลย
+    if (data.connected && typeof data.connected === 'object') {
+      Object.entries(data.connected).forEach(([pf, ok]) => { if (ok) connected.add(pf); });
+      return connected;
+    }
     const schema = data.schema || {};
     const settings = data.settings || [];
     const isSet = {};
