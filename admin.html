@@ -2272,13 +2272,39 @@ function clearDistributeResults(pid){
   try{ localStorage.removeItem(getDistributeResultsStorageKey(pid)); }catch(e){}
 }
 
-function renderChannelPicker(){
+async function getConnectedChannels(){
+  // website = เว็บของเราเอง เชื่อมต่อเสมอ / ช่องอื่นต้องตั้งค่า key ครบใน Platform Settings
+  const connected = new Set(['website']);
+  try{
+    const data = await apiCall('/api/platform-settings', { method: 'GET' }, 'เช็คช่องทางที่เชื่อมต่อ');
+    const schema = data.schema || {};
+    const settings = data.settings || [];
+    const isSet = {};
+    settings.forEach(x => { if (x.isSet) isSet[x.platform + ':' + x.key_name] = true; });
+    const platforms = new Set([...Object.keys(schema), ...settings.map(x => x.platform)]);
+    platforms.forEach(pf => {
+      const keys = (schema[pf] && schema[pf].length) ? schema[pf] : settings.filter(x => x.platform === pf).map(x => x.key_name);
+      if (keys.length && keys.every(k => isSet[pf + ':' + k])) connected.add(pf);
+    });
+    return connected;
+  }catch(e){
+    return null; // เช็คไม่ได้ -> fallback แสดงครบทุกช่อง
+  }
+}
+
+async function renderChannelPicker(){
   const el = document.getElementById('chPicker');
-  el.innerHTML = CHANNEL_OPTIONS.map(([key, label]) => {
-    return '<label class="ch-chip" id="chip_' + key + '">' +
-      '<input type="checkbox" onchange="toggleChannel(\'' + key + '\')"> ' + label + '</label>';
+  chPickerRendered = true; // กันเรียกซ้ำระหว่างรอ API
+  const connected = await getConnectedChannels();
+  const options = connected ? CHANNEL_OPTIONS.filter(([key]) => connected.has(key)) : CHANNEL_OPTIONS;
+  selectedChannels = new Set(connected ? options.map(([key]) => key) : []);
+  el.innerHTML = options.map(([key, label]) => {
+    const on = selectedChannels.has(key);
+    return '<label class="ch-chip' + (on ? ' checked' : '') + '" id="chip_' + key + '">' +
+      '<input type="checkbox"' + (on ? ' checked' : '') + ' onchange="toggleChannel(\'' + key + '\')"> ' + label + '</label>';
   }).join('');
-  chPickerRendered = true;
+  renderPrePublishPreview();
+  renderStepper();
 }
 
 function toggleChannel(key){
