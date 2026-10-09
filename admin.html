@@ -2278,6 +2278,7 @@ async function getConnectedChannels(){
   try{
     const data = await apiCall('/api/platform-settings', { method: 'GET' }, 'เช็คช่องทางที่เชื่อมต่อ');
     // ถ้า worker ส่ง data.connected มา (เช็คทั้ง D1 + Cloudflare secrets ตามที่ distribute.js ใช้จริง) ใช้ค่านั้นเลย
+    window._channelProblems = data.problems || {};
     if (data.connected && typeof data.connected === 'object') {
       Object.entries(data.connected).forEach(([pf, ok]) => { if (ok) connected.add(pf); });
       return connected;
@@ -2308,6 +2309,15 @@ async function renderChannelPicker(){
     return '<label class="ch-chip' + (on ? ' checked' : '') + '" id="chip_' + key + '">' +
       '<input type="checkbox"' + (on ? ' checked' : '') + ' onchange="toggleChannel(\'' + key + '\')"> ' + label + '</label>';
   }).join('');
+  // แจ้งว่าช่องไหนถูกซ่อนเพราะอะไร (เช่น token หมดอายุ)
+  const oldNote = document.getElementById('chNote');
+  if (oldNote) oldNote.remove();
+  const probs = window._channelProblems || {};
+  const hidden = CHANNEL_OPTIONS.filter(([key]) => connected && !connected.has(key) && probs[key]);
+  if (hidden.length) {
+    el.insertAdjacentHTML('afterend', '<div id="chNote" style="font-size:12px; color:var(--text-faint); margin-top:8px;">ซ่อนช่องที่ใช้ไม่ได้: ' +
+      hidden.map(([key, label]) => label + ' (' + String(probs[key]).replace(/</g, '&lt;').slice(0, 80) + ')').join(' · ') + '</div>');
+  }
   renderPrePublishPreview();
   renderStepper();
 }
