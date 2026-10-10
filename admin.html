@@ -2298,10 +2298,36 @@ async function getConnectedChannels(){
   }
 }
 
+function isCustomChannel(key){
+  return CHANNEL_OPTIONS.some(o => o[0] === key && o[2] === 'custom');
+}
+
+// ดึงช่องที่เพิ่มเองจากหลังบ้านมาต่อท้ายรายการช่องทาง (ก่อน Website/Blog) ถ้าดึงไม่ได้ก็ข้ามไปเงียบ ๆ
+async function syncCustomChannels(connected){
+  try {
+    const data = await apiCall('/api/custom-channels', { method: 'GET' }, 'โหลดช่องทาง Webhook');
+    for (let i = CHANNEL_OPTIONS.length - 1; i >= 0; i--) {
+      if (CHANNEL_OPTIONS[i][2] === 'custom') {
+        delete CHANNEL_LABELS[CHANNEL_OPTIONS[i][0]];
+        DISTRIBUTABLE_CHANNELS.delete(CHANNEL_OPTIONS[i][0]);
+        CHANNEL_OPTIONS.splice(i, 1);
+      }
+    }
+    (data.channels || []).filter(c => c.enabled).forEach(c => {
+      const at = CHANNEL_OPTIONS.findIndex(o => o[0] === 'website');
+      CHANNEL_OPTIONS.splice(at < 0 ? CHANNEL_OPTIONS.length : at, 0, [c.slug, c.label, 'custom']);
+      CHANNEL_LABELS[c.slug] = c.label;
+      DISTRIBUTABLE_CHANNELS.add(c.slug);
+      if (connected) connected.add(c.slug);
+    });
+  } catch (e) { /* ไม่มีช่องกำหนดเอง / worker ยังไม่ได้ Deploy ไฟล์ใหม่ — ใช้ช่องหลักตามเดิม */ }
+}
+
 async function renderChannelPicker(){
   const el = document.getElementById('chPicker');
   chPickerRendered = true; // กันเรียกซ้ำระหว่างรอ API
   const connected = await getConnectedChannels();
+  await syncCustomChannels(connected);
   const options = connected ? CHANNEL_OPTIONS.filter(([key]) => connected.has(key)) : CHANNEL_OPTIONS;
   selectedChannels = new Set(connected ? options.map(([key]) => key) : []);
   el.innerHTML = options.map(([key, label]) => {
@@ -2620,13 +2646,14 @@ async function doPublish(){
   const btn = document.getElementById('publishBtn');
   hideErr('publishErr');
   const channels = Array.from(selectedChannels);
+  const publishChannels = channels.filter(c => !isCustomChannel(c)); // /api/publish รู้จักเฉพาะช่องหลัก
   btn.disabled = true; btn.textContent = 'กำลัง Publish...';
   try{
     let done = false;
     let lastSync = null;
     while(!done){
       const data = await apiCall('/api/publish', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId, channels })
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId, channels: publishChannels })
       }, 'POST /api/publish');
       done = data.done;
       lastSync = data.sync || lastSync;
@@ -2931,6 +2958,47 @@ document.getElementById('in').addEventListener('keydown', (e) => {
     <button class="btn-primary" onclick="addCustomPlatformKey()" style="width:auto; padding:10px 20px;">💾 บันทึก Platform ใหม่</button>
   </div>
 
+  <div id="cc-section" style="background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:14px;">
+    <div style="font-weight:600; color:var(--text); margin-bottom:4px;">🔌 ช่องทางแบบ Webhook (เพิ่มเองได้ ไม่ต้องแก้โค้ด)</div>
+    <div style="color:var(--text-faint); font-size:12px; margin-bottom:12px;">เพิ่ม Slack, Google Chat, Make, n8n, Zapier ฯลฯ — ช่องที่เพิ่มจะโผล่ในกรอบเลือกช่องทางตอน Publish ให้อัตโนมัติ</div>
+    <div id="cc-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+      <p style="color:var(--text-faint); font-size:13px; margin:0;">กำลังโหลด...</p>
+    </div>
+    <div style="border-top:1px dashed var(--line); padding-top:14px;">
+      <div style="font-weight:600; color:var(--text); margin-bottom:8px;">➕ เพิ่ม / แก้ไขช่องทาง</div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+        <button class="btn-ghost" onclick="ccPreset('slack')" style="padding:8px 12px;">Slack</button>
+        <button class="btn-ghost" onclick="ccPreset('googlechat')" style="padding:8px 12px;">Google Chat</button>
+        <button class="btn-ghost" onclick="ccPreset('generic')" style="padding:8px 12px;">Make / n8n / Zapier</button>
+        <button class="btn-ghost" onclick="ccPreset('custom')" style="padding:8px 12px;">กำหนดเอง</button>
+      </div>
+      <input type="text" id="cc-slug" placeholder="รหัสช่อง (อังกฤษพิมพ์เล็ก เช่น slack)" style="margin-bottom:10px;">
+      <input type="text" id="cc-label" placeholder="ชื่อที่แสดง เช่น Slack" style="margin-bottom:10px;">
+      <input type="text" id="cc-url" placeholder="Webhook URL (https://...) — ตอนแก้ไข เว้นว่าง = ใช้ URL เดิม" style="margin-bottom:10px;">
+      <textarea id="cc-headers" rows="2" placeholder='Headers (ไม่บังคับ) เช่น {"Authorization":"Bearer xxx"} — เว้นว่าง = ใช้ค่าเดิม' class="cc-field"></textarea>
+      <select id="cc-format" class="cc-field">
+        <option value="json">ส่งแบบ JSON</option>
+        <option value="form">ส่งแบบ Form (x-www-form-urlencoded)</option>
+      </select>
+      <textarea id="cc-template" rows="5" placeholder='เทมเพลตข้อความ เช่น {"text": "{{title}} {{link}}"}' class="cc-field"></textarea>
+      <div style="color:var(--text-faint); font-size:12px; margin:-4px 0 10px;">ตัวแปรที่ใช้ได้: {{title}} {{text}} {{link}} {{image}} {{description}} {{product}}</div>
+      <select id="cc-source" class="cc-field">
+        <option value="auto">ข้อความโพสต์: อัตโนมัติ (ใช้ของ Facebook/Threads ฯลฯ ที่ AI เขียนไว้)</option>
+        <option value="facebook_post">ใช้ข้อความ Facebook</option>
+        <option value="threads_post">ใช้ข้อความ Threads</option>
+        <option value="mastodon_post">ใช้ข้อความ Mastodon</option>
+        <option value="telegram_post">ใช้ข้อความ Telegram</option>
+        <option value="discord_post">ใช้ข้อความ Discord</option>
+        <option value="x_post">ใช้ข้อความ X</option>
+        <option value="cta">ใช้ข้อความ CTA</option>
+      </select>
+      <input type="text" id="cc-maxlen" placeholder="จำกัดความยาวข้อความ (ตัวอักษร) — 0 หรือเว้นว่าง = ไม่จำกัด" style="margin-bottom:10px;">
+      <button class="btn-primary" onclick="ccSave()" style="width:auto; padding:10px 20px;">💾 บันทึกช่องทาง</button>
+      <p id="cc-error" class="err"></p>
+    </div>
+    <style>.cc-field{ width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:12px; font-size:14px; margin-bottom:10px; font-family:inherit; }</style>
+  </div>
+
   <p id="settings-error" class="err"></p>
 </section>
 
@@ -2950,6 +3018,7 @@ async function loadPlatformSettings(){
     const data = await apiCall('/api/platform-settings', { method: 'GET' }, 'โหลด Platform Settings');
     _settingsSchema = data.schema;
     renderPlatformSettings(data.schema, data.settings || []);
+    loadCustomChannelsUI();
   } catch (e) {
     listEl.innerHTML = '';
     errEl.textContent = 'โหลดไม่สำเร็จ: ' + e.message;
@@ -3046,6 +3115,147 @@ async function addCustomPlatformKey(){
   } catch (e) {
     alert('เพิ่มไม่สำเร็จ: ' + e.message);
   }
+}
+
+// ===== ช่องทางแบบ Webhook (custom channels) =====
+const CC_PRESETS = {
+  slack: { slug:'slack', label:'Slack', hint:'https://hooks.slack.com/services/...', format:'json',
+    template:'{"text": "*{{title}}*\\n{{text}}\\n{{link}}"}', source:'auto', max:3000 },
+  googlechat: { slug:'googlechat', label:'Google Chat', hint:'https://chat.googleapis.com/v1/spaces/.../messages?key=...', format:'json',
+    template:'{"text": "*{{title}}*\\n{{text}}\\n{{link}}"}', source:'auto', max:3000 },
+  generic: { slug:'', label:'', hint:'URL webhook จาก Make / n8n / Zapier (https://...)', format:'json',
+    template:'{"title":"{{title}}","text":"{{text}}","link":"{{link}}","image":"{{image}}","description":"{{description}}","product":"{{product}}"}', source:'auto', max:0 },
+  custom: { slug:'', label:'', hint:'Webhook URL (https://...)', format:'json',
+    template:'{"text": "{{text}} {{link}}"}', source:'auto', max:0 }
+};
+
+function ccPreset(name){
+  const p = CC_PRESETS[name]; if (!p) return;
+  document.getElementById('cc-slug').value = p.slug;
+  document.getElementById('cc-label').value = p.label;
+  document.getElementById('cc-url').value = '';
+  document.getElementById('cc-url').placeholder = p.hint;
+  document.getElementById('cc-headers').value = '';
+  document.getElementById('cc-format').value = p.format;
+  document.getElementById('cc-template').value = p.template;
+  document.getElementById('cc-source').value = p.source;
+  document.getElementById('cc-maxlen').value = p.max ? String(p.max) : '';
+}
+
+function ccShowErr(msg){
+  const el = document.getElementById('cc-error');
+  el.style.color = msg ? '' : '';
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+async function loadCustomChannelsUI(){
+  const el = document.getElementById('cc-list');
+  if (!el) return;
+  try {
+    const data = await apiCall('/api/custom-channels', { method: 'GET' }, 'โหลดช่องทาง Webhook');
+    window._ccList = data.channels || [];
+    renderCustomChannelsUI();
+  } catch (e) {
+    el.innerHTML = '<p style="color:#f0b3a8; font-size:13px; margin:0;">โหลดไม่สำเร็จ: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+function renderCustomChannelsUI(){
+  const el = document.getElementById('cc-list');
+  const list = window._ccList || [];
+  if (!list.length) {
+    el.innerHTML = '<p style="color:var(--text-faint); font-size:13px; margin:0;">ยังไม่มีช่องทางที่เพิ่มเอง — เลือกแบบด้านล่างแล้วกรอกได้เลย</p>';
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const s = escapeHtml(c.slug);
+    return '<div style="background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:12px;">' +
+      '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
+        '<span style="font-weight:600; color:var(--text);">' + escapeHtml(c.label) + '</span>' +
+        '<span style="font-size:12px; color:var(--text-faint);">' + s + ' · ' + escapeHtml(c.host) + '</span>' +
+        '<span class="tag ' + (c.enabled ? 'published' : '') + '" style="margin-left:auto;">' + (c.enabled ? 'เปิดใช้งาน' : 'ปิดอยู่') + '</span>' +
+      '</div>' +
+      '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">' +
+        '<button class="btn-ghost" style="padding:8px 12px;" onclick="ccTest(\'' + s + '\')">🧪 ทดสอบ</button>' +
+        '<button class="btn-ghost" style="padding:8px 12px;" onclick="ccEdit(\'' + s + '\')">✏️ แก้ไข</button>' +
+        '<button class="btn-ghost" style="padding:8px 12px;" onclick="ccToggle(\'' + s + '\', ' + (c.enabled ? 'false' : 'true') + ')">' + (c.enabled ? '⏸ ปิด' : '▶ เปิด') + '</button>' +
+        '<button class="btn-ghost" style="padding:8px 12px; color:#f0b3a8;" onclick="ccDelete(\'' + s + '\')">🗑️ ลบ</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function ccEdit(slug){
+  const c = (window._ccList || []).find(x => x.slug === slug); if (!c) return;
+  document.getElementById('cc-slug').value = c.slug;
+  document.getElementById('cc-label').value = c.label;
+  document.getElementById('cc-url').value = '';
+  document.getElementById('cc-url').placeholder = 'เว้นว่าง = ใช้ URL เดิม (' + c.host + ')';
+  document.getElementById('cc-headers').value = '';
+  document.getElementById('cc-format').value = c.body_format;
+  document.getElementById('cc-template').value = c.body_template;
+  document.getElementById('cc-source').value = c.text_source;
+  document.getElementById('cc-maxlen').value = c.max_len ? String(c.max_len) : '';
+  document.getElementById('cc-slug').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function ccSave(){
+  ccShowErr('');
+  const payload = {
+    action: 'save',
+    slug: document.getElementById('cc-slug').value.trim(),
+    label: document.getElementById('cc-label').value.trim(),
+    url: document.getElementById('cc-url').value.trim(),
+    headers: document.getElementById('cc-headers').value.trim(),
+    body_format: document.getElementById('cc-format').value,
+    body_template: document.getElementById('cc-template').value.trim(),
+    text_source: document.getElementById('cc-source').value,
+    max_len: Number(document.getElementById('cc-maxlen').value) || 0,
+    enabled: true
+  };
+  try {
+    await apiCall('/api/custom-channels', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }, 'บันทึกช่องทาง ' + (payload.slug || ''));
+    ['cc-slug','cc-label','cc-url','cc-headers','cc-template','cc-maxlen'].forEach(id => { document.getElementById(id).value = ''; });
+    window._ccSyncedAt = 0;
+    await loadCustomChannelsUI();
+    alert('บันทึกแล้ว ✓ — ลองกด 🧪 ทดสอบ เพื่อส่งข้อความทดสอบเข้าช่องนี้');
+  } catch (e) {
+    ccShowErr(e.message);
+  }
+}
+
+async function ccDelete(slug){
+  if (!confirm('ลบช่องทาง ' + slug + ' ?')) return;
+  try {
+    await apiCall('/api/custom-channels', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', slug })
+    }, 'ลบช่องทาง ' + slug);
+    window._ccSyncedAt = 0;
+    loadCustomChannelsUI();
+  } catch (e) { alert('ลบไม่สำเร็จ: ' + e.message); }
+}
+
+async function ccToggle(slug, enabled){
+  try {
+    await apiCall('/api/custom-channels', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'toggle', slug, enabled })
+    }, (enabled ? 'เปิด ' : 'ปิด ') + slug);
+    window._ccSyncedAt = 0;
+    loadCustomChannelsUI();
+  } catch (e) { alert('ไม่สำเร็จ: ' + e.message); }
+}
+
+async function ccTest(slug){
+  if (!confirm('จะส่งข้อความทดสอบเข้าช่อง ' + slug + ' จริง 1 ข้อความ — ดำเนินการต่อ?')) return;
+  try {
+    const r = await apiCall('/api/custom-channels/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug })
+    }, 'ทดสอบช่องทาง ' + slug, 30000);
+    alert('✓ ส่งสำเร็จ (HTTP ' + r.status + ') — ไปดูที่ปลายทางว่าข้อความมาถึงหรือไม่');
+  } catch (e) { alert('❌ ทดสอบไม่ผ่าน: ' + e.message); }
 }
 
 const _origSwitchTabSettings = switchTab;
